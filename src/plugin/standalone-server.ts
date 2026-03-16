@@ -1,0 +1,299 @@
+import { EventsResponse, Logger, ResolvedTrackerOptions, TrackerEvent } from "@tracker/types";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { createServer, IncomingMessage, ServerResponse } from "node:http";
+import path from "node:path";
+import { version } from '../../package.json';
+import { Connect } from "vite";
+import { WebSocketServer } from "ws";
+
+const MAX_BUFFER = 5000;
+
+/**
+* Ring buffer
+*
+* @remarks
+* Keeps the last N events in memory for fast dashboard queries.
+* Backed by the log files for persistence across restarts.
+*/
+class RingBuffer {
+	private buf: TrackerEvent[] = [];
+
+	push(events: TrackerEvent[]) {
+		this.buf.push(...events);
+		if (this.buf.length > MAX_BUFFER) {
+			this.buf = this.buf.slice(this.buf.length - MAX_BUFFER);
+		}
+	}
+
+	query(filters: { since?: string; until?: string; after?: string; type?: string; level?: string; userId?: string; sessionId?: string; limit: number; page: number }): { events: TrackerEvent[]; total: number } {
+		let result = [...this.buf];
+
+		if (filters.since) {
+			result = result.filter(e => e.timestamp >= filters.since!);
+		}
+		if (filters.until)     {
+			result = result.filter(e => e.timestamp <= filters.until!);
+		}
+		if (filters.after)     {
+			result = result.filter(e => e.timestamp > filters.after!);
+		}
+		if (filters.type)      {
+			result = result.filter(e => e.type === filters.type);
+		}
+		if (filters.level)     {
+			result = result.filter(e => e.level === filters.level);
+		}
+		if (filters.userId)    {
+			result = result.filter(e => e.userId === filters.userId);
+		}
+		if (filters.sessionId) {
+			result = result.filter(e => e.sessionId === filters.sessionId);
+		}
+		// INFO newest first
+		result = result.slice().reverse();
+
+		const total = result.length;
+		const start = (filters.page - 1) * filters.limit;
+		return {
+			events: result.slice(start, start + filters.limit),
+			total
+		}
+	}
+
+	all(): TrackerEvent[] {
+		return [...this.buf];
+	}
+
+	size(): number {
+		return this.buf.length;
+	}
+}
+
+/**
+* Log file reader
+*
+* @remarks
+* On startup, replay existing log files into the ring buffer so the dashboard
+* shows history even after a Vite restart.
+*/
+function loadFromLogFiles(opts: ResolvedTrackerOptions, buffer: RingBuffer, logger: Logger) {
+	const transports = opts.logging?.transports ?? [];
+	for (const transport of transports) {
+		if (transport.format !== 'json') {
+			continue;
+		}
+		// INFO only JSON is machine-readable
+		const dir = path.dirname(transport.path);
+		if (!existsSync(dir)) {
+			continue;
+		}
+		const base = path.basename(transport.path);
+		const ext = path.extname(base);
+		const stem = base.slice(0, -ext.length);
+
+		try {
+			// INFO Find all rotated files for this transport, sorted oldest→newest
+			const files = readdirSync(dir)
+			.filter(f => f.startsWith(stem) && f.endsWith(ext))
+			.sort();  // INFO lexicographic = chronological for dated filenames
+
+			let loaded = 0;
+			for (const file of files) {
+				const content = readFileSync(path.join(dir, file), 'utf8');
+				const events: TrackerEvent[] = [];
+				for (const line of content.split('\n')) {
+					if (!line.trim()) {
+						continue;
+					}
+					try {
+						events.push(JSON.parse(line));
+					} catch { /* skip malformed */ }
+				}
+				buffer.push(events);
+				loaded += events.length;
+			}
+			if (loaded > 0) {
+				logger.info(`Loaded ${loaded} events from log files`);
+			}
+		} catch (err) {
+			logger.warn(`Could not read log files: ${err}`);
+		}
+	}
+}
+
+function parseBody(req: IncomingMessage): Promise<string> {
+	return new Promise((resolve, reject) => {
+		let body = '';
+		req.on('data', chunk => { body += chunk });
+		req.on('end', () => resolve(body));
+		req.on('error', reject);
+	});
+}
+
+function parseQs(url: string): Record<string, string> {
+	const qs = url.includes('?') ? url.split('?')[1] : '';
+	return Object.fromEntries(new URLSearchParams(qs));
+}
+
+function json(res: ServerResponse, status: number, data: unknown) {
+	const body = JSON.stringify(data);
+	res.writeHead(status, {
+		'Content-Type':  'application/json',
+		'Access-Control-Allow-Origin':  '*',
+		'Access-Control-Allow-Headers': 'Content-Type, X-Tracker-Key',
+		'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+	});
+	res.end(body);
+}
+
+export function createRequestHandler(opts: ResolvedTrackerOptions, buffer: RingBuffer, logger: Logger) {
+	const apiKey = opts.storage.apiKey;
+
+	function checkAuth(req: IncomingMessage, res: ServerResponse): boolean {
+		if (!apiKey) {
+			return true;
+		}
+		if (req.headers['x-tracker-key'] !== apiKey) {
+			json(res, 401, { error: 'Unauthorized' });
+			return false;
+		}
+		return true;
+	}
+
+	return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
+		const url = req.url ?? '/';
+		const method = req.method ?? 'GET';
+		const base = `/_tracker`;
+
+		if (method === 'OPTIONS') {
+			json(res, 204, {});
+			return true;
+		}
+
+		if (method === 'POST' && url.startsWith(`${base}/events`)) {
+			if (!checkAuth(req, res)) {
+				return true;
+			}
+			try {
+				const body = await parseBody(req);
+				const { events } = JSON.parse(body) as { events: TrackerEvent[] };
+				if (Array.isArray(events) && events.length) {
+					buffer.push(events);
+					events.forEach(e => logger.writeEvent(e));
+					logger.debug(`Ingested ${events.length} events (buffer: ${buffer.size()})`);
+				}
+				json(res, 200, { ok: true, saved: events?.length ?? 0 });
+			} catch (err) {
+				json(res, 400, { error: String(err) });
+			}
+			return true;
+		}
+
+		if (method === 'GET' && url.startsWith(`${base}/events`)) {
+			if (!checkAuth(req, res)) {
+				return true;
+			}
+			const qs = parseQs(url);
+			const limit = Math.min(parseInt(qs['limit'] ?? '100', 10), 500);
+			const page = Math.max(parseInt(qs['page'] ?? '1', 10), 1);
+			const { events, total } = buffer.query({
+				since:     qs['since'],
+				until:     qs['until'],
+				after:     qs['after'],
+				type:      qs['type'],
+				level:     qs['level'],
+				userId:    qs['userId'],
+				sessionId: qs['sessionId'],
+				limit,
+				page,
+			});
+			const nextCursor = events.length > 0 ? events[0].timestamp : undefined;
+			const response: EventsResponse = {
+				events,
+				total,
+				page,
+				limit,
+				nextCursor
+			}
+			json(res, 200, response);
+			return true;
+		}
+
+		if (method === 'GET' && url === `${base}/ping`) {
+			json(res, 200, { ok: true, appId: opts.appId, mode: opts.storage.mode, version });
+			return true;
+		}
+
+		return false;  // INFO not handled — let Vite continue
+	}
+}
+
+export function createStandaloneServer(opts: ResolvedTrackerOptions, logger: Logger): { start: () => void; stop: () => void } {
+	const buffer = new RingBuffer();
+	const handler = createRequestHandler(opts, buffer, logger);
+
+	loadFromLogFiles(opts, buffer, logger);
+
+	const server = createServer(async (req, res) => {
+		const handled = await handler(req, res);
+		if (!handled) {
+			json(res, 404, { error: 'Not found' });
+		}
+	});
+
+	const wss = new WebSocketServer({ server, path: '/_tracker/ws' });
+
+	wss.on('connection', (ws) => {
+		ws.on('message', (data) => {
+			try {
+				const msg = JSON.parse(data.toString()) as { events: TrackerEvent[] };
+				if (Array.isArray(msg.events) && msg.events.length) {
+					buffer.push(msg.events);
+					msg.events.forEach(e => logger.writeEvent(e));
+					logger.debug(`WebSocket: ingested ${msg.events.length} events`);
+					ws.send(JSON.stringify({ type: 'ack', saved: msg.events.length }));
+				}
+			} catch {
+				ws.send(JSON.stringify({ type: 'error', message: 'Invalid message' }));
+			}
+		});
+	});
+
+	return {
+		start() {
+			server.listen(opts.storage.port, () => {
+				logger.info(`Standalone server listening on port ${opts.storage.port}`);
+				logger.info(`WebSocket endpoint: ws://localhost:${opts.storage.port}/_tracker/ws`);
+		});
+			server.on('error', (err: NodeJS.ErrnoException) => {
+				if (err.code === 'EADDRINUSE') {
+					logger.warn(`Port ${opts.storage.port} already in use — standalone server not started`);
+				} else {
+					logger.error(`Server error: ${err.message}`);
+				}
+			});
+		},
+		stop() {
+			wss.close();
+			server.close();
+			logger.info('Standalone server stopped');
+		}
+	}
+}
+
+export function createMiddleware(opts: ResolvedTrackerOptions, logger: Logger): Connect.HandleFunction {
+	const buffer = new RingBuffer();
+	const handler = createRequestHandler(opts, buffer, logger);
+
+	loadFromLogFiles(opts, buffer, logger);
+
+	return async function trackerMiddleware(req: IncomingMessage, res: ServerResponse, next: Connect.NextFunction) {
+		if (!req.url?.startsWith('/_tracker')) {
+			return next();
+		}
+		const handled = await handler(req, res)
+		if (!handled) {
+			next();
+		}
+	}
+}

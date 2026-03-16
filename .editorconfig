@@ -1,0 +1,46 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+indent_size = 4
+continuation_indent_size = 8
+indent_style = space
+insert_final_newline = true
+max_line_length = 120
+tab_width = 4
+trim_trailing_whitespace = true
+
+[*.css]
+indent_style = tab
+curly_bracket_next_line	= false
+indent_brace_style = K&R
+
+[{*.ats,*.cts,*.mts,*.ts,*.tsx}]
+indent_style = tab
+curly_bracket_next_line	= false
+spaces_around_operators = hybrid
+spaces_around_brackets = outside
+indent_brace_style = K&R
+
+[{*.cjs,*.js,*.jsx}]
+indent_style = tab
+curly_bracket_next_line	= false
+spaces_around_operators = hybrid
+spaces_around_brackets = outside
+indent_brace_style = K&R
+
+[{*.har,*.jsb2,*.jsb3,*.json,.babelrc,.eslintrc,.prettierrc,.stylelintrc,bowerrc,jest.config}]
+indent_style = tab
+
+[{*.htm,*.html,*.ng,*.sht,*.shtm,*.shtml}]
+indent_style = tab
+
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+tab_width = 2
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
