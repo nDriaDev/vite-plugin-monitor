@@ -32,7 +32,7 @@ function installHandlers(): void {
 	 * attempt a best-effort flush before crashing. NOT swallow the error but re-throw after cleanup.
 	 */
 	process.on('uncaughtException', async (err) => {
-		console.error('[vite-plugin-monitor] Uncaught exception — flushing logs before crash:', err);
+		console.error('[vite-plugin-monitor] Uncaught exception - flushing logs before crash:', err);
 		const hooks = getHooks();
 		await Promise.allSettled(
 			hooks.map(fn => {
@@ -68,7 +68,7 @@ async function runShutdown(signal: string): Promise<void> {
 	 */
 	const deadline = new Promise<void>((resolve) => {
 		setTimeout(() => {
-			console.warn('[vite-plugin-monitor] Shutdown deadline exceeded — forcing exit');
+			console.warn('[vite-plugin-monitor] Shutdown deadline exceeded - forcing exit');
 			resolve();
 		}, 5000).unref()  // INFO .unref() so the timer itself doesn't keep Node alive
 	});
@@ -103,7 +103,7 @@ async function runShutdown(signal: string): Promise<void> {
 * (Ctrl+C, `kill <pid>`, systemd stopping the service, etc.) the normal cleanup path
 * is never taken, which means:
 *
-*   1. The logger worker thread is killed mid-write — the last batch of
+*   1. The logger worker thread is killed mid-write - the last batch of
 *      events may be half-written (corrupted JSONL line) or lost entirely.
 *
 *   2. The standalone HTTP server's socket remains open until the OS reclaims
@@ -117,18 +117,18 @@ async function runShutdown(signal: string): Promise<void> {
 * exits with the correct code/signal.
 *
 * Signals handled:
-*   SIGTERM — `kill <pid>`, systemd, Docker stop, Kubernetes pod termination
-*   SIGINT  — Ctrl+C (Vite also handles this, but we register after it so
+*   SIGTERM - `kill <pid>`, systemd, Docker stop, Kubernetes pod termination
+*   SIGINT  - Ctrl+C (Vite also handles this, but we register after it so
 *             we run first via the listeners stack)
-*   SIGHUP  — terminal closed, nohup restart
+*   SIGHUP  - terminal closed, nohup restart
 *
-* SIGKILL cannot be caught — that is by design in POSIX.
+* SIGKILL cannot be caught - that is by design in POSIX.
 *
 * @remarks
 * Register a cleanup callback that will be called when the process receives
 * SIGTERM, SIGINT, or SIGHUP.
 *
-* Returns an `unregister` function — call it when the plugin is destroyed
+* Returns an `unregister` function - call it when the plugin is destroyed
 * (e.g. on HMR re-evaluation) to avoid accumulating stale closures.
 *
 * @example

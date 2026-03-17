@@ -1,4 +1,4 @@
-import { ConsoleMethod, ConsolePayload, ConsoleTrackOptions, LogLevel, SerializedArg } from "@tracker/types";
+import { ConsoleMethod, ConsolePayload, ConsoleTrackOptions, LogLevel, ResolvedConsoleOpts, SerializedArg } from "@tracker/types";
 
 const ALL_METHODS: ConsoleMethod[] = [
 	'log', 'warn', 'error', 'debug', 'info', 'trace',
@@ -36,11 +36,11 @@ const DEFAULT_IGNORE_PATTERNS = ['[vite]', '[HMR]', '[tracker]', '[vue]'];
 * Safely serialize a single console argument to a `SerializedArg`.
 *
 * Strategy:
-*  - primitives (string, number, boolean, null, undefined) → stored as-is
-*  - DOM nodes → described as '[HTMLTagName]'
-*  - Functions → described as '[Function: name]'
-*  - Errors → { message, name, stack }
-*  - Everything else → structuredClone then JSON.stringify
+*  - primitives (string, number, boolean, null, undefined) -> stored as-is
+*  - DOM nodes -> described as '[HTMLTagName]'
+*  - Functions -> described as '[Function: name]'
+*  - Errors -> { message, name, stack }
+*  - Everything else -> structuredClone then JSON.stringify
 *    (structuredClone captures the value at call time, not a mutable ref)
 *    Falls back to a safe manual serializer on circular refs or clone failures.
 */
@@ -116,11 +116,11 @@ function serializeArg(value: unknown, maxLength: number): SerializedArg {
 
 /**
 * JSON.stringify replacer that handles:
-* - Circular references → '[Circular]'
-* - DOM nodes → '[HTMLTagName]'
-* - Functions → '[Function: name]'
-* - BigInt → 'Xn'
-* - undefined inside objects → kept as null (JSON standard)
+* - Circular references -> '[Circular]'
+* - DOM nodes -> '[HTMLTagName]'
+* - Functions -> '[Function: name]'
+* - BigInt -> 'Xn'
+* - undefined inside objects -> kept as null (JSON standard)
 */
 function replacer(seen: WeakSet<object>) {
 	return function (_key: string, val: unknown): unknown {
@@ -187,14 +187,6 @@ function extractMessage(args: unknown[]): string {
 		}
 		return String(sub);
 	})
-}
-
-interface ResolvedConsoleOpts {
-	methods:            Set<ConsoleMethod>
-	maxArgLength:       number
-	maxArgs:            number
-	captureStackOnError: boolean
-	ignorePatterns:     string[]
 }
 
 function resolveConsoleOpts(raw: boolean | ConsoleTrackOptions): ResolvedConsoleOpts {

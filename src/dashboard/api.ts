@@ -1,7 +1,7 @@
-import { EventsQuery, EventsResponse, TrackerEvent } from "@tracker/types";
+import { EventsResponse, TrackerEvent } from "@tracker/types";
 
 function getConfig() {
-	const cfg = (window as any).__TRACKER_CONFIG__;
+	const cfg = window.__TRACKER_CONFIG__;
 	if (!cfg) {
 		throw new Error('[dashboard] __TRACKER_CONFIG__ not found on window');
 	}
@@ -68,55 +68,7 @@ async function apiFetch<T>(params: Record<string, string | number | undefined> =
 }
 
 /**
-* Fetch a page of events with optional filters and cursor.
-*/
-export async function fetchEvents(query: EventsQuery): Promise<EventsResponse> {
-	const config = getConfig();
-
-	if (config.wsEndpoint) {
-		return new Promise((resolve, reject) => {
-			const ws = wsInstance;
-			if (!ws || ws.readyState !== WebSocket.OPEN) {
-				reject(new Error('[vite-plugin-monitor] WebSocket not connected'));
-				return;
-			}
-			const reqId = Math.random().toString(36).slice(2);
-			const handler = (e: MessageEvent) => {
-				try {
-					const msg = JSON.parse(e.data) as { type: string; reqId?: string; response?: EventsResponse };
-					if (msg.type === 'events:response' && msg.reqId === reqId) {
-						ws.removeEventListener('message', handler);
-						resolve(msg.response!);
-					}
-				} catch { /* ignore */ }
-			}
-			ws.addEventListener('message', handler);
-			ws.send(JSON.stringify({ type: 'events:query', reqId, query }));
-			// INFO timeout dopo 5s
-			setTimeout(() => {
-				ws.removeEventListener('message', handler);
-				reject(new Error('[vite-plugin-monitor] WebSocket query timeout'));
-			}, 5000);
-		});
-	}
-
-	return apiFetch<EventsResponse>({
-		since: query.since,
-		until: query.until,
-		after: query.after,
-		type: query.type,
-		level: query.level,
-		userId: query.userId,
-		sessionId: query.sessionId,
-		groupId: query.groupId,
-		search: query.search,
-		limit: query.limit,
-		page: query.page
-	});
-}
-
-/**
-* Health check — used to verify the backend is reachable.
+* Health check - used to verify the backend is reachable.
 */
 export async function fetchPing(): Promise<boolean> {
 	const { pingEndpoint, apiKey } = getConfig();
@@ -136,4 +88,57 @@ export async function fetchPing(): Promise<boolean> {
 	} catch {
 		return false;
 	}
+}
+
+/**
+* Downloads all events from the backend without any filters.
+*
+* @remarks
+* The backend is responsible for returning the entire collection of available events,
+* without applying any filters. All the filtering, temporal grouping, and aggregation logic occurs
+* client-side in the browser after receiving the complete dataset.
+*
+* The call does not send any query parameters. The backend must
+* respond with all the events it has available in its buffer
+* or database, sorted from newest to oldest.
+*/
+export async function fetchAllEvents(): Promise<TrackerEvent[]> {
+	const config = getConfig();
+
+	if (config.wsEndpoint) {
+		return new Promise((resolve, reject) => {
+			const ws = wsInstance;
+			if (!ws || ws.readyState !== WebSocket.OPEN) {
+				reject(new Error('[vite-plugin-monitor] WebSocket not connected'));
+				return;
+			}
+			const reqId = Math.random().toString(36).slice(2);
+			const handler = (e: MessageEvent) => {
+				try {
+					const msg = JSON.parse(e.data) as { type: string; reqId?: string; response?: EventsResponse };
+					if (msg.type === 'events:response' && msg.reqId === reqId) {
+						ws.removeEventListener('message', handler);
+						resolve(msg.response?.events ?? []);
+					}
+				} catch { /* ignore */ }
+			};
+			ws.addEventListener('message', handler);
+			ws.send(JSON.stringify({ type: 'events:query', reqId, query: {} }));
+			setTimeout(() => {
+				ws.removeEventListener('message', handler);
+				reject(new Error('[vite-plugin-monitor] WebSocket query timeout'));
+			}, 5000);
+		});
+	}
+
+	const { readEndpoint, apiKey } = config;
+	const headers: Record<string, string> = { 'Accept': 'application/json' };
+	if (apiKey) headers['X-Tracker-Key'] = apiKey;
+
+	const res = await fetch(readEndpoint, { headers });
+	if (!res.ok) {
+		throw new Error(`[vite-plugin-monitor] API ${res.status} ${res.statusText}`);
+	}
+	const data = await res.json() as EventsResponse;
+	return data.events ?? [];
 }

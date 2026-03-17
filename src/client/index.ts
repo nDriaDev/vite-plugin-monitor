@@ -6,7 +6,6 @@ import { setupClickTracker } from "./trackers/clicks";
 import { setupHttpTracker } from "./trackers/http";
 import { setupErrorTracker } from "./trackers/errors";
 import { setupNavigationTracker } from "./trackers/navigation";
-import { setupPerformanceTracker } from "./trackers/performance";
 import { DebugOverlay } from "./overlay";
 
 // INFO Holds the TrackerClient created by setupTrackers() before init() is called.
@@ -73,14 +72,11 @@ class TrackerClient implements ITrackerClient {
 		if (track.navigation) {
 			this.teardowns.push(setupNavigationTracker((payload) => emit(this.session.createEvent('navigation', 'info', payload))));
 		}
-		if (track.performance) {
-			this.teardowns.push(setupPerformanceTracker((payload) => emit(this.session.createEvent('performance', payload.rating === 'poor' ? 'warn' : 'info', payload))));
-		}
 	}
 
 	/**
-	* INFO — activate flushing and mount overlay.
-	* Called by initTracker() — either automatically (autoInit: true)
+	* INFO - activate flushing and mount overlay.
+	* Called by initTracker() - either automatically (autoInit: true)
 	* or manually by the consumer (autoInit: false).
 	*/
 	init(userIdFn?: () => string | null): void {
@@ -118,9 +114,11 @@ class TrackerClient implements ITrackerClient {
 	}
 
 	time(label: string): void {
-		if (typeof performance === 'undefined') return
+		if (typeof performance === 'undefined') {
+			return;
+		}
 		if (this.timers.has(label)) {
-			console.warn(`[vite-plugin-monitor] timer "${label}" already started — call timeEnd() first`);
+			console.warn(`[vite-plugin-monitor] timer "${label}" already started - call timeEnd() first`);
 			return;
 		}
 		this.timers.set(label, performance.now());
@@ -228,7 +226,7 @@ export function setupTrackers(userIdFn?: () => string | null): void {
  * Initialize the tracker client with the provided configuration.
  *
  * @remarks
- * Safe to call multiple times — returns the existing instance if already
+ * Safe to call multiple times - returns the existing instance if already
  * initialized (singleton). Returns `null` in non-browser environments (SSR).
  *
  * When `autoInit: true` (default), this is called automatically by the
@@ -275,7 +273,7 @@ function initTracker(userIdFn?: () => string | null): void {
  * Thin proxy over the TrackerClient singleton.
  *
  * @remarks
- * Safe to call before initTracker() — calls are silently dropped if the
+ * Safe to call before initTracker() - calls are silently dropped if the
  * instance is not yet available (e.g. during SSR or before initialization).
  */
 function instance(): ITrackerClient | undefined {

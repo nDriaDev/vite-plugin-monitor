@@ -68,9 +68,9 @@ export function formatRelative(iso: string): string {
 
 /**
 * INFO
-* Format a chart bucket label: ISO bucket string → compact label.
-* "2026-03-11T14:00" → "14:00"
-* "2026-03-11"       → "Mar 11"
+* Format a chart bucket label: ISO bucket string -> compact label.
+* "2026-03-11T14:00" -> "14:00"
+* "2026-03-11"       -> "Mar 11"
 */
 export function formatBucket(bucket: string): string {
 	if (bucket.includes('T')) {
@@ -86,7 +86,7 @@ export function formatBucket(bucket: string): string {
 	}
 }
 
-// INFO 1234 → "1,234"  |  999 → "999"
+// INFO 1234 -> "1,234"  |  999 -> "999"
 export function formatCount(n: number): string {
 	if (!Number.isFinite(n)) {
 		return '-';
@@ -94,7 +94,7 @@ export function formatCount(n: number): string {
 	return new Intl.NumberFormat().format(Math.round(n));
 }
 
-// INFO 0.1234 → "12.3%"
+// INFO 0.1234 -> "12.3%"
 export function formatPercent(ratio: number, decimals = 1): string {
 	if (!Number.isFinite(ratio)) {
 		return '-';
@@ -102,7 +102,7 @@ export function formatPercent(ratio: number, decimals = 1): string {
 	return (ratio * 100).toFixed(decimals) + '%';
 }
 
-// INFO Already-a-percent value: 12.34 → "12.3%"
+// INFO Already-a-percent value: 12.34 -> "12.3%"
 export function formatPct(value: number, decimals = 1): string {
 	if (!Number.isFinite(value)) {
 		return '-';
@@ -113,14 +113,14 @@ export function formatPct(value: number, decimals = 1): string {
 /**
 * INFO
 * Format milliseconds to a human-readable duration.
-* 42      → "42ms"
-* 1500    → "1.5s"
-* 62000   → "1m 2s"
-* 3661000 → "1h 1m"
+* 42      -> "42ms"
+* 1500    -> "1.5s"
+* 62000   -> "1m 2s"
+* 3661000 -> "1h 1m"
 */
 export function formatDuration(ms: number): string {
 	if (!Number.isFinite(ms) || ms < 0) {
-		return '—';
+		return '-';
 	}
 	if (ms < 1_000) {
 		return `${Math.round(ms)}ms`;
@@ -138,10 +138,10 @@ export function formatDuration(ms: number): string {
 	return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-// INFO 1536 → "1.5 KB"  |  2097152 → "2.0 MB"
+// INFO 1536 -> "1.5 KB"  |  2097152 -> "2.0 MB"
 export function formatBytes(bytes: number): string {
 	if (!Number.isFinite(bytes) || bytes < 0) {
-		return '—';
+		return '-';
 	}
 	if (bytes < 1_024) {
 		return `${bytes} B`;
@@ -192,4 +192,34 @@ export function formatJson(value: unknown, indent = 2): string {
 			}
 			return `<span class="${cls}">${match}</span>`;
 		});
+}
+
+/**
+* Produces the detail string visible in the Detail column of the
+* events table. Used for both row rendering and the
+* client-side filter in the search field.
+*
+* @remarks
+* The returned text is not truncated for the filter (unlike the
+* version displayed in the table) so as not to lose matches on
+* long strings. The displayed version truncates with `truncate()`.
+*/
+export function getEventDetail(event: { type: string; payload: unknown }): string {
+	const p = event.payload as any;
+	switch (event.type) {
+		case 'click':
+			return `${p.tag}${p.id ? '#' + p.id : ''} ${p.text ?? ''}`.trim();
+		case 'http':
+			return `${p.method} ${p.url ?? ''} ${p.status ?? ''}`.trim();
+		case 'error':
+			return p.message ?? '';
+		case 'navigation':
+			return `${p.from ?? ''} -> ${p.to ?? ''}`;
+		case 'console':
+			return `[${p.method}] ${p.message ?? ''}`;
+		case 'custom':
+			return p.name ?? '';
+		default:
+			return '';
+	}
 }

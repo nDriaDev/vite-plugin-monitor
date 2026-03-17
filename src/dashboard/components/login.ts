@@ -3,15 +3,27 @@ import { store } from '../state';
 
 const SESSION_KEY = '__tracker_auth__';
 
+async function hmacHex(value: string): Promise<string> {
+	const enc = new TextEncoder();
+	const keyData = await crypto.subtle.importKey(
+		'raw',
+		enc.encode(window.__TRACKER_CONFIG__.appId),
+		{ name: 'HMAC', hash: 'SHA-256' },
+		false, ['sign']
+	);
+	const sig = await crypto.subtle.sign('HMAC', keyData, enc.encode(value));
+	return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export function checkStoredAuth(): boolean {
 	try {
+		const cfg = window.__TRACKER_CONFIG__?.dashboard?.auth;
+		if (!cfg) {
+			return true;
+		}
 		const stored = sessionStorage.getItem(SESSION_KEY);
 		if (!stored) {
 			return false;
-		}
-		const cfg = (window as any).__TRACKER_CONFIG__?.dashboard?.auth;
-		if (!cfg) {
-			return true;
 		}
 		const { username, password } = JSON.parse(stored);
 		return username === cfg.username && password === cfg.password;
@@ -42,9 +54,9 @@ export function clearAuth() {
 * the user doesn't have to log in again after a page reload.
 */
 export function createLoginScreen(): HTMLElement {
-	const cfg = (window as any).__TRACKER_CONFIG__?.dashboard?.auth;
+	const cfg = window.__TRACKER_CONFIG__?.dashboard?.auth;
 
-	if (!cfg) {
+	if (cfg === false) {
 		store.setAuth(true);
 		const placeholder = el('div');
 		placeholder.hidden = true;
@@ -88,7 +100,10 @@ export function createLoginScreen(): HTMLElement {
 	const errorBox = qs<HTMLElement>('#login-error', screen);
 	const submitBtn = qs<HTMLButtonElement>('#login-submit', screen);
 
-	function attempt() {
+	async function attempt() {
+		if (cfg === false) {
+			return;
+		}
 		const username = usernameInput.value.trim();
 		const password = passwordInput.value;
 
@@ -98,15 +113,30 @@ export function createLoginScreen(): HTMLElement {
 			return;
 		}
 
-		if (username === cfg.username && password === cfg.password) {
-			saveAuth(username, password);
-			hide(errorBox);
-			store.setAuth(true);
-		} else {
-			errorBox.textContent = 'Invalid credentials.';
+		submitBtn.disabled = true;
+		submitBtn.textContent = "Signing in...";
+
+		try {
+			const [u, p] = await Promise.all([
+				hmacHex(username),
+				hmacHex(password)
+			]);
+			if (u === cfg.username && p === cfg.password) {
+				saveAuth(u, p);
+				hide(errorBox);
+				store.setAuth(true);
+			} else {
+				errorBox.textContent = 'Invalid credentials.';
+				show(errorBox);
+				passwordInput.value = '';
+				passwordInput.focus();
+			}
+		} catch (error) {
+			errorBox.textContent = 'Authentication error. Please try again.';
 			show(errorBox);
-			passwordInput.value = '';
-			passwordInput.focus();
+		} finally {
+			submitBtn.disabled = false;
+			submitBtn.textContent = 'Sign in';
 		}
 	}
 

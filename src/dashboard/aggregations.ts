@@ -1,30 +1,4 @@
-import { LogLevel, TrackerEvent, TrackerEventType } from "@tracker/types";
-import { fetchEvents } from "./api";
-
-export interface TimePoint { bucket: string; value: number }
-export interface RankedItem { label: string; count: number }
-export interface ErrorItem { message: string; count: number; lastSeen: string }
-export interface FunnelStep { from: string; to: string; count: number }
-
-export interface MetricsResult {
-	activeSessions: number
-	errorRateTimeline: TimePoint[]
-	eventVolume: TimePoint[]
-	topPages: RankedItem[]
-	topErrors: ErrorItem[]
-	navigationFunnel: FunnelStep[]
-}
-
-export interface StatsResult {
-	totalEvents: number
-	totalSessions: number
-	totalUsers: number
-	errorRate: number
-	avgHttpDuration?: number
-	topRoutes: Array<{ route: string; count: number }>
-	topUsers: Array<{ userId: string; count: number }>
-	timeline: Array<{ bucket: string; count: number }>
-}
+import { HttpStats, LogLevel, MetricsResult, StatsResult, TrackerEvent, TrackerEventType } from "@tracker/types";
 
 /**
 * Metrics computation pure, from buffer
@@ -67,7 +41,7 @@ export function computeMetrics(events: TrackerEvent[], since: string, until: str
 		}
 	})
 
-	// INFO Top pages (by navigation → .to)
+	// INFO Top pages (by navigation -> .to)
 	const pageCount = new Map<string, number>();
 	for (const e of ranged) {
 		if (e.type === 'navigation') {
@@ -116,13 +90,28 @@ export function computeMetrics(events: TrackerEvent[], since: string, until: str
 			return { from, to, count }
 		});
 
+	// INFO Top Endpoints by call count (HTTP events)
+	const endpointCount = new Map<string, number>();
+	for (const e of ranged) {
+		if (e.type === 'http') {
+			const url = (e.payload as any).url ?? '';
+			if (url) {
+				endpointCount.set(url, (endpointCount.get(url) ?? 0) + 1);
+			}
+		}
+	}
+	const topEndpoints = Array.from(endpointCount.entries())
+		.sort((a, b) => b[1] - a[1]).slice(0, 10)
+		.map(([label, count]) => ({ label, count }));
+
 	return {
 		activeSessions,
 		eventVolume,
 		errorRateTimeline,
 		topPages,
 		topErrors,
-		navigationFunnel
+		navigationFunnel,
+		topEndpoints
 	}
 }
 
@@ -136,12 +125,58 @@ export function computeStats(events: TrackerEvent[], since: string, until: strin
 	const byLevel = {} as Record<LogLevel, number>;
 	let httpDurationSum = 0, httpCount = 0;
 
+	// INFO HTTP stats counters
+	let httpTotal = 0, http2xx = 0, http4xx = 0, http5xx = 0;
+	const endpointCallCount = new Map<string, number>();
+	const endpointDurationSum = new Map<string, number>();
+	const endpointDurationCount = new Map<string, number>();
+	const endpointMethod = new Map<string, string>();
+	const endpointStatusCount = new Map<string, Map<number, number>>();
+
+	// INFO App error rate: only type === 'error' (JS errors), NOT http 4xx/5xx
+	let appErrors = 0;
+
 	for (const e of ranged) {
 		byType[e.type] = (byType[e.type] ?? 0) + 1;
 		byLevel[e.level] = (byLevel[e.level] ?? 0) + 1;
-		if (e.type === 'http' && (e.payload as any).duration) {
-			httpDurationSum += (e.payload as any).duration;
-			httpCount++;
+
+		if (e.type === 'http') {
+			const p = e.payload as any;
+			const duration = p.duration as number | undefined;
+			const status = p.status as number | undefined;
+			const url: string = p.url ?? '';
+
+			if (duration) {
+				httpDurationSum += duration;
+				httpCount++;
+			}
+
+			httpTotal++;
+			if (status !== undefined) {
+				if (status >= 200 && status < 300) http2xx++;
+				else if (status >= 400 && status < 500) http4xx++;
+				else if (status >= 500) http5xx++;
+			}
+
+			if (url) {
+				endpointCallCount.set(url, (endpointCallCount.get(url) ?? 0) + 1);
+				if (duration) {
+					endpointDurationSum.set(url, (endpointDurationSum.get(url) ?? 0) + duration);
+					endpointDurationCount.set(url, (endpointDurationCount.get(url) ?? 0) + 1);
+				}
+				if (p.method) {
+					endpointMethod.set(url, p.method);
+				}
+				if (status !== undefined) {
+					const statusMap = endpointStatusCount.get(url) ?? new Map<number, number>();
+					statusMap.set(status, (statusMap.get(status) ?? 0) + 1);
+					endpointStatusCount.set(url, statusMap);
+				}
+			}
+		}
+
+		if (e.type === 'error') {
+			appErrors++;
 		}
 	}
 
@@ -168,63 +203,74 @@ export function computeStats(events: TrackerEvent[], since: string, until: strin
 	}
 	const timeline = Array.from(timelineMap.entries()).sort().map(([bucket, count]) => ({ bucket, count }));
 
+	// INFO Build mostCalledEndpoint and slowestEndpoint
+	function topStatusFor(url: string): number | undefined {
+		const statusMap = endpointStatusCount.get(url);
+		if (!statusMap) return undefined;
+		let topStatus: number | undefined;
+		let topCount = 0;
+		for (const [status, count] of statusMap) {
+			if (count > topCount) {
+				topCount = count;
+				topStatus = status;
+			}
+		}
+		return topStatus;
+	}
+
+	let mostCalledEndpoint: HttpStats['mostCalledEndpoint'];
+	let maxCalls = 0;
+	for (const [url, count] of endpointCallCount) {
+		if (count > maxCalls) {
+			maxCalls = count;
+			mostCalledEndpoint = {
+				url,
+				count,
+				method: endpointMethod.get(url) ?? '',
+				topStatus: topStatusFor(url),
+			};
+		}
+	}
+
+	let slowestEndpoint: HttpStats['slowestEndpoint'];
+	let maxAvg = 0;
+	for (const [url, sum] of endpointDurationSum) {
+		const cnt = endpointDurationCount.get(url) ?? 1;
+		const avg = sum / cnt;
+		if (avg > maxAvg) {
+			maxAvg = avg;
+			slowestEndpoint = {
+				url,
+				avgDuration: Math.round(avg),
+				method: endpointMethod.get(url) ?? '',
+				topStatus: topStatusFor(url),
+			};
+		}
+	}
+
+	const httpStats: HttpStats = {
+		total: httpTotal,
+		count2xx: http2xx,
+		count4xx: http4xx,
+		count5xx: http5xx,
+		pct2xx: httpTotal > 0 ? parseFloat(((http2xx / httpTotal) * 100).toFixed(1)) : 0,
+		pct4xx: httpTotal > 0 ? parseFloat(((http4xx / httpTotal) * 100).toFixed(1)) : 0,
+		pct5xx: httpTotal > 0 ? parseFloat(((http5xx / httpTotal) * 100).toFixed(1)) : 0,
+		httpErrorRate: httpTotal > 0 ? (http4xx + http5xx) / httpTotal : 0,
+		mostCalledEndpoint,
+		slowestEndpoint
+	}
+
 	return {
 		totalEvents: ranged.length,
 		totalSessions: sessions.size,
 		totalUsers: users.size,
-		errorRate: ranged.length > 0 ? (byLevel['error'] ?? 0) / ranged.length : 0,
-		avgHttpDuration: httpCount > 0 ? httpDurationSum / httpCount : undefined,
+		// INFO App error rate: only JS errors (type === 'error'), excludes HTTP
+		errorRate: ranged.length > 0 ? appErrors / ranged.length : 0,
+		avgHttpDuration: httpCount > 0 ? Math.round(httpDurationSum / httpCount) : undefined,
 		topRoutes,
 		topUsers,
 		timeline,
+		httpStats
 	}
-}
-
-const FETCH_PAGE_SIZE = 500  // max per request: keep memory reasonable
-
-/**
- * Fetch all events in the given time range by following the cursor
- * until the backend signals there are no more results.
- *
- * @remarks
- * Uses cursor-based pagination (`after`) to avoid result shifting between
- * requests. Each page uses `limit: FETCH_PAGE_SIZE` to minimize the number
- * of round trips.
- *
- * **Memory consideration:** all fetched events are held in memory for
- * client-side aggregation. For very large time ranges this can be
- * significant: the caller should constrain `since`/`until` accordingly.
- *
- * @param since - Start of the time range. ISO 8601 UTC string.
- * @param until - End of the time range. ISO 8601 UTC string.
- * @returns All matching events, ordered oldest-first for aggregation.
- */
-export async function fetchAllEvents(since: string, until: string): Promise<TrackerEvent[]> {
-	const all: TrackerEvent[] = [];
-	let page = 1;
-	let hasMore = true;
-
-	while (hasMore) {
-		const response = await fetchEvents({
-			since,
-			until,
-			limit: FETCH_PAGE_SIZE,
-			page
-		});
-
-		if (!response.events.length) {
-			hasMore = false;
-			break;
-		}
-
-		all.push(...response.events);
-
-		if (response.events.length < FETCH_PAGE_SIZE) {
-			hasMore = false;
-		} else {
-			page++;
-		}
-	}
-
-	return all.reverse();
 }

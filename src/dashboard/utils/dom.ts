@@ -4,11 +4,13 @@
 * no virtual DOM, just thin wrappers around standard browser APIs.
 */
 
+import { Attrs } from "@tracker/types";
+
 /** Typed querySelector: throws if element is not found. */
 export function qs<T extends Element>(selector: string, root: ParentNode = document): T {
 	const el = root.querySelector<T>(selector);
 	if (!el) {
-		throw new Error(`[dashboard] element not found: "${selector}"`);
+		throw new Error(`[vite-plugin-monitor] element not found: "${selector}"`);
 	}
 	return el;
 }
@@ -18,12 +20,10 @@ export function qsMaybe<T extends Element>(selector: string, root: ParentNode = 
 	return root.querySelector<T>(selector);
 }
 
-/** querySelectorAll → typed array */
+/** querySelectorAll -> typed array */
 export function qsAll<T extends Element>(selector: string, root: ParentNode = document): T[] {
 	return Array.from(root.querySelectorAll<T>(selector));
 }
-
-type Attrs = Record<string, string | boolean | number | null | undefined>;
 
 /**
 * Create a DOM element with optional attributes, classes and text content.

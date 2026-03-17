@@ -4,7 +4,7 @@ import { NavigationPayload } from "@tracker/types";
  *  INFO Storage key for MPA cross-page navigation
  *  When a full-page navigation happens (MPA, <a href> click), we save the
  *  current route to sessionStorage before unload. The next page reads it on
- *  load and uses it as the `from` field - giving accurate from→to tracking
+ *  load and uses it as the `from` field - giving accurate from->to tracking
  *  even across hard navigations.
  */
 const MPA_FROM_KEY = '__tracker_mpa_from__';
@@ -48,7 +48,7 @@ function referrerPath(): string {
  *    - Regular <a href="/page"> links
  *    - Links opened in the same tab (no target="_blank")
  *
- *  We do NOT prevent navigation — we just save state before it happens.
+ *  We do NOT prevent navigation - we just save state before it happens.
  */
 function setupMpaLinkInterceptor(): () => void {
 	function onAnchorClick(e: MouseEvent) {
@@ -75,7 +75,7 @@ function setupMpaLinkInterceptor(): () => void {
 			return;
 		}
 
-		// INFO This is a same-origin navigation — save current route before leaving
+		// INFO This is a same-origin navigation - save current route before leaving
 		saveCurrentRouteForNextPage();
 	}
 

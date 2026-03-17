@@ -18,10 +18,10 @@ const LEVELS: Record<LogLevel, number> = {
 function workerScriptPath(): string {
 	try {
 		const __filename = fileURLToPath(import.meta.url);
-		return path.join(path.dirname(__filename), 'plugin', 'logger-worker.js');
+		return path.join(path.dirname(__filename), 'logger-worker.js');
 	} catch {
 		// eslint-disable-next-line @typescript-eslint/no-var-requires, no-undef
-		return path.join(__dirname, 'plugin', 'logger-worker.js');
+		return path.join(__dirname, 'logger-worker.js');
 	}
 }
 
@@ -108,12 +108,12 @@ export function createLogger(loggingOpts?: LoggingOptions): Logger {
 		const w = spawnWorker();
 
 		if (!workerReady) {
-			// INFO Worker thread is starting — buffer until 'ready' is received
+			// INFO Worker thread is starting - buffer until 'ready' is received
 			pendingEvents.push(event);
 			return;
 		}
 
-		// INFO postMessage is async and zero-copy for plain JSON objects. The structured-clone algorithm runs in the background — no blocking here.
+		// INFO postMessage is async and zero-copy for plain JSON objects. The structured-clone algorithm runs in the background - no blocking here.
 		w.postMessage({ type: 'write', event });
 	}
 
@@ -142,7 +142,7 @@ export function createLogger(loggingOpts?: LoggingOptions): Logger {
 
 		await new Promise<void>((resolve) => {
 			worker!.once('exit', resolve);
-			setTimeout(resolve, 3000);  // INFO safety — don't hang Vite shutdown
+			setTimeout(resolve, 3000);  // INFO safety - don't hang Vite shutdown
 		})
 
 		worker = null;

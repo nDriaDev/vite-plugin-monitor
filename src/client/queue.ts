@@ -1,12 +1,4 @@
-import { IngestRequest, TrackerEvent } from "@tracker/types";
-
-interface QueueOptions {
-	wsEndpoint: string
-	writeEndpoint: string
-	apiKey: string
-	batchSize: number
-	flushInterval: number
-}
+import { IngestRequest, QueueOptions, TrackerEvent } from "@tracker/types";
 
 export class EventQueue {
 	private queue: TrackerEvent[] = [];
@@ -42,12 +34,12 @@ export class EventQueue {
 		ws.addEventListener('close', () => {
 			this.wsReady = false;
 			this.ws = null;
-			// INFO reconnect after 3s — mirrors flushInterval cadence
+			// INFO reconnect after 3s - mirrors flushInterval cadence
 			setTimeout(() => this.connectWs(), 3000);
 		});
 
 		ws.addEventListener('error', () => {
-			// INFO error is always followed by close — reconnect handled there
+			// INFO error is always followed by close - reconnect handled there
 			this.wsReady = false;
 		});
 	}
@@ -61,7 +53,7 @@ export class EventQueue {
 		try {
 			this.ws.send(JSON.stringify(msg));
 		} catch {
-			// INFO socket unexpectedly closed — requeue and let reconnect handle it
+			// INFO socket unexpectedly closed - requeue and let reconnect handle it
 			this.queue.unshift(...batch);
 		}
 	}

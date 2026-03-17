@@ -6,7 +6,7 @@ import { version } from '../../package.json';
 import { Connect } from "vite";
 import { WebSocketServer } from "ws";
 
-const MAX_BUFFER = 5000;
+const MAX_BUFFER = 5000000;
 
 /**
 * Ring buffer
@@ -25,29 +25,30 @@ class RingBuffer {
 		}
 	}
 
-	query(filters: { since?: string; until?: string; after?: string; type?: string; level?: string; userId?: string; sessionId?: string; limit: number; page: number }): { events: TrackerEvent[]; total: number } {
+	/**
+	 * Query the ring buffer with optional time-range filters and pagination.
+	 *
+	 * @remarks
+	 * Server-side filtering is intentionally minimal: only `since`, `until`,
+	 * and `after` (cursor) are applied here. All other filtering (type, level,
+	 * userId, search, etc.) is performed client-side in the dashboard so that
+	 * the full unfiltered dataset is always available for instant re-filtering
+	 * without round-trips.
+	 *
+	 * The `limit` cap is `MAX_BUFFER` (not the old 500) so the client can
+	 * request the entire buffer in a single call when needed.
+	 */
+	query(filters: { since?: string; until?: string; after?: string; limit: number; page: number }): { events: TrackerEvent[]; total: number } {
 		let result = [...this.buf];
 
 		if (filters.since) {
 			result = result.filter(e => e.timestamp >= filters.since!);
 		}
-		if (filters.until)     {
+		if (filters.until) {
 			result = result.filter(e => e.timestamp <= filters.until!);
 		}
-		if (filters.after)     {
+		if (filters.after) {
 			result = result.filter(e => e.timestamp > filters.after!);
-		}
-		if (filters.type)      {
-			result = result.filter(e => e.type === filters.type);
-		}
-		if (filters.level)     {
-			result = result.filter(e => e.level === filters.level);
-		}
-		if (filters.userId)    {
-			result = result.filter(e => e.userId === filters.userId);
-		}
-		if (filters.sessionId) {
-			result = result.filter(e => e.sessionId === filters.sessionId);
 		}
 		// INFO newest first
 		result = result.slice().reverse();
@@ -56,7 +57,7 @@ class RingBuffer {
 		const start = (filters.page - 1) * filters.limit;
 		return {
 			events: result.slice(start, start + filters.limit),
-			total
+			total,
 		}
 	}
 
@@ -92,7 +93,7 @@ function loadFromLogFiles(opts: ResolvedTrackerOptions, buffer: RingBuffer, logg
 		const stem = base.slice(0, -ext.length);
 
 		try {
-			// INFO Find all rotated files for this transport, sorted oldest→newest
+			// INFO Find all rotated files for this transport, sorted oldest->newest
 			const files = readdirSync(dir)
 			.filter(f => f.startsWith(stem) && f.endsWith(ext))
 			.sort();  // INFO lexicographic = chronological for dated filenames
@@ -194,16 +195,13 @@ export function createRequestHandler(opts: ResolvedTrackerOptions, buffer: RingB
 				return true;
 			}
 			const qs = parseQs(url);
-			const limit = Math.min(parseInt(qs['limit'] ?? '100', 10), 500);
+			// INFO If limit is undefined, returns all buffer.
+			const limit = qs['limit'] ? Math.min(parseInt(qs['limit'], 10), MAX_BUFFER) : MAX_BUFFER;
 			const page = Math.max(parseInt(qs['page'] ?? '1', 10), 1);
 			const { events, total } = buffer.query({
-				since:     qs['since'],
-				until:     qs['until'],
-				after:     qs['after'],
-				type:      qs['type'],
-				level:     qs['level'],
-				userId:    qs['userId'],
-				sessionId: qs['sessionId'],
+				since: qs['since'],
+				until: qs['until'],
+				after: qs['after'],
 				limit,
 				page,
 			});
@@ -224,7 +222,7 @@ export function createRequestHandler(opts: ResolvedTrackerOptions, buffer: RingB
 			return true;
 		}
 
-		return false;  // INFO not handled — let Vite continue
+		return false;  // INFO not handled - let Vite continue
 	}
 }
 
@@ -267,7 +265,7 @@ export function createStandaloneServer(opts: ResolvedTrackerOptions, logger: Log
 		});
 			server.on('error', (err: NodeJS.ErrnoException) => {
 				if (err.code === 'EADDRINUSE') {
-					logger.warn(`Port ${opts.storage.port} already in use — standalone server not started`);
+					logger.warn(`Port ${opts.storage.port} already in use - standalone server not started`);
 				} else {
 					logger.error(`Server error: ${err.message}`);
 				}

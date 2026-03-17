@@ -1,82 +1,6 @@
-import { TimePoint } from "../aggregations";
+import { ChartComponent, ChartMode, ChartOptions, TimePoint } from "@tracker/types";
 import { el, empty, svgEl } from "../utils/dom";
 import { formatBucket } from "../utils/format";
-
-/**
-* SVG chart render mode.
-*
-* @remarks
-* Separate alias from {@link ChartType} to decouple the chart component API
-* from the dashboard state model. Components import `ChartMode` rather than
-* depending on the state module.
-*
-*/
-type ChartMode = 'line' | 'bar'
-
-/**
-* Immutable configuration passed to `createChart()` at construction time.
-*
-* @remarks
-* Applied once at instantiation and cannot be changed afterwards.
-* For dynamic updates, call {@link ChartComponent.render}.
-*
-*/
-interface ChartOptions {
-	/**
-	* CSS color applied to the chart line, area fill gradient, and bar fill.
-	*
-	* @remarks
-	* Any valid CSS `<color>` value. Area fill uses this color at 20% opacity.
-	* Ensure sufficient contrast against the dark dashboard background (`#1a1a2e`).
-	*
-	* @example `'#3b82f6'`, `'rgb(239, 68, 68)'`, `'hsl(142, 71%, 45%)'`
-	* @default '#3b82f6'
-	*/
-	color?: string
-
-	/**
-	* Y-axis unit label shown in the tooltip on data-point hover.
-	*
-	* @remarks
-	* Appended after the numeric value: `'142 events'`, `'3.40 %'`.
-	* Keep ≤ 10 characters to avoid tooltip truncation.
-	*
-	* @example `'events'`, `'%'`, `'ms'`
-	* @default 'events'
-	*/
-	label?: string
-}
-
-/**
-* Public interface of a chart component instance returned by `createChart()`.
-*
-* @remarks
-* Renders as an inline SVG inside a `<div>` wrapper. Mount `el` once;
-* call `render()` repeatedly with updated data. Internally performs a targeted
-* DOM diff — only SVG paths and axis labels are replaced, never the wrapper.
-*
-*/
-interface ChartComponent {
-	/**
-	* Root `<div>` containing the SVG chart. Append to DOM once.
-	*
-	* @remarks
-	* Retains its identity across `render()` calls — do not re-append on update.
-	*/
-	el: HTMLElement
-
-	/**
-	* Re-render the chart with new data, optionally switching render mode.
-	*
-	* @remarks
-	* All data points are replaced on each call. An empty array renders an
-	* empty-state placeholder. If `mode` is omitted, the last-used mode is retained.
-	*
-	* @param data - Time-bucketed data points to plot. See {@link TimePoint}.
-	* @param mode - `'line'` or `'bar'`. Defaults to last-used mode.
-	*/
-	render: (data: TimePoint[], mode?: ChartMode) => void
-}
 
 const W = 600;
 const H = 120;
@@ -118,6 +42,11 @@ export function createChart(opts: ChartOptions = {}): ChartComponent {
 	svg.append(gridLayer, dataLayer, axisLayer);
 
 	const wrapper = el('div');
+	if (opts.onClick) {
+		wrapper.style.cursor = "pointer";
+		wrapper.title = "Click to view events";
+		wrapper.addEventListener("click", opts.onClick);
+	}
 	wrapper.appendChild(svg);
 
 	function render(data: TimePoint[], newMode?: ChartMode) {
@@ -149,7 +78,9 @@ export function createChart(opts: ChartOptions = {}): ChartComponent {
 		const maxVal = Math.max(...values, 0.001);   // INFO avoid division by zero
 		const minVal = 0;
 
-		const xScale = (i: number) => PAD.left + (i / (data.length - 1 || 1)) * INNER_W;
+		const xScaleLine = (i: number) => PAD.left + (i / (data.length - 1 || 1)) * INNER_W;
+		const xScaleBar = (i: number) => PAD.left + ((i + 0.5) / data.length) * INNER_W;
+		const xScale = mode === 'bar' ? xScaleBar : xScaleLine;
 		const yScale = (v: number) => PAD.top + INNER_H - ((v - minVal) / (maxVal - minVal)) * INNER_H;
 
 		const yTicks = [0, 0.25, 0.5, 0.75, 1];

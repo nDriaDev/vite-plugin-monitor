@@ -1,12 +1,4 @@
-import { HttpPayload, HttpTrackOptions, LogLevel } from "@tracker/types";
-
-type TrackedXHR = XMLHttpRequest & {
-	__tracker_method__: string
-	__tracker_url__: string
-	__tracker_startTime__: number
-	__tracker_reqBody__: unknown
-	__tracker_headers__: Record<string, string>
-}
+import { HttpPayload, HttpTrackOptions, LogLevel, ResolvedHttpOpts, TrackedXHR } from "@tracker/types";
 
 const SENSITIVE_HEADERS = new Set([
 	'authorization',
@@ -133,16 +125,6 @@ function headersToRecord(headers: HeadersInit | undefined | null): Record<string
 	return { ...(headers as Record<string, string>) };
 }
 
-interface ResolvedHttpOpts {
-	captureRequestHeaders:  boolean
-	captureRequestBody:     boolean
-	captureResponseHeaders: boolean
-	captureResponseBody:    boolean
-	excludeHeaders:         string[]
-	redactKeys:             string[]
-	maxBodySize:            number
-}
-
 function resolveHttpOpts(raw: boolean | HttpTrackOptions | undefined): ResolvedHttpOpts {
 	if (!raw || raw === true) {
 		return {
@@ -171,7 +153,7 @@ async function cloneBody(body: BodyInit | null | undefined, isStream?: boolean):
 		return '';
 	}
 	if (isStream) {
-		return '[ReadableStream — not captured]';
+		return '[ReadableStream - not captured]';
 	}
 	if (typeof body === 'string') {
 		return body;
@@ -189,7 +171,7 @@ async function cloneBody(body: BodyInit | null | undefined, isStream?: boolean):
 		return `[Binary ${(body as ArrayBuffer).byteLength ?? (body as ArrayBufferView).byteLength}B]`;
 	}
 	if (body instanceof ReadableStream) {
-		return '[ReadableStream — not captured]';
+		return '[ReadableStream - not captured]';
 	}
 	return String(body);
 }
@@ -241,7 +223,7 @@ function patchFetch(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (
 			const response = await originalFetch.call(this, input, init);
 			const duration = Math.round(performance.now() - start);
 
-			// INFO Response body — must clone to avoid consuming the real stream
+			// INFO Response body - must clone to avoid consuming the real stream
 			let resBody: unknown;
 			let resSize: number | undefined;
 			let resHeaders: Record<string, string> | undefined;

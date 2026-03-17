@@ -1,5 +1,5 @@
-import { LogLevel, TrackerEvent, TrackerEventType } from "@tracker/types";
-import { formatDuration, formatShortTime, truncate } from "../utils/format";
+import { LogLevel, SearchOperator, TrackerEvent, TrackerEventType } from "@tracker/types";
+import { formatDateTime, formatDuration, truncate } from "../utils/format";
 import { el, empty, on, qs, toggleVisible } from "../utils/dom";
 import { store } from "../state";
 
@@ -8,7 +8,6 @@ const TYPE_ICONS: Record<TrackerEventType, string> = {
 	http:        '🌐',
 	error:       '💥',
 	navigation:  '🧭',
-	performance: '⚡',
 	console:     '🖥',
 	custom:      '✳️',
 }
@@ -30,15 +29,13 @@ function getDetail(event: TrackerEvent): string {
 		case 'error':
 			return truncate(p.message ?? '', 70);
 		case 'navigation':
-			return `${truncate(p.from ?? '', 25)} → ${truncate(p.to ?? '', 25)}`;
-		case 'performance':
-			return `${p.metric} ${p.value?.toFixed(1)}ms (${p.rating})`;
+			return `${truncate(p.from ?? '', 25)} -> ${truncate(p.to ?? '', 25)}`;
 		case 'console': {
 			const indent = '  '.repeat(Number(p.groupDepth ?? 0));
 			return `${indent}[${p.method}] ${truncate(String(p.message ?? ''), 60)}`;
 		}
 		case 'custom':
-			return `${p.name}${p.duration !== undefined ? ` — ${formatDuration(p.duration)}` : ''}`;
+			return `${p.name}${p.duration !== undefined ? ` - ${formatDuration(p.duration)}` : ''}`;
 		default:
 			return '';
 	}
@@ -54,20 +51,32 @@ export function createEventsTable(): HTMLElement {
     <div class="events-toolbar">
 		<select class="filter-select" id="filter-type">
 			<option value="">All types</option>
-			${(['click', 'http', 'error', 'navigation', 'performance', 'console', 'custom'] as TrackerEventType[]).map(t => `<option value="${t}">${TYPE_ICONS[t]} ${t}</option>`).join('')}
+			${(['click', 'http', 'error', 'navigation', 'console', 'custom'] as TrackerEventType[]).map(t => `<option value="${t}">${TYPE_ICONS[t]} ${t}</option>`).join('')}
 		</select>
 
-		<select class="filter-select" id="filter-level">
-			<option value="">All levels</option>
-			<option value="debug">debug</option>
-			<option value="info">info</option>
-			<option value="warn">warn</option>
-			<option value="error">error</option>
+		<div class="level-toggle-group" id="filter-level">
+			<button class="level-toggle lvl-debug" data-level="debug">debug</button>
+			<button class="level-toggle lvl-info"  data-level="info">info</button>
+			<button class="level-toggle lvl-warn"  data-level="warn">warn</button>
+			<button class="level-toggle lvl-error" data-level="error">error</button>
+		</div>
+
+		<select class="filter-select filter-select--user" id="filter-userid">
+			<option value="">All users</option>
 		</select>
+		<div class="search-filter-wrap">
+			<select class="filter-select filter-select--operator" id="filter-search-op">
+				<option value="contains">contains</option>
+				<option value="not-contains">not contains</option>
+				<option value="equals">equals</option>
+				<option value="starts-with">starts with</option>
+				<option value="ends-with">ends with</option>
+				<option value="regex">regex</option>
+			</select>
+			<input class="filter-input filter-input--search" id="filter-search" type="text" placeholder="Search payload…" />
+		</div>
 
-		<input class="filter-input" id="filter-userid" type="text" placeholder="User ID…" />
-		<input class="filter-input" id="filter-search" type="text" placeholder="Search…" />
-
+		<button class="filter-reset-btn" id="filter-reset" title="Reset filters">✕ Reset</button>
 		<div class="events-count" id="events-count">0 events</div>
 		<div class="events-loading" id="events-loading" hidden>
 			<span class="spinner"></span>
@@ -96,16 +105,44 @@ export function createEventsTable(): HTMLElement {
 	const loadingEl = qs<HTMLElement>('#events-loading', container);
 	const emptyEl = qs<HTMLElement>('#empty-events', container);
 	const typeSelect = qs<HTMLSelectElement>('#filter-type', container);
-	const levelSelect = qs<HTMLSelectElement>('#filter-level', container);
-	const userInput = qs<HTMLInputElement>('#filter-userid', container);
+	const levelGroup = qs<HTMLElement>('#filter-level', container);
+	const levelButtons = Array.from(
+		levelGroup.querySelectorAll<HTMLButtonElement>('.level-toggle')
+	);
+
+	function getSelectedLevels(): LogLevel[] {
+		return levelButtons
+			.filter(b => b.classList.contains('active'))
+			.map(b => b.dataset.level as LogLevel);
+	}
+
+	levelButtons.forEach(btn => {
+		on(btn, 'click', () => {
+			store.resetSelectEvent();
+			btn.classList.toggle('active');
+			emitFilter();
+		});
+	});
+
+	const userSelect = qs<HTMLSelectElement>('#filter-userid', container);
 	const searchInput = qs<HTMLInputElement>('#filter-search', container);
+	const searchOpSelect = qs<HTMLSelectElement>('#filter-search-op', container);
+	const resetBtn = qs<HTMLButtonElement>('#filter-reset', container);
+
+	on(resetBtn, 'click', () => {
+		store.resetSelectEvent();
+		store.setEventsFilter({});
+	});
 
 	function emitFilter() {
+		store.resetSelectEvent();
+		const selectedLevels = getSelectedLevels();
 		store.setEventsFilter({
 			type: (typeSelect.value as TrackerEventType) || undefined,
-			level: (levelSelect.value as LogLevel) || undefined,
-			userId: userInput.value.trim() || undefined,
+			level: selectedLevels.length > 0 ? selectedLevels : undefined,
+			userId: userSelect.value || undefined,
 			search: searchInput.value.trim() || undefined,
+			searchOperator: (searchOpSelect.value as import('@tracker/types').SearchOperator) || 'contains'
 		});
 	}
 
@@ -116,14 +153,16 @@ export function createEventsTable(): HTMLElement {
 	}
 
 	on(typeSelect, 'change', emitFilter);
-	on(levelSelect, 'change', emitFilter);
-	on(userInput, 'input', debouncedFilter);
+	on(typeSelect, 'change', emitFilter);
+	on(searchOpSelect, 'change', emitFilter);
+	on(searchOpSelect, 'change', emitFilter);
+	on(userSelect, 'change', emitFilter);
 	on(searchInput, 'input', debouncedFilter);
 
 	/**
 	 * INFO
 	 * Table rendering
-	 * WeakMap: row element → event - allows O(1) selection highlight without
+	 * WeakMap: row element -> event - allows O(1) selection highlight without
 	 */
 	const rowEventMap = new WeakMap<HTMLTableRowElement, TrackerEvent>();
 	let selectedRow: HTMLTableRowElement | null = null;
@@ -132,7 +171,7 @@ export function createEventsTable(): HTMLElement {
 		const tr = el('tr', { class: `event-row ${LEVEL_CLASS[event.level]}` });
 
 		tr.innerHTML = `
-		<td class="col-time">${formatShortTime(event.timestamp)}</td>
+		<td class="col-time">${formatDateTime(event.timestamp)}</td>
 		<td class="col-type"><span class="type-badge type-${event.type}">${TYPE_ICONS[event.type]} ${event.type}</span></td>
 		<td class="col-level"><span class="level-badge ${LEVEL_CLASS[event.level]}">${event.level}</span></td>
 		<td class="col-user">${truncate(event.userId, 16)}</td>
@@ -155,25 +194,22 @@ export function createEventsTable(): HTMLElement {
 		countEl.textContent = `${events.length} events`;
 	}
 
-	function prependRows(newEvents: TrackerEvent[]) {
-		const frag = document.createDocumentFragment();
-		for (const e of newEvents) {
-			frag.prepend(buildRow(e));
+	function populateUsers() {
+		const current = userSelect.value;
+		const users = store.getUniqueUserIds();
+		userSelect.innerHTML = '<option value="">All users</option>';
+		for (const uid of users) {
+			const opt = document.createElement('option');
+			opt.value = uid;
+			opt.textContent = uid;
+			if (uid === current) opt.selected = true;
+			userSelect.appendChild(opt);
 		}
-		tbody.prepend(frag);
-		while (tbody.rows.length > 500) {
-			tbody.deleteRow(tbody.rows.length - 1);
-		}
-		countEl.textContent = `${tbody.rows.length} events`;
-		toggleVisible(emptyEl, tbody.rows.length === 0);
 	}
 
-	store.on('events:update', renderAll);
-
-	store.on('events:append', (newEvents) => {
-		if (newEvents.length > 0) {
-			prependRows(newEvents);
-		}
+	store.on('events:update', (events) => {
+		populateUsers();
+		renderAll(events);
 	});
 
 	store.on('events:loading', (loading) => {
@@ -196,6 +232,17 @@ export function createEventsTable(): HTMLElement {
 				break;
 			}
 		}
+	});
+
+	store.on('events:filter', (filter) => {
+		typeSelect.value = filter.type ?? '';
+		const activeLevels = filter.level ?? [];
+		levelButtons.forEach(btn => {
+			btn.classList.toggle('active', activeLevels.includes(btn.dataset.level as LogLevel));
+		});
+		userSelect.value = filter.userId ?? '';
+		searchInput.value = filter.search ?? '';
+		searchOpSelect.value = filter.searchOperator ?? 'contains';
 	});
 
 	return container;

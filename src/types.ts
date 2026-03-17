@@ -1,122 +1,4 @@
-import { ErrorItem, FunnelStep, MetricsResult, RankedItem, StatsResult, TimePoint } from "./dashboard/aggregations"
-
-/**
-* Logger instance returned by `createLogger()`.
-*
-* @remarks
-* The logger has two distinct responsibilities handled separately:
-*
-* 1. **Console output** (`debug`, `info`, `warn`, `error`) - runs on the
-*    main thread and is used exclusively for Vite plugin diagnostic messages
-*    (startup info, warnings, errors). Output is prefixed with
-*    `[tracker]` and coloured cyan for visibility in the Vite terminal.
-*
-* 2. **Event file writing** (`writeEvent`) - delegates all file I/O to a
-*    dedicated worker thread via `postMessage`. The main thread never blocks
-*    on stream backpressure or rotation. Events arriving before the worker
-*    is ready are buffered in memory and flushed once the worker signals
-*    `'ready'`.
-*
-* The logger is created once in `configResolved` and shared across all
-* plugin hooks. It is destroyed gracefully via `destroy()` on
-* `SIGTERM`/`SIGINT`/`SIGHUP` through the shutdown hook system.
-*
-* **Internal use only** - not part of the public plugin API.
-*
-* @since 0.1.0
-*/
-export interface Logger {
-	/**
-	* Emit a debug-level diagnostic message to the Vite terminal.
-	*
-	* @remarks
-	* Only printed when `LoggingOptions.level` is set to `'debug'`.
-	* Use for fine-grained tracing during development of the plugin itself.
-	*
-	* @param msg - The message string to print, without the `[tracker]` prefix
-	*              (added automatically).
-	*/
-	debug(msg: string): void
-
-	/**
-	* Emit an info-level diagnostic message to the Vite terminal.
-	*
-	* @remarks
-	* Printed when `LoggingOptions.level` is `'debug'` or `'info'` (default).
-	* Use for normal operational messages such as startup confirmation,
-	* mode selection, and server port binding.
-	*
-	* @param msg - The message string to print.
-	*/
-	info(msg: string): void
-
-	/**
-	* Emit a warn-level diagnostic message to the Vite terminal.
-	*
-	* @remarks
-	* Printed when `LoggingOptions.level` is `'debug'`, `'info'`, or `'warn'`.
-	* Use for recoverable anomalies that do not prevent the plugin from
-	* functioning - e.g. missing optional configuration, port conflicts,
-	* or degraded mode fallbacks.
-	*
-	* @param msg - The message string to print.
-	*/
-	warn(msg: string): void
-
-	/**
-	* Emit an error-level diagnostic message to the Vite terminal.
-	*
-	* @remarks
-	* Always printed regardless of `LoggingOptions.level`. Use for failures
-	* that prevent correct plugin operation - e.g. worker thread crashes,
-	* file system errors, or invalid configuration.
-	*
-	* @param msg - The message string to print.
-	*/
-	error(msg: string): void
-
-	/**
-	* Write a tracked event to all configured log file transports.
-	*
-	* @remarks
-	* Non-blocking - delegates immediately to the logger worker thread via
-	* `postMessage`. The call returns before any I/O occurs. Events whose
-	* `level` is below `LoggingOptions.level` are discarded before being
-	* sent to the worker.
-	*
-	* Events arriving before the worker thread has signalled `'ready'` are
-	* buffered in an in-memory array and flushed automatically once the
-	* worker is ready - no events are lost during worker startup.
-	*
-	* @param event - The {@link TrackerEvent} to persist. Must be a plain
-	*                JSON-serializable object - the structured-clone algorithm
-	*                used by `postMessage` will fail on non-serializable values.
-	*/
-	writeEvent(event: TrackerEvent): void
-
-	/**
-	* Flush pending events and gracefully shut down the logger worker thread.
-	*
-	* @remarks
-	* Called once by the shutdown hook on `SIGTERM`/`SIGINT`/`SIGHUP`, and
-	* by `closeBundle()` at the end of a production build.
-	*
-	* **Shutdown sequence:**
-	* 1. Flushes any events still buffered in `pendingEvents` to the worker.
-	* 2. Sends a `{ type: 'destroy' }` message to the worker.
-	* 3. The worker closes all open `fs.WriteStream` instances and exits.
-	* 4. Awaits the worker `'exit'` event with a 3-second safety timeout -
-	*    after which the promise resolves regardless, preventing the Vite
-	*    process from hanging indefinitely.
-	*
-	* After `destroy()` resolves, no further `writeEvent()` calls should
-	* be made - the worker is no longer running.
-	*
-	* @returns A `Promise` that resolves when the worker has exited or the
-	*          3-second timeout has elapsed.
-	*/
-	destroy(): Promise<void>
-}
+// INFO Shared primitives
 
 /**
 * Discriminant field that identifies the category of a tracked event.
@@ -134,19 +16,17 @@ export interface Logger {
 * | `'http'`        | {@link HttpPayload}        | HTTP tracker (fetch + XHR)       |
 * | `'error'`       | {@link ErrorPayload}       | Error tracker                    |
 * | `'navigation'`  | {@link NavigationPayload}  | Navigation tracker               |
-* | `'performance'` | {@link PerformancePayload} | Performance tracker              |
 * | `'console'`     | {@link ConsolePayload}     | Console tracker                  |
 * | `'custom'`      | {@link CustomPayload}      | `tracker.track()` / `timeEnd()`  |
 *
 */
 export type TrackerEventType =
-| 'click'
-| 'http'
-| 'error'
-| 'navigation'
-| 'performance'
-| 'console'
-| 'custom'
+	| 'click'
+	| 'http'
+	| 'error'
+	| 'navigation'
+	| 'console'
+	| 'custom'
 
 /**
 * Severity level attached to every tracked event.
@@ -163,13 +43,15 @@ export type TrackerEventType =
 * `'warn'` means only `'warn'` and `'error'` events pass through.
 *
 * Automatic trackers assign levels heuristically:
-* - HTTP 5xx responses → `'error'`
-* - HTTP 4xx responses → `'warn'`
-* - Unhandled JS errors → `'error'`
-* - Everything else → `'info'`
+* - HTTP 5xx responses -> `'error'`
+* - HTTP 4xx responses -> `'warn'`
+* - Unhandled JS errors -> `'error'`
+* - Everything else -> `'info'`
 *
 */
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+
+// INFO Event envelope, payloads and metadata
 
 /**
 * The envelope that wraps every tracked event regardless of its type.
@@ -257,12 +139,11 @@ export interface TrackerEvent {
 	appId: string
 
 	/**
-	* Random UUID generated once per browser tab lifetime.
+	* Random identifier generated once per browser tab lifetime.
 	*
 	* @remarks
-	* Created by `TrackerSession` on first load using `crypto.randomUUID()` and
-	* stored in `sessionStorage` so it survives soft navigations within the same
-	* tab. Resets when the tab is closed or the page is hard-reloaded.
+	* Created by `TrackerSession` on first load with a `sess_` prefix followed by
+	* a random identifier, stored in `sessionStorage` so it survives soft navigations.
 	*
 	* Used to group all events emitted from a single continuous browser session,
 	* enabling session replay, funnel analysis, and duration calculations.
@@ -273,10 +154,10 @@ export interface TrackerEvent {
 	* Identifier of the user who triggered the event.
 	*
 	* @remarks
-	* Resolved at emission time by calling the `track.userId` function from the
-	* plugin config. If that function returns `null` or is not configured, this
-	* field falls back to `sessionId`, so anonymous users still produce coherent
-	* per-session event streams without requiring authentication.
+	* Set to the current user identifier at event emission time. Resolved from
+	* the value stored in {@link TrackerSession}, which is initialized from the
+	* `track.userId` function at startup and updated by {@link ITrackerClient.setUser}.
+	* Falls back to an anonymous session-scoped ID when no user is identified.
 	*/
 	userId: string
 
@@ -323,7 +204,7 @@ export interface TrackerEvent {
 	*
 	* @remarks
 	* TypeScript narrows this field automatically when `type` is checked:
-	* `if (e.type === 'http') e.payload  // → HttpPayload`
+	* `if (e.type === 'http') e.payload  // -> HttpPayload`
 	*
 	* @see {@link EventPayload}
 	*/
@@ -347,13 +228,12 @@ export interface TrackerEvent {
 * @see {@link TrackerEvent}
 */
 export type EventPayload =
-| ClickPayload
-| HttpPayload
-| ErrorPayload
-| NavigationPayload
-| PerformancePayload
-| ConsolePayload
-| CustomPayload
+	| ClickPayload
+	| HttpPayload
+	| ErrorPayload
+	| NavigationPayload
+	| ConsolePayload
+	| CustomPayload
 
 /**
 * Payload for events with `type === 'click'`.
@@ -476,7 +356,7 @@ export interface HttpPayload {
 	* @remarks
 	* Absent when the request failed at the network level (no HTTP response received).
 	* The tracker derives the event level from this value:
-	* 5xx → `'error'`, 4xx → `'warn'`, 2xx/3xx → `'info'`.
+	* 5xx -> `'error'`, 4xx -> `'warn'`, 2xx/3xx -> `'info'`.
 	*
 	* @example `200`, `201`, `400`, `404`, `500`, `503`
 	*/
@@ -522,8 +402,8 @@ export interface HttpPayload {
 	*
 	* @remarks
 	* Only present when {@link HttpTrackOptions.captureRequestBody} is `true`.
-	* Pipeline: parse JSON → redact sensitive keys → re-serialize → truncate to `maxBodySize`.
-	* Non-JSON bodies are stored as plain strings. `ReadableStream` bodies → `'[ReadableStream]'`.
+	* Pipeline: parse JSON -> redact sensitive keys -> re-serialize -> truncate to `maxBodySize`.
+	* Non-JSON bodies are stored as plain strings. `ReadableStream` bodies -> `'[ReadableStream]'`.
 	*/
 	requestBody?: unknown
 
@@ -552,7 +432,7 @@ export interface HttpPayload {
 	* @remarks
 	* Only present when {@link HttpTrackOptions.captureResponseBody} is `true`.
 	* Captured via `response.clone()` so the original `Response` is not consumed.
-	* Same parse → redact → truncate pipeline as `requestBody`.
+	* Same parse -> redact -> truncate pipeline as `requestBody`.
 	*/
 	responseBody?: unknown
 
@@ -708,63 +588,6 @@ export interface NavigationPayload {
 }
 
 /**
-* Payload for events with `type === 'performance'`.
-*
-* @remarks
-* Emitted by the performance tracker when a Web Vitals metric reading is
-* finalized. **One event per metric per page load** - not on every intermediate update.
-*
-* Uses `PerformanceObserver` with `buffered: true` to capture metrics that fired
-* before the tracker initialized. Falls back gracefully in unsupported browsers.
-*
-* **LCP**: the browser updates the candidate continuously. The tracker accumulates
-* updates and emits once on the first user interaction or visibility change,
-* matching the Web Vitals specification.
-*
-* **CLS**: layout shift scores are accumulated across the session; the emitted
-* value is the running total.
-*
-* @see {@link https://web.dev/vitals/ | Core Web Vitals}
-*/
-export interface PerformancePayload {
-	/**
-	* The Web Vitals metric being reported.
-	*
-	* @remarks
-	* | Metric  | Full name                 | Unit        | "Good" threshold |
-	* |---------|---------------------------|-------------|------------------|
-	* | `'FCP'` | First Contentful Paint    | ms          | ≤ 1 800 ms       |
-	* | `'LCP'` | Largest Contentful Paint  | ms          | ≤ 2 500 ms       |
-	* | `'FID'` | First Input Delay         | ms          | ≤ 100 ms         |
-	* | `'CLS'` | Cumulative Layout Shift   | score (0–∞) | ≤ 0.1            |
-	* | `'TTFB'`| Time to First Byte        | ms          | ≤ 800 ms         |
-	* | `'INP'` | Interaction to Next Paint | ms          | ≤ 200 ms         |
-	*/
-	metric: 'FCP' | 'LCP' | 'FID' | 'CLS' | 'TTFB' | 'INP'
-
-	/**
-	* Measured value of the metric.
-	*
-	* @remarks
-	* - **Time-based** (FCP, LCP, FID, TTFB, INP): milliseconds, rounded to nearest integer.
-	* - **CLS**: unitless cumulative score ≥ 0. Values above 0.25 are classified `'poor'`.
-	*/
-	value: number
-
-	/**
-	* Google's classification of the measured value against published thresholds.
-	*
-	* @remarks
-	* | Rating               | Meaning                                           |
-	* |----------------------|---------------------------------------------------|
-	* | `'good'`             | Meets recommended target                          |
-	* | `'needs-improvement'`| Above target but not yet critical                 |
-	* | `'poor'`             | Exceeds critical threshold; UX is impacted        |
-	*/
-	rating: 'good' | 'needs-improvement' | 'poor'
-}
-
-/**
 * Payload for events with `type === 'custom'`.
 *
 * @remarks
@@ -830,25 +653,25 @@ export interface CustomPayload {
 *
 */
 export type ConsoleMethod =
-| 'log'
-| 'warn'
-| 'error'
-| 'debug'
-| 'info'
-| 'trace'
-| 'table'
-| 'group'
-| 'groupCollapsed'
-| 'groupEnd'
-| 'count'
-| 'countReset'
-| 'time'
-| 'timeEnd'
-| 'timeLog'
-| 'assert'
-| 'dir'
-| 'dirxml'
-| 'clear'
+	| 'log'
+	| 'warn'
+	| 'error'
+	| 'debug'
+	| 'info'
+	| 'trace'
+	| 'table'
+	| 'group'
+	| 'groupCollapsed'
+	| 'groupEnd'
+	| 'count'
+	| 'countReset'
+	| 'time'
+	| 'timeEnd'
+	| 'timeLog'
+	| 'assert'
+	| 'dir'
+	| 'dirxml'
+	| 'clear'
 
 /**
 * Payload for events with `type === 'console'`.
@@ -877,10 +700,10 @@ export interface ConsolePayload {
 	*
 	* @remarks
 	* Resolution rules (in order):
-	* 1. String first arg → used directly, truncated to `maxArgLength`.
-	* 2. Non-string primitive → coerced to string.
-	* 3. Object/array → brief type descriptor, e.g. `'[Object]'`, `'[Array(3)]'`.
-	* 4. `console.assert(false, msg)` → assertion message (second arg), not the boolean.
+	* 1. String first arg -> used directly, truncated to `maxArgLength`.
+	* 2. Non-string primitive -> coerced to string.
+	* 3. Object/array -> brief type descriptor, e.g. `'[Object]'`, `'[Array(3)]'`.
+	* 4. `console.assert(false, msg)` -> assertion message (second arg), not the boolean.
 	*
 	* Indexed by the backend for full-text search.
 	*/
@@ -891,11 +714,11 @@ export interface ConsolePayload {
 	*
 	* @remarks
 	* Serialization is defensive:
-	* - Circular references → `'[Circular]'`
-	* - DOM nodes → `'[HTMLDivElement]'`
-	* - Functions → `'[Function: name]'`
-	* - Symbols → `'[Symbol(description)]'`
-	* - BigInt → `'[BigInt: 12345n]'`
+	* - Circular references -> `'[Circular]'`
+	* - DOM nodes -> `'[HTMLDivElement]'`
+	* - Functions -> `'[Function: name]'`
+	* - Symbols -> `'[Symbol(description)]'`
+	* - BigInt -> `'[BigInt: 12345n]'`
 	*
 	* Capped to {@link ConsoleTrackOptions.maxArgs} entries. If exceeded, the
 	* last element becomes `{ type: 'truncated', value: '[N more args]' }`.
@@ -1014,7 +837,7 @@ export interface EventMeta {
 	language: string
 
 	/**
-	* `document.referrer` captured at session start.
+	* `document.referrer` captured at event emission time.
 	*
 	* @remarks
 	* Empty string if navigated directly (typed URL, bookmark, `no-referrer` policy).
@@ -1046,6 +869,8 @@ export interface EventMeta {
 	*/
 	userAttributes?: Record<string, unknown>
 }
+
+// INFO Plugin options (vite.config.ts)
 
 /**
 * Options accepted by `tracker.track(name, data, options?)`.
@@ -1133,7 +958,7 @@ export interface SetUserOptions {
 * | `'http'`       | Production - POSTs to an external backend                                                     | `writeEndpoint`  |
 * | `'standalone'` | Dev/preview - dedicated port, file logging, no backend. It's a specification of http mode.    | Nothing extra    |
 * | `'middleware'` | Dev/preview - API on the same Vite dev server port                                            | Nothing extra    |
-* | `'websocket'`  | Production/Dev - bidirection by WebSocket                                                     | Nothing extra    |
+* | `'websocket'`  | Production/Dev - bidirectional via WebSocket                                                  | `wsEndpoint`     |
 * | `'auto'`       | Default - `middleware` in dev, enforces `http` at build                                       | Depends          |
 *
 * In `'auto'` mode, the plugin expands to `'middleware'` when `vite dev` or
@@ -1145,7 +970,7 @@ export interface SetUserOptions {
 export type StorageMode = 'http' | 'standalone' | 'middleware' | 'websocket' | 'auto'
 
 /**
-* HTTP transport configuration — used when `mode` is `'http'`, `'standalone'`,
+* HTTP transport configuration - used when `mode` is `'http'`, `'standalone'`,
 * `'middleware'`, or `'auto'`.
 */
 export interface HttpStorageOptions {
@@ -1161,14 +986,14 @@ export interface HttpStorageOptions {
 	* URL that receives batched events from the browser via HTTP POST.
 	*
 	* @remarks
-	* **Request** (browser → server):
+	* **Request** (browser -> server):
 	* - Method: `POST`
 	* - Content-Type: `application/json`
 	* - Header: `X-Tracker-Key: <apiKey>` (only when `apiKey` is configured)
-	* - Body: `{ "events": TrackerEvent[] }`  — see {@link IngestRequest}
+	* - Body: `{ "events": TrackerEvent[] }`  - see {@link IngestRequest}
 	*
-	* **Response** (server → browser):
-	* - Any `2xx` status is treated as success — the response body is ignored.
+	* **Response** (server -> browser):
+	* - Any `2xx` status is treated as success - the response body is ignored.
 	* - Non-`2xx` responses cause the batch to be requeued and retried on the
 	*   next flush interval.
 	*
@@ -1177,46 +1002,28 @@ export interface HttpStorageOptions {
 	writeEndpoint?: string
 
 	/**
-	* Full URL of the events read endpoint queried by the dashboard.
+	* Full URL of the event reading endpoint queried by the dashboard.
 	*
 	* @remarks
-	* **Request** (dashboard → server):
-	* - Method: `GET`
-	* - Header: `X-Tracker-Key: <apiKey>` (only when `apiKey` is configured)
-	* - Query parameters (all optional):
-	*   - `since`     — ISO 8601 UTC — return events with `timestamp >= since`
-	*   - `until`     — ISO 8601 UTC — return events with `timestamp <= until`
-	*   - `after`     — ISO 8601 UTC — cursor: return events with `timestamp > after`
-	*   - `before`    — ISO 8601 UTC — return events with `timestamp < before`
-	*   - `type`      — {@link TrackerEventType} — filter by event category
-	*   - `level`     — {@link LogLevel} — filter by severity
-	*   - `userId`    — exact match
-	*   - `sessionId` — exact match
-	*   - `groupId`   — exact match
-	*   - `appId`     — exact match
-	*   - `search`    — full-text search term
-	*   - `limit`     — max events per page (default `100`, max `500`)
-	*   - `page`      — 1-based page index (default `1`)
-	*
-	* **Response** (server → dashboard):
-	* - Content-Type: `application/json`
-	* - Body: see {@link EventsResponse}
-	* ```json
-	* {
-	*   "events":     TrackerEvent[],
-	*   "total":      number,
-	*   "page":       number,
-	*   "limit":      number,
-	*   "nextCursor": string | undefined
-	* }
+	* **Request** (dashboard -> server):
 	* ```
+	* GET <readEndpoint>
+	* Accept: application/json
+	* X-Tracker-Key: <apiKey> (optional, only if configured)
+	* ```
+	* The dashboard does not send any query parameters. The server must
+	* return all events available in its buffer or database,
+	* sorted from newest to oldest, in the {@link EventsResponse} format.
+	*
+	* All filtering, temporal grouping, and aggregations
+	* occur client-side in the browser after receiving the full dataset.
 	*
 	* @example `'https://api.myapp.com/tracker/events'`
 	*/
 	readEndpoint?: string
 
 	/**
-	* Optional URL used by the dashboard health check (`GET /ping`).
+	* Optional URL used by the dashboard health check.
 	*
 	* @remarks
 	* When provided, the dashboard polls this URL periodically to verify
@@ -1270,69 +1077,47 @@ export interface HttpStorageOptions {
 }
 
 /**
-* WebSocket transport configuration — used when `mode = 'websocket'`.
+* WebSocket transport configuration - used when `mode = 'websocket'`.
 *
 * @remarks
 * Mutually exclusive with `writeEndpoint` and `readEndpoint`.
-* All event ingestion and real-time push happen over the single
-* WebSocket connection. The consumer backend must implement the
-* tracker WebSocket protocol:
+* All event ingestion and dashboard queries happen over the single persistent
+* WebSocket connection. The consumer backend must implement the tracker
+* WebSocket protocol:
 *
-* - Browser → Server: `{ type: 'ingest', events: TrackerEvent[] }`
-* - Server → Browser: `{ type: 'ack', saved: number }`
-* - Server → Browser: `{ type: 'push', events: TrackerEvent[] }` (optional)
-*
-* @example `'wss://api.myapp.com/tracker/ws'`
+* Browser -> Server (ingest):
+* ```json
+* { "type": "ingest", "events": TrackerEvent[] }
+* ```
+* Server -> Browser (ack):
+* ```json
+* { "type": "ack", "saved": number }
+* ```
+* Server -> Browser (real-time push, optional):
+* ```json
+* { "type": "push", "events": TrackerEvent[] }
+* ```
+* Dashboard -> Server (query):
+* ```json
+* { "type": "events:query", "reqId": string, "query": EventsQuery }
+* ```
+* Server -> Browser (query response):
+* ```json
+* { "type": "events:response", "reqId": string, "response": EventsResponse }
+* ```
 */
 export interface WsStorageOptions {
-	/**
-	* Storage backend to use.
-	*
-	* @see {@link StorageMode}
-	* @default 'auto'
-	*/
 	mode: 'websocket'
 
 	/**
-	* WebSocket endpoint URL used when `mode = 'websocket'`.
-	*
-	* @remarks
-	* The browser opens a single persistent WebSocket connection to this URL
-	* used for both ingest and dashboard real-time push.
-	*
-	* **Protocol — messages are JSON strings:**
-	*
-	* Browser → Server (ingest):
-	* ```json
-	* { "type": "ingest", "events": TrackerEvent[] }
-	* ```
-	*
-	* Server → Browser (ack):
-	* ```json
-	* { "type": "ack", "saved": number }
-	* ```
-	*
-	* Server → Browser (real-time push to dashboard, optional):
-	* ```json
-	* { "type": "push", "events": TrackerEvent[] }
-	* ```
-	*
-	* Dashboard → Server (query):
-	* ```json
-	* { "type": "events:query", "reqId": string, "query": EventsQuery }
-	* ```
-	*
-	* Server → Browser (query response):
-	* ```json
-	* { "type": "events:response", "reqId": string, "response": EventsResponse }
-	* ```
+	* WebSocket endpoint URL.
 	*
 	* @example `'wss://api.myapp.com/tracker/ws'`
 	*/
 	wsEndpoint: string
 
 	/**
-	* Optional URL used by the dashboard health check (`GET /ping`).
+	* Optional URL used by the dashboard health check.
 	*
 	* @remarks
 	* When provided, the dashboard polls this URL periodically to verify
@@ -1344,7 +1129,7 @@ export interface WsStorageOptions {
 	pingEndpoint?: string
 
 	/**
-	* API key sent as `X-Tracker-Key` on every request (write and read).
+	* API key sent as `X-Tracker-Key` on every request.
 	*
 	* @remarks
 	* Omit to disable authentication - suitable for local development only.
@@ -1354,20 +1139,12 @@ export interface WsStorageOptions {
 	/**
 	* Maximum number of events accumulated client-side before flushing.
 	*
-	* @remarks
-	* The queue flushes when `batchSize` **or** `flushInterval` is reached first.
-	* On page unload, remaining events are flushed via `navigator.sendBeacon`.
-	*
 	* @default 10
 	*/
 	batchSize?: number
 
 	/**
 	* Maximum time in milliseconds between automatic queue flushes.
-	*
-	* @remarks
-	* Timer resets on each flush. The 3 000 ms default stays well within the
-	* 30-second ingress timeout common in Kubernetes / OpenShift environments.
 	*
 	* @default 3000
 	*/
@@ -1378,8 +1155,9 @@ export interface WsStorageOptions {
 * Configuration for the event storage and transport layer.
 *
 * @remarks
-* All fields are optional. Safe defaults apply for each storage mode so
-* minimal configuration is needed for local development.
+* Use {@link HttpStorageOptions} for HTTP/standalone/middleware modes.
+* Use {@link WsStorageOptions} for WebSocket mode. The two are mutually
+* exclusive - TypeScript enforces this via the discriminated union.
 *
 * @see {@link StorageMode}
 */
@@ -1395,7 +1173,7 @@ export type StorageOptions = HttpStorageOptions | WsStorageOptions
 * @example
 * ```ts
 * // vite.config.ts
-* import { trackerPlugin } from 'vite-plugin-tracker'
+* import { trackerPlugin } from 'vite-plugin-monitor'
 *
 * export default defineConfig({
 *   plugins: [
@@ -1414,7 +1192,7 @@ export interface TrackerPluginOptions {
 	* Master switch for the plugin.
 	*
 	* @remarks
-	* When `false`, the plugin is completely disabled — no script is injected
+	* When `false`, the plugin is completely disabled - no script is injected
 	* into `index.html`, no server or middleware is started, no log files are
 	* created, and no events are tracked. Useful for disabling tracking in
 	* specific environments (e.g. local development, CI) without removing the
@@ -1476,16 +1254,18 @@ export interface TrackerPluginOptions {
 	* script into index.html.
 	*
 	* @remarks
-	* When `true` (default), the plugin injects the tracker client script into
-	* the `<head>` of index.html and calls `initTracker()` automatically. The
-	* tracker is active from the very first line of application code.
+	* When `true` (default), the plugin injects both the setup script (which
+	* installs event proxies immediately) and the init script (which activates
+	* the queue and starts flushing events). The tracker is fully active from
+	* the very first line of application code.
 	*
-	* When `false`, nothing is injected into index.html. The consumer is
-	* responsible for importing and calling `initTracker()` manually at the
-	* appropriate point in the application lifecycle:
+	* When `false`, the plugin still injects the setup script that installs
+	* event proxies before any application code runs, but does not call
+	* `tracker.init()` automatically. The consumer is responsible for calling
+	* it at the appropriate point in the application lifecycle:
 	*
 	* ```ts
-	* import { tracker } from '@ndriadev/vite-plugin-monitor/client'
+	* import { tracker } from 'vite-plugin-monitor/client'
 	* tracker.init()
 	* ```
 	*
@@ -1514,7 +1294,7 @@ export interface TrackOptions {
 	* @remarks
 	* Adds a single passive `click` listener to `document` via event delegation.
 	*
-	* @default true
+	* @default false
 	*/
 	clicks?: boolean
 
@@ -1526,7 +1306,7 @@ export interface TrackOptions {
 	* - `false` - disable entirely.
 	* - {@link HttpTrackOptions} - full control over capture and redaction.
 	*
-	* @default true
+	* @default false
 	*/
 	http?: boolean | HttpTrackOptions
 
@@ -1537,7 +1317,7 @@ export interface TrackOptions {
 	* Captures `window.onerror` (synchronous) and `unhandledrejection` (promise).
 	* Errors caught by `try/catch` are not captured automatically.
 	*
-	* @default true
+	* @default false
 	*/
 	errors?: boolean
 
@@ -1549,20 +1329,9 @@ export interface TrackOptions {
 	* `hashchange`, and the initial `load` event. Compatible with all major
 	* SPA routers.
 	*
-	* @default true
+	* @default false
 	*/
 	navigation?: boolean
-
-	/**
-	* Enable Web Vitals performance tracking.
-	*
-	* @remarks
-	* Uses `PerformanceObserver` with `buffered: true`. Captures FCP, LCP,
-	* FID, CLS, TTFB, INP. Falls back gracefully in unsupported browsers.
-	*
-	* @default true
-	*/
-	performance?: boolean
 
 	/**
 	* Enable console method interception.
@@ -1575,16 +1344,16 @@ export interface TrackOptions {
 	* Disabled by default because existing codebases may log sensitive data
 	* without expecting it to be sent to a remote backend.
 	*
-	* @default false
+	* @default true
 	*/
 	console?: boolean | ConsoleTrackOptions
 
 	/**
-	* Function that resolves the current user's identifier at event emission time.
+	* Function that resolves the current user's identifier at tracker initialization.
 	*
 	* @remarks
-	* Called **lazily** just before each event is enqueued - not at initialization.
-	* Return `null` to fall back to anonymous `sessionId`-based tracking.
+	* Called once during tracker initialization to resolve the initial user identifier.
+	* To update the user after initialization, use {@link ITrackerClient.setUser}.
 	*
 	* @example
 	* ```ts
@@ -1612,8 +1381,8 @@ export interface TrackOptions {
 	* Case-sensitive substring match against the full absolute URL.
 	* Applied before any capture or redaction logic.
 	*
-	* @default ['/_monitor']
-	* @example `['/_monitor', '/health', '/ping', 'analytics.google.com']`
+	* @default []
+	* @example `['/_dashboard', '/health', '/ping', 'analytics.google.com']`
 	*/
 	ignoreUrls?: string[]
 }
@@ -1714,8 +1483,8 @@ export interface HttpTrackOptions {
 	* Capture and redact the request body.
 	*
 	* @remarks
-	* Pipeline: read raw body → parse JSON → redact sensitive keys → re-serialize
-	* → truncate to `maxBodySize`. `ReadableStream` bodies → `'[ReadableStream]'`.
+	* Pipeline: read raw body -> parse JSON -> redact sensitive keys -> re-serialize
+	* -> truncate to `maxBodySize`. `ReadableStream` bodies -> `'[ReadableStream]'`.
 	*
 	* @default false
 	*/
@@ -1803,7 +1572,7 @@ export interface LoggingOptions {
 	* Each transport is an independent write stream. Multiple transports can run
 	* simultaneously (e.g. JSONL for machines, pretty for humans).
 	*
-	* @default `[{ format: 'json', path: './logs/monitor.log', rotation: { strategy: 'daily', maxFiles: 30 } }]`
+	* @default `[{ format: 'json', path: './logs/<appId>.log', rotation: { strategy: 'daily', maxFiles: 30 } }]`
 	*/
 	transports?: LogTransport[]
 }
@@ -1835,7 +1604,7 @@ export interface LogTransport {
 	* @remarks
 	* Parent directory is created recursively if absent. For `'daily'` rotation,
 	* a date suffix is inserted before the extension:
-	* `./logs/monitor.log` → `./logs/monitor-2024-03-15.log`
+	* `./logs/monitor.log` -> `./logs/monitor-2024-03-15.log`
 	*
 	* @example `'./logs/monitor.jsonl'`, `'/var/log/myapp/monitor.log'`
 	*/
@@ -1921,7 +1690,7 @@ export interface DashboardOptions {
 	* When `false`, no route is registered, no HTML is injected, and no
 	* dashboard JavaScript is bundled. The tracker client still functions normally.
 	*
-	* @default true
+	* @default false
 	*/
 	enabled?: boolean
 
@@ -1933,7 +1702,7 @@ export interface DashboardOptions {
 	* In production builds, the router or reverse proxy must serve the dashboard
 	* entry HTML at this path.
 	*
-	* @default '/_monitor'
+	* @default '/_dashboard'
 	*/
 	route?: string
 
@@ -1944,9 +1713,9 @@ export interface DashboardOptions {
 	* Validated client-side via `sessionStorage`. Suitable for dev/staging friction,
 	* not for production security. For production, protect the route at the proxy level.
 	*
-	* @default `{ username: 'admin', password: 'tracker' }`
+	* @default `false`
 	*/
-	auth?: { username: string; password: string }
+	auth?: { username: string; password: string } | false
 
 	/**
 	* Bundle the dashboard SPA into the production build output.
@@ -1975,9 +1744,10 @@ export interface DashboardOptions {
 * Configuration for the floating debug overlay widget.
 *
 * @remarks
-* The overlay is a Shadow DOM–isolated widget showing a live event feed and
-* basic session stats. Only mounted in dev/preview unless explicitly enabled
-* in production.
+* The overlay is a Shadow DOM–isolated widget showing session identity
+* (userId, sessionId, appId), browser context (route, viewport, language,
+* connection), and a link to the dashboard. Only mounted in dev/preview
+* unless explicitly enabled in production.
 *
 */
 export interface OverlayOptions {
@@ -1989,7 +1759,7 @@ export interface OverlayOptions {
 	* Must be explicitly set to `true` to appear in production - intentional
 	* friction to prevent accidental exposure.
 	*
-	* @default true in dev/preview, false in production build
+	* @default false in dev/preview, false in production build
 	*/
 	enabled?: boolean
 
@@ -2005,571 +1775,16 @@ export interface OverlayOptions {
 	position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
 }
 
-/**
-* Request body sent by the browser to {@link HttpStorageOptions.writeEndpoint}
-* on every queue flush.
-*
-* @remarks
-* Serialized as `application/json`. The full HTTP contract is:
-*
-* ```
-* POST <writeEndpoint>
-* Content-Type: application/json
-* X-Tracker-Key: <apiKey>          (optional)
-*
-* { "events": TrackerEvent[] }
-* ```
-*
-* The server must respond with any `2xx` status. The response body is ignored.
-* Non-`2xx` responses cause the batch to be requeued automatically.
-*/
-export interface IngestRequest {
-	/**
-	* Batch of events collected since the previous flush.
-	*
-	* @remarks
-	* Length bounded by {@link StorageOptions.batchSize} (default 10) for timer-triggered
-	* flushes. On page unload (`sendBeacon`), the entire remaining queue is sent.
-	*/
-	events: TrackerEvent[]
-}
-
-/**
-* Query parameters accepted by the `GET /events` endpoint.
-*
-* @remarks
-* All fields are optional - omitting a field means no constraint on that dimension.
-* Multiple fields combine with logical AND.
-*
-* Two pagination strategies are supported:
-* - **Offset pagination** - use `page` + `limit` for static reports.
-* - **Cursor pagination** - use `after` for live dashboard polling to avoid result shifting.
-*
-*/
-export interface EventsQuery {
-	/**
-	* Return only events with `timestamp >= since`. ISO 8601 UTC string.
-	*
-	* @example `'2024-03-15T00:00:00.000Z'`
-	*/
-	since?: string
-
-	/**
-	* Return only events with `timestamp <= until`. ISO 8601 UTC string.
-	*
-	* @example `'2024-03-15T23:59:59.999Z'`
-	*/
-	until?: string
-
-	/**
-	* Cursor for incremental live polling: return only events with `timestamp > after`.
-	*
-	* @remarks
-	* Pass the `timestamp` of the most recently received event. On the first poll
-	* (or after `PollHandle.resetCursor()`), omit this field - the backend returns
-	* the most recent `limit` events.
-	*
-	* @example `'2024-03-15T10:23:45.123Z'`
-	*/
-	after?: string
-
-	/**
-	* Return only events with `timestamp < before`. ISO 8601 UTC string.
-	*
-	* @remarks
-	* Used for backwards pagination. Typically combined with `limit` and `page`.
-	*/
-	before?: string
-
-	/**
-	* Filter by event category.
-	*
-	* @see {@link TrackerEventType}
-	*/
-	type?: TrackerEventType
-
-	/**
-	* Filter by severity level.
-	*
-	* @see {@link LogLevel}
-	*/
-	level?: LogLevel
-
-	/**
-	* Filter by `TrackerEvent.userId`. Exact match.
-	*/
-	userId?: string
-
-	/**
-	* Filter by `TrackerEvent.sessionId`. Exact match.
-	*
-	* @remarks
-	* Useful for reconstructing a single tab's session timeline.
-	*/
-	sessionId?: string
-
-	/**
-	* Filter by `TrackerEvent.groupId`. Exact match.
-	*
-	* @remarks
-	* Returns all events belonging to a specific logical group from `tracker.group('label')`.
-	*/
-	groupId?: string
-
-	/**
-	* Filter by `TrackerEvent.appId`. Useful on shared multi-app backends.
-	*/
-	appId?: string
-
-	/**
-	* Full-text search term matched against the serialized event payload.
-	*
-	* @remarks
-	* The standalone server performs a case-insensitive `JSON.stringify().includes(term)` scan.
-	* An external backend should use a proper text index for performance.
-	*/
-	search?: string
-
-	/**
-	* Maximum number of events per response. Backend enforces an internal cap (typically 500).
-	*
-	* @default 100
-	*/
-	limit?: number
-
-	/**
-	* 1-based page index for offset pagination. Prefer cursor (`after`) for live feeds.
-	*
-	* @default 1
-	*/
-	page?: number
-}
-
-/**
-* Response body the dashboard expects from {@link HttpStorageOptions.readEndpoint} or {@link WsStorageOptions.wsEndpoint}.
-*
-* @remarks
-* The full HTTP contract is:
-*
-* ```
-* GET <readEndpoint>?since=...&until=...&after=...&type=...&limit=...&page=...
-* Accept: application/json
-* X-Tracker-Key: <apiKey>          (optional)
-* ```
-*
-* The server must respond with `Content-Type: application/json` and this shape.
-* See {@link EventsQuery} for the full list of supported query parameters.
-*/
-export interface EventsResponse {
-	/**
-	* Page of events matching the query, sorted newest-first.
-	*
-	* @remarks
-	* May be empty if no events match. Length bounded by `limit` (default 100).
-	*/
-	events: TrackerEvent[]
-
-	/**
-	* Total count of matching events across all pages.
-	*
-	* @remarks
-	* Used to compute page count: `Math.ceil(total / limit)`.
-	*/
-	total: number
-
-	/**
-	* Current page index (1-based), mirroring the `page` query parameter.
-	*/
-	page: number
-
-	/**
-	* Events per page, mirroring the `limit` query parameter.
-	*/
-	limit: number
-
-	/**
-	* Timestamp of the newest event in this response, to be used as the `after`
-	* cursor on the next polling request.
-	*
-	* @remarks
-	* Absent when the response is empty. The poller should retain the previous
-	* cursor when `nextCursor` is absent.
-	*
-	* @example `'2024-03-15T10:23:45.123Z'`
-	*/
-	nextCursor?: string
-}
-
-/**
-* Fully resolved storage configuration produced internally by `resolveOptions()`.
-*
-* @remarks
-* All optional fields from {@link StorageOptions} are replaced with concrete values.
-* `mode` is never `'auto'` - already expanded to the effective mode.
-*
-* **Internal** - not part of the public API.
-*
-* @internal
-*/
-export type ResolvedStorage =
-	| {
-		/**
-		* Effective storage mode after `'auto'` expansion.
-		*
-		* @remarks
-		* Never `'auto'`. In dev/preview `'auto'` → `'middleware'`;
-		* in build it must have been explicitly set to `'http'`.
-		*/
-		mode: Exclude<StorageMode, 'websocket'>
-
-		/**
-		* Resolved write endpoint URL, trailing slashes stripped.
-		*
-		* @remarks
-		* For `'standalone'` / `'middleware'` set to the internal server path.
-		* For `'http'` mirrors `StorageOptions.writeEndpoint`.
-		*/
-		writeEndpoint: string
-
-		/**
-		* Resolved read endpoint full URL, trailing slashes stripped.
-		*
-		* @remarks
-		* Derived from `StorageOptions.readEndpoint`, or by stripping `/events`
-		* from `writeEndpoint` if `readEndpoint` was not set.
-		*/
-		readEndpoint: string
-
-		/** Ping endpoint URL, or empty string if not configured. */
-		pingEndpoint: string
-
-		wsEndpoint: ''
-
-		/** API key, or empty string if authentication is disabled. */
-		apiKey: string
-
-		/**
-		* TCP port for the standalone server. Only meaningful when `mode === 'standalone'`.
-		*
-		* @default 4242
-		*/
-		port: number
-
-		/** Maximum events per client-side queue flush. @default 10 */
-		batchSize: number
-
-		/** Maximum milliseconds between automatic flushes. @default 3000 */
-		flushInterval: number
-	}
-	| {
-		mode: 'websocket'
-
-		/** WebSocket endpoint URL, or empty string if not configured. */
-		wsEndpoint: string
-
-		/** Ping endpoint URL, or empty string if not configured. */
-		pingEndpoint: string
-
-		writeEndpoint: ''
-
-		readEndpoint: ''
-
-		/** API key, or empty string if authentication is disabled. */
-		apiKey: string
-
-		port: number
-
-		/** Maximum events per client-side queue flush. @default 10 */
-		batchSize: number
-
-		/** Maximum milliseconds between automatic flushes. @default 3000 */
-		flushInterval: number
-	}
-
-/**
-* Fully resolved plugin configuration with all defaults applied.
-*
-* @remarks
-* Produced by `resolveOptions()` and passed throughout plugin internals.
-* Every field is always present - no optional fields, no `undefined`.
-*
-* **Internal** - not part of the public API.
-*
-* @internal
-*/
-export type ResolvedTrackerOptions = {
-	/** Whether the plugin is active. When `false` all hooks are no-ops. */
-	enabled: boolean
-
-	/** Application identifier - always a non-empty string. */
-	appId: string
-
-	/** @see {@link ResolvedStorage} */
-	storage: ResolvedStorage
-
-	/**
-	* Whether to automatically inject and initialize the tracker client
-	* in index.html. @default `true`
-	*/
-	autoInit: boolean
-
-	track: {
-		clicks: boolean
-		http: boolean | HttpTrackOptions
-		errors: boolean
-		navigation: boolean
-		performance: boolean
-		console: boolean | ConsoleTrackOptions | false
-		/**
-		* Resolved userId function - always present, returns `null` when
-		* not configured by the consumer.
-		*/
-		userId: () => string | null
-		level: LogLevel
-		ignoreUrls: string[]
-	}
-
-	/**
-	* Logging configuration with defaults applied.
-	* `NonNullable` ensures no field is ever undefined after resolution.
-	*/
-	logging: NonNullable<TrackerPluginOptions['logging']>
-
-	/**
-	* All dashboard fields required - defaults applied by `resolveOptions()`.
-	*/
-	dashboard: Required<NonNullable<TrackerPluginOptions['dashboard']>>
-
-	/**
-	* All overlay fields required - defaults applied by `resolveOptions()`.
-	*/
-	overlay: Required<NonNullable<TrackerPluginOptions['overlay']>>
-}
-
-interface TrackerConfigCommon {
-	track: {
-		/** Whether click tracking is active. @default `true` */
-		clicks: boolean
-
-		/**
-		* HTTP tracking configuration.
-		*
-		* @remarks
-		* `false` disables tracking. `true` enables with safe defaults.
-		* `Record<string, unknown>` is the JSON-serialized form of {@link HttpTrackOptions}.
-		*/
-		http: boolean | HttpTrackOptions
-
-		/** Whether error tracking is active. @default `true` */
-		errors: boolean
-
-		/** Whether navigation tracking is active. @default `true` */
-		navigation: boolean
-
-		/** Whether Web Vitals tracking is active. @default `true` */
-		performance: boolean
-
-		/**
-		* Console tracking configuration.
-		*
-		* @remarks
-		* `false` disables tracking (default). `true` enables with safe defaults.
-		* `Record<string, unknown>` is the JSON-serialized form of {@link ConsoleTrackOptions}.
-		*/
-		console: boolean | ConsoleTrackOptions
-
-		/**
-		* Minimum severity level for events emitted by automatic trackers.
-		*
-		* @remarks
-		* Stored as a plain string after JSON serialization - not a {@link LogLevel}
-		* branded type. The client re-validates the value at runtime.
-		*
-		* @default `'info'`
-		*/
-		level: string
-
-		/**
-		* URL substrings that cause HTTP requests to be silently ignored.
-		*
-		* @see {@link TrackOptions.ignoreUrls}
-		* @default `[]`
-		*/
-		ignoreUrls: string[]
-	}
-
-	dashboard: {
-		/** Whether the dashboard is enabled. @default `true` */
-		enabled: boolean
-
-		/**
-		* URL pathname at which the dashboard is served.
-		*
-		* @default `'/_dashboard'`
-		*/
-		route: string
-
-		/**
-		* Polling interval in milliseconds between dashboard data fetches.
-		*
-		* @default `3000`
-		*/
-		pollInterval: number
-
-		/**
-		* Login credentials for the dashboard login gate.
-		*
-		* @see {@link DashboardOptions.auth}
-		*/
-		auth: { username: string; password: string }
-	}
-
-	overlay: {
-		/** Whether the debug overlay widget is visible. */
-		enabled: boolean
-
-		/**
-		* Corner of the viewport where the overlay FAB is anchored.
-		*
-		* @default `'bottom-right'`
-		*/
-		position: string
-	}
-}
-
-/**
-* Runtime configuration object passed directly to `tracker.init()`.
-*
-* @remarks
-* Represents the fully resolved plugin configuration.
-*
-* This type uses looser field types than {@link ResolvedTrackerOptions}
-* (e.g. `http` is `boolean | Record<string, unknown>` rather than
-* `boolean | HttpTrackOptions`) because the config is serialized through
-* `JSON.stringify` before reaching the browser - class instances and
-* branded types are not preserved across serialization.
-*
-* **Not intended to be constructed manually** - always produced by the
-* plugin's code generator. Exposed publicly so consumers can type the
-* argument when wrapping `initTracker()` in their own initialization logic.
-*
-* @example
-* ```ts
-* import { initTracker } from 'virtual:vite-tracker-client'
-* import type { TrackerConfig } from 'vite-plugin-tracker'
-*
-* function bootstrap(config: TrackerConfig) {
-*   if (import.meta.env.PROD) {
-*     initTracker(config, () => store.getState().userId)
-*   }
-* }
-* ```
-*
-*/
-export type TrackerConfig = TrackerConfigCommon & (
-	| {
-		mode: Exclude<StorageMode, 'websocket'>
-
-		/**
-		* Application identifier. Attached to every {@link TrackerEvent} as `appId`.
-		*
-		* @example `'storefront'`, `'backoffice'`
-		*/
-		appId: string
-
-		/**
-		* URL that receives batched events via HTTP POST.
-		*
-		* @remarks
-		* Resolved from {@link StorageOptions.writeEndpoint} with trailing slash stripped.
-		*/
-		writeEndpoint: string
-
-		/**
-		* Full URL the dashboard SPA uses to query events and build metrics and stats.
-		*
-		* @remarks
-		* Resolved from {@link StorageOptions.readEndpoint}.
-		*/
-		readEndpoint: string
-
-		/** Optional ping endpoint for health check. Empty string if not configured. */
-		pingEndpoint: string
-
-		wsEndpoint: ''
-
-		/**
-		* API key sent as the `X-Tracker-Key` header on every client request.
-		*
-		* @remarks
-		* Empty string `''` when authentication is disabled.
-		*/
-		apiKey: string
-
-		/**
-		* Maximum number of events accumulated before an automatic flush.
-		*
-		* @see {@link StorageOptions.batchSize}
-		* @default `10`
-		*/
-		batchSize: number
-
-		/**
-		* Maximum time in milliseconds between automatic queue flushes.
-		*
-		* @see {@link StorageOptions.flushInterval}
-		* @default `3000`
-		*/
-		flushInterval: number
-	}
-	| {
-		mode: 'websocket'
-
-		appId: string
-
-		/** WebSocket endpoint URL, or empty string if not configured. */
-		wsEndpoint: string
-
-		/** Optional ping endpoint for health check. Empty string if not configured. */
-		pingEndpoint: string
-
-		writeEndpoint: ''
-
-		readEndpoint: ''
-
-		/**
-		* API key sent as the `X-Tracker-Key` header on every client request.
-		*
-		* @remarks
-		* Empty string `''` when authentication is disabled.
-		*/
-		apiKey: string
-
-		/**
-		* Maximum number of events accumulated before an automatic flush.
-		*
-		* @see {@link StorageOptions.batchSize}
-		* @default `10`
-		*/
-		batchSize: number
-
-		/**
-		* Maximum time in milliseconds between automatic queue flushes.
-		*
-		* @see {@link StorageOptions.flushInterval}
-		* @default `3000`
-		*/
-		flushInterval: number
-	})
+// INFO Public client API
 
 /**
 * Public contract of the tracker client.
 *
 * @remarks
-* Implemented by {@link TrackerClient}. Exposed as an interface so consumers
+* Implemented by `TrackerClient`. Exposed as an interface so consumers
 * can mock or extend the tracker in tests without depending on the concrete class.
 *
-* All methods are safe to call before `initTracker()` via the {@link tracker}
+* All methods are safe to call before `tracker.init()` via the {@link tracker}
 * proxy object - calls are silently dropped if the instance is not yet available.
 *
 */
@@ -2611,7 +1826,7 @@ export interface ITrackerClient {
 	* @returns Elapsed time in milliseconds, or -1 if the timer was not found.
 	*
 	* @example
-	* tracker.timeEnd('api:fetchCart', { itemCount: 3 }) // → emits with duration: 312
+	* tracker.timeEnd('api:fetchCart', { itemCount: 3 }) // -> emits with duration: 312
 	*/
 	timeEnd(label: string, data?: Record<string, unknown>, opts?: TrackEventOptions): number
 
@@ -2664,212 +1879,61 @@ export interface ITrackerClient {
 	* any remaining queued events to the backend.
 	*
 	* After calling `destroy()`, the `tracker` proxy will silently drop
-	* all subsequent calls until `initTracker()` is called again.
+	* all subsequent calls until `tracker.init()` is called again.
 	*/
 	destroy(): void
 }
 
 /**
-* Type of the public {@link tracker} singleton object.
+* Type of the public {@link tracker} singleton proxy object.
 *
 * @remarks
 * Single entry point for all tracker operations in the browser.
-* Must be initialized once via {@link tracker.init} before any other
-* method is called. All methods are safe to call before initialization -
-* they are silently dropped until `init()` has run.
-*
+* All methods except `init` are safe to call before initialization -
+* they are silently dropped until `init()` has been called.
 *
 * @example
 * ```ts
-* // Setup (when `autoInit: false`):**
-* import { tracker } from 'vite-plugin-tracker/client'
-* tracker.init(config, () => store.getState().userId)
-* ```
-* ```ts
+* // When autoInit: false - call init manually at the right moment
+* import { tracker } from 'vite-plugin-monitor/client'
+* tracker.init(() => authStore.userId)
+*
 * tracker.track('checkout:complete', { orderId: 'ORD-99' })
 * tracker.setUser('user_42', { attributes: { plan: 'pro' } })
-*
+* ```
 */
 export type Tracker = {
 	/**
-	* Initialize the tracker with the provided configuration.
+	* Activate the tracker: starts the event queue flush timer, mounts the
+	* overlay, and attaches the page unload flush handler.
 	*
 	* @remarks
-	* Safe to call multiple times - subsequent calls are no-ops that return
-	* the existing instance (singleton). Returns `null` in non-browser
-	* environments (SSR).
+	* Safe to call multiple times - subsequent calls are no-ops (singleton).
 	*
 	* When `autoInit: true` (default), this is called automatically by the
-	* script injected into `index.html` by the plugin and does not need to
-	* be called manually.
+	* script injected into `index.html` and does not need to be called manually.
 	*
-	* When `autoInit: false`, this must be called explicitly at the
-	* appropriate point in the application lifecycle - for example after
-	* a user consent dialog, after authentication, or only in specific
-	* environments:
-	*
+	* When `autoInit: false`, call this explicitly at the appropriate point:
 	* ```ts
-	* import { tracker } from 'vite-plugin-tracker/client'
-	*
-	* // Call once, as early as possible in your app entry point
-	* tracker.init(config, () => authStore.userId)
+	* import { tracker } from 'vite-plugin-monitor/client'
+	* tracker.init(() => authStore.userId)
 	* ```
 	*
-	* @param userIdFn  - Function called lazily at each event emission to
-	*                    resolve the current user identifier. Return a string
-	*                    to identify the user, or `null` to fall back to the
-	*                    session ID.
-	* @returns The initialized {@link ITrackerClient} instance, or `null` in SSR.
+	* Note: event proxies (click, http, errors, navigation, console)
+	* are always installed before application code runs, regardless of `autoInit`.
+	* This call only activates the transport layer.
+	*
+	* @param userIdFn - Optional function called once at initialization to resolve
+	*                   the current user identifier. Return `null` to fall back to
+	*                   the anonymous session ID.
 	*/
 	init(userIdFn?: () => string | null): void
-	/**
-	* Track a named custom event with optional data and options.
-	*
-	* @remarks
-	* No-op if called before `tracker.init()`. Events are queued in memory
-	* and flushed to the backend in batches according to `batchSize` and
-	* `flushInterval` configuration.
-	*
-	* @param name - Event name. Recommend a consistent `domain:action`
-	*               naming convention for queryability in the dashboard.
-	* @param data - Arbitrary structured JSON-serializable data attached
-	*               to the event. Avoid including sensitive fields - no
-	*               automatic redaction is applied to custom events.
-	* @param opts - Optional overrides for level, groupId, and one-off context.
-	*
-	* @example
-	* tracker.track('purchase', { orderId: 'ORD-123', amount: 99.99 })
-	* tracker.track('form:error', { field: 'email' }, { level: 'warn' })
-	*/
 	track(name: string, data?: Record<string, unknown>, opts?: TrackEventOptions): void
-	/**
-	* Start a named performance timer.
-	*
-	* @remarks
-	* No-op if called before `tracker.init()` or if `performance` is
-	* unavailable. If a timer with the same label is already running,
-	* logs a warning and does nothing.
-	*
-	* @param label - Unique identifier for this timer. Use the same label
-	*                in the matching `timeEnd()` call.
-	*
-	* @example
-	* tracker.time('api:fetchProducts')
-	* const products = await fetchProducts()
-	* tracker.timeEnd('api:fetchProducts', { count: products.length })
-	*/
 	time(label: string): void
-	/**
-	* Stop a named timer and emit a custom event with the measured duration.
-	*
-	* @remarks
-	* No-op if called before `tracker.init()`. If the label was never
-	* started via `time()`, logs a warning and returns `-1`.
-	*
-	* Duration is computed as `Math.round(performance.now() - startTime)`
-	* and attached to the event payload as `duration` (milliseconds).
-	*
-	* @param label - Same string passed to the matching `time()` call.
-	* @param data  - Additional data to attach to the emitted event.
-	* @param opts  - Optional overrides for level, groupId, and context.
-	* @returns Elapsed time in milliseconds, or `-1` if the timer was not found.
-	*
-	* @example
-	* tracker.timeEnd('api:fetchProducts', { count: 42 })
-	* // → emits custom event 'api:fetchProducts' with duration: 312
-	*/
 	timeEnd(label: string, data?: Record<string, unknown>, opts?: TrackEventOptions): number
-	/**
-	* Update the current user identity and optional profile attributes.
-	*
-	* @remarks
-	* No-op if called before `tracker.init()`. All events emitted after
-	* this call will carry the new `userId` and `userAttributes` in
-	* `EventMeta`. Changes take effect immediately - no page reload required.
-	*
-	* Pass `null` to revert to an anonymous session-scoped identifier
-	* (e.g. after logout). The previous userId is removed from
-	* `sessionStorage` and a new anonymous ID is generated.
-	*
-	* @param userId - New user identifier, or `null` to clear.
-	* @param opts   - Optional user attributes to attach to subsequent events.
-	*                 Avoid storing PII or secrets here.
-	*
-	* @example
-	* // After login
-	* tracker.setUser('user-456', { attributes: { plan: 'pro', role: 'admin' } })
-	*
-	* // After logout
-	* tracker.setUser(null)
-	*/
 	setUser(userId: string | null, opts?: SetUserOptions): void
-	/**
-	* Set or update persistent context attributes merged into every
-	* subsequent event until explicitly cleared.
-	*
-	* @remarks
-	* No-op if called before `tracker.init()`. The context is a shallow
-	* key-value map maintained in the {@link TrackerSession}. It is merged
-	* into `TrackerEvent.context` at event construction time.
-	*
-	* Pass `null` as a value to remove a specific key from the context:
-	* `tracker.setContext({ abTest: null })`.
-	*
-	* Useful for cross-cutting concerns: A/B test variant, feature flags,
-	* tenant identifier, locale.
-	*
-	* @param attrs - Key-value pairs to merge into the persistent context.
-	*                Values of `null` remove the corresponding key.
-	*
-	* @example
-	* tracker.setContext({ tenant: 'acme', abTest: 'checkout-v2' })
-	*
-	* // Later - remove abTest without affecting other keys
-	* tracker.setContext({ abTest: null })
-	*/
 	setContext(attrs: Record<string, unknown>): void
-	/**
-	* Generate a unique group ID to correlate related events in the dashboard.
-	*
-	* @remarks
-	* Returns an offline placeholder (`grp_<name>_offline`) if called before
-	* `tracker.init()` - the placeholder is not queryable in the dashboard
-	* but prevents runtime errors in code that uses the return value immediately.
-	*
-	* Pass the returned ID as `groupId` in subsequent `track()` calls to
-	* link all events belonging to the same logical flow. All events sharing
-	* the same `groupId` can be filtered together via {@link EventsQuery.groupId}.
-	*
-	* @param name - Descriptive label for the group, used as part of the ID.
-	* @returns A unique group ID string.
-	*
-	* @example
-	* const checkoutId = tracker.group('checkout')
-	* tracker.track('step:address',  {}, { groupId: checkoutId })
-	* tracker.track('step:payment',  {}, { groupId: checkoutId })
-	* tracker.track('step:complete', { orderId: 'ORD-9' }, { groupId: checkoutId })
-	*/
 	group(name: string): string
-	/**
-	* Tear down the tracker instance and release all resources.
-	*
-	* @remarks
-	* No-op if called before `tracker.init()`. After calling `destroy()`,
-	* all subsequent method calls on `tracker` will be silently dropped
-	* until `tracker.init()` is called again.
-	*
-	* Performs the following cleanup:
-	* - Removes all event listeners registered by the automatic trackers
-	*   (click, http, error, navigation, performance, console).
-	* - Destroys the overlay widget and removes it from the DOM.
-	* - Clears all active `time()` timers.
-	* - Flushes any remaining queued events to the backend synchronously
-	*   via `navigator.sendBeacon`.
-	*
-	* @example
-	* // In a test teardown or hot-module replacement handler
-	* tracker.destroy()
-	*/
 	destroy(): void
 }
 
@@ -2877,9 +1941,12 @@ export type Tracker = {
 * Floating debug overlay widget rendered inside a Shadow DOM.
 *
 * @remarks
-* Instantiated by {@link TrackerClient._mountOverlay} after `DOMContentLoaded`.
-* The overlay shows session identity (userId, sessionId, appId), browser context
-* (route, viewport, language, connection), and a link to the full dashboard.
+* Instantiated by `TrackerClient` during the activation phase, after
+* `tracker.init()` is called.
+*
+* Shows session identity (userId, sessionId, appId), browser context
+* (route, viewport, language, connection), and a link to the dashboard.
+* The userId can be edited directly from the overlay panel.
 *
 * The panel is draggable by its header and can be toggled via the FAB button
 * or the `Alt+T` keyboard shortcut.
@@ -2894,7 +1961,7 @@ export interface IDebugOverlay {
 	* Notify the overlay that a new event was emitted by the tracker.
 	*
 	* @remarks
-	* Called by {@link TrackerClient} after every event is enqueued. Currently
+	* Called by `TrackerClient` after every event is enqueued. Currently
 	* reserved for future live event list rendering inside the overlay panel.
 	*
 	* @param event - The emitted {@link TrackerEvent}.
@@ -2934,40 +2001,872 @@ export interface IDebugOverlay {
 	* Refresh the userId display in the overlay panel.
 	*
 	* @remarks
-	* Called by {@link TrackerClient.setUser} whenever the userId changes
+	* Called by `TrackerClient.setUser()` whenever the userId changes
 	* programmatically, so the overlay always reflects the current identity.
+	* Also called by the overlay itself after the user confirms an inline edit.
 	*/
 	refreshUserId(): void
+}
+
+// INFO API contracts (write / read endpoints)
+
+/**
+* Request body sent by the browser to {@link HttpStorageOptions.writeEndpoint}
+* on every queue flush.
+*
+* @remarks
+* Serialized as `application/json`. The full HTTP contract is:
+*
+* ```
+* POST <writeEndpoint>
+* Content-Type: application/json
+* X-Tracker-Key: <apiKey>          (optional)
+*
+* { "events": TrackerEvent[] }
+* ```
+*
+* The server must respond with any `2xx` status. The response body is ignored.
+* Non-`2xx` responses cause the batch to be requeued automatically.
+*/
+export interface IngestRequest {
+	/**
+	* Batch of events collected since the previous flush.
+	*
+	* @remarks
+	* Length bounded by {@link HttpStorageOptions.batchSize} (default 10) for
+	* timer-triggered flushes. On page unload (`sendBeacon`), the entire
+	* remaining queue is sent in one shot.
+	*/
+	events: TrackerEvent[]
+}
+
+/**
+* Optional parameters accepted by the event reading endpoint.
+*
+* @remarks
+* **The built-in dashboard does not send any of these parameters.**
+* The call to the backend is always `GET <readEndpoint>` without a
+* query string. The server must return all available events
+* and the dashboard takes care of everything: filtering, temporal
+* grouping, aggregations, full-text search-all client-side.
+*
+* This interface is maintained solely for compatibility with
+* external backends or custom integrations that wish to implement
+* server-side filtering to optimize data transfer on
+* very large datasets.
+*/
+export interface EventsQuery {
+	/** Returns only events with `timestamp >= since`. ISO 8601 UTC. */
+	since?: string
+	/** Returns only events with `timestamp <= until`. ISO 8601 UTC. */
+	until?: string
+	/** Returns only events with `timestamp > after`. ISO 8601 UTC. */
+	after?: string
+	/** Filter by category. Not used by the built-in dashboard. */
+	type?: TrackerEventType
+	/** Filter by level. Not used by the built-in dashboard. */
+	level?: LogLevel
+	/** ​​Filter by userId. Not used by the built-in dashboard. */
+	userId?: string
+	/** Filter by sessionId. Not used by the built-in dashboard. */
+	sessionId?: string
+	/** Filter by groupId. Not used by the built-in dashboard. */
+	groupId?: string
+	/** Filter by appId. Not used by the built-in dashboard. */
+	appId?: string
+	/** Full-text search. Not used by the built-in dashboard. */
+	search?: string
+	/** Maximum number of events per page. Not used by the built-in dashboard. */
+	limit?: number
+	/** 1-based page index. Not used by the built-in dashboard. */
+	page?: number
+}
+
+/**
+* Response body of the event reading endpoint.
+*
+* @remarks
+* **Contract that the backend must respect:**
+* ```
+* GET <readEndpoint>
+* Accept: application/json
+* X-Tracker-Key: <apiKey> (optional)
+* ```
+* The backend must return all events available in the
+* `events` field, without filtering anything. The dashboard only reads `events`
+* and ignores the other pagination fields (`total`, `page`, `limit`,
+* `nextCursor`), which are retained for compatibility with backends that
+* implement their own pagination.
+*/
+export interface EventsResponse {
+	/**
+	* All available events, sorted from newest to oldest.
+	*
+	* @remarks
+	* This is the only field the built-in dashboard reads from the response.
+	* The backend must include all of them without additional filters.
+	*/
+	events: TrackerEvent[]
+
+	/** Total count. Ignored by the built-in dashboard. */
+	total: number
+
+	/** Current page. Ignored by the built-in dashboard. */
+	page: number
+
+	/** Page size. Ignored by the built-in dashboard. */
+	limit: number
+
+	/**
+	* Timestamp of the most recent event. Ignored by the built-in dashboard.
+	* Retained for compatibility with backends that support pagination.
+	*/
+	nextCursor?: string
+}
+
+// INFO Dashboard - aggregation types
+
+/**
+* A single time-bucketed data point in a time series.
+*
+* @remarks
+* Bucket format depends on the selected time range:
+* - **≤ 48 h** - hourly: `'YYYY-MM-DDTHH:00'`
+* - **> 48 h** - daily: `'YYYY-MM-DD'`
+*/
+export interface TimePoint {
+	/** Time bucket label. @example `'2024-03-15T14:00'` */
+	bucket: string
+	/** Aggregated value for this bucket. */
+	value: number
+}
+
+/** A ranked item for leaderboard-style lists (top pages, top users, etc.). */
+export interface RankedItem {
+	/** Display label (e.g. route pathname or userId). */
+	label: string
+	/** Total occurrences within the selected time range. */
+	count: number
+}
+
+/**
+* A single entry in the top-errors list.
+*
+* @remarks
+* Errors are grouped by {@link ErrorPayload.message}.
+*/
+export interface ErrorItem {
+	/** Error message - used as the grouping key. */
+	message: string
+	/** Total occurrences in the selected time range. */
+	count: number
+	/** ISO 8601 timestamp of the most recent occurrence. */
+	lastSeen: string
+}
+
+/**
+* A single step in the navigation funnel visualization.
+*
+* @remarks
+* Each step represents a route transition observed in the event data.
+*/
+export interface FunnelStep {
+	/** Source route - the `from` value of the {@link NavigationPayload}. */
+	from: string
+	/** Destination route - the `to` value of the {@link NavigationPayload}. */
+	to: string
+	/** Number of users who followed this exact from->to transition. */
+	count: number
+}
+
+/**
+* Aggregated metrics computed client-side in the browser from raw events.
+*
+* @remarks
+* Produced by `computeMetrics()` in `aggregations.ts`. Populates the charts
+* and ranked lists in the Metrics tab of the dashboard.
+*/
+export interface MetricsResult {
+	/** Number of distinct sessions with at least one event in the last 5 minutes. */
+	activeSessions: number
+	/** Time series of error rate (%) per bucket, sorted ascending. */
+	errorRateTimeline: TimePoint[]
+	/** Time series of total event volume per bucket, sorted ascending. */
+	eventVolume: TimePoint[]
+	/** Top 10 destination pages ranked by navigation count. */
+	topPages: RankedItem[]
+	/** Top 10 most frequent app error messages (type === 'error' only, excludes HTTP errors), shown in the "Top App Errors" panel. */
+	topErrors: ErrorItem[]
+	/** Top 10 most frequent from->to navigation transitions. */
+	navigationFunnel: FunnelStep[]
+	/** Top 10 HTTP endpoints ranked by call count. */
+	topEndpoints: RankedItem[]
+}
+
+/** HTTP request statistics computed from events with type === 'http'. */
+export interface HttpStats {
+	/** Total number of HTTP requests. */
+	total: number
+	/** Count of requests with status 2xx. */
+	count2xx: number
+	/** Count of requests with status 4xx. */
+	count4xx: number
+	/** Count of requests with status 5xx. */
+	count5xx: number
+	/** Percentage of 2xx responses (0–100). */
+	pct2xx: number
+	/** Percentage of 4xx responses (0–100). */
+	pct4xx: number
+	/** Percentage of 5xx responses (0–100). */
+	pct5xx: number
+	/** HTTP error rate: (4xx + 5xx) / total, as a fraction 0–1. */
+	httpErrorRate: number
+	/** URL of the most-called endpoint with its call count. */
+	mostCalledEndpoint?: { url: string; count: number; method: string; topStatus?: number }
+	/** URL of the slowest endpoint (highest avg duration) with its avg duration in ms. */
+	slowestEndpoint?: { url: string; avgDuration: number; method: string; topStatus?: number }
+}
+
+/**
+* Aggregated KPI stats computed client-side in the browser from raw events.
+*
+* @remarks
+* Produced by `computeStats()` in `aggregations.ts`. Populates the KPI cards
+* at the top of the dashboard.
+*/
+export interface StatsResult {
+	/** Total events in the time range. */
+	totalEvents: number
+	/** Number of distinct `sessionId` values. */
+	totalSessions: number
+	/** Number of distinct `userId` values. */
+	totalUsers: number
+	/**
+	 * Fraction of non-HTTP `'error'`-level events over the total.
+	 * Only counts type === 'error' (JS errors). Excludes HTTP 4xx/5xx.
+	 * Value between 0 and 1.
+	 */
+	errorRate: number
+	/** Arithmetic mean of all {@link HttpPayload.duration} values. Absent when no HTTP events. */
+	avgHttpDuration?: number
+	/** Top 10 routes by event count, sorted descending. */
+	topRoutes: Array<{ route: string; count: number }>
+	/** Top 10 users by event count, sorted descending. */
+	topUsers: Array<{ userId: string; count: number }>
+	/** Hourly event count time series, sorted ascending. */
+	timeline: Array<{ bucket: string; count: number }>
+	/** Aggregated HTTP request statistics. */
+	httpStats: HttpStats
+}
+
+// INFO Dashboard - state and UI component types
+
+/**
+ * Preset time window options available in the dashboard time range picker.
+ *
+ * @remarks
+ * `'live'` is a special rolling preset: the time window slides forward
+ * automatically on every poll tick, always showing the last 5 minutes
+ * up to the current moment. All other presets produce a fixed snapshot
+ * of the selected duration ending at the moment the preset was selected.
+ */
+export type TimePreset = 'live' | '1h' | '6h' | '24h' | '7d' | '30d'
+/**
+* Render mode for time series charts in the Metrics tab.
+*
+* @remarks
+* - `'line'` - line + area fill. Best for trends. Default.
+* - `'bar'`  - vertical bars. Best for comparing discrete buckets.
+*/
+export type ChartType = 'line' | 'bar'
+
+/**
+* Identifier for the currently active tab in the dashboard SPA.
+*
+* @remarks
+* | Value      | Content                                              |
+* |------------|------------------------------------------------------|
+* | `'metrics'`| KPI cards, time series charts, top lists, funnel     |
+* | `'events'` | Paginated raw event list with filters + detail panel |
+*/
+export type AppTab = 'metrics' | 'events'
+
+/**
+* Represents the currently selected time window for all dashboard queries.
+*
+* @remarks
+* All API calls use `from` and `to` as `since` and `until` parameters.
+* When `preset` is a {@link TimePreset}, `from`/`to` are recomputed on each
+* poll tick. When the user edits the datetime inputs, `preset` becomes `'custom'`.
+*/
+export interface TimeRange {
+	/**
+	 * Active preset label, or `'custom'` when an explicit range is set.
+	 *
+	 * @remarks
+	 * When `preset === 'live'`, `from` and `to` are indicative only -
+	 * the actual window is recomputed on every poll tick using
+	 * `LIVE_WINDOW_MS` from the current moment. Do not use `from`/`to`
+	 * directly when `preset === 'live'`; call `effectiveTimeRange()`
+	 * from `state.ts` instead.
+	 */
+	preset: TimePreset | 'custom'
+	/** Start of the time window. ISO 8601 UTC string. */
+	from: string
+	/** End of the time window. ISO 8601 UTC string. */
+	to: string
+}
+
+/**
+ * Operator that controls how the `search` term in {@link EventsFilter}
+ * is matched against the serialized event payload.
+ *
+ * | Value          | Behaviour                                                        |
+ * |----------------|------------------------------------------------------------------|
+ * | `'contains'`   | Case-insensitive substring match (default).                      |
+ * | `'not-contains'` | Excludes events whose payload contains the term.               |
+ * | `'equals'`     | Case-insensitive exact equality match on the full serialized payload. |
+ * | `'starts-with'`| Payload string starts with the term (case-insensitive).          |
+ * | `'ends-with'`  | Payload string ends with the term (case-insensitive).            |
+ * | `'regex'`      | Term is interpreted as a regular expression (case-insensitive).  |
+ *                    Invalid regex falls back to a literal `contains` match. |
+ */
+export type SearchOperator =
+	| 'contains'
+	| 'not-contains'
+	| 'equals'
+	| 'starts-with'
+	| 'ends-with'
+	| 'regex'
+
+/**
+ * Active filter state applied to the Events tab event list.
+ *
+ * @remarks
+ * All fields are optional and combine with AND logic.
+ * All filtering is performed client-side on the full event buffer -
+ * the backend always returns the complete unfiltered dataset for the
+ * selected time range. This ensures instant filter response without
+ * round-trips and allows combining any filter combination freely.
+ *
+ * The `search` field is matched client-side against the full JSON
+ * serialization of each event's payload, enabling free-text search
+ * across all payload fields without backend support.
+ */
+export interface EventsFilter {
+	/** Filter by event category. Client-side exact match on `event.type`. */
+	type?: TrackerEventType
+	/**
+	 * Filter by one or more severity levels. Client-side match on `event.level`.
+	 * An event passes if its level is included in the array.
+	 * Empty array or undefined means no level filter is applied.
+	 *
+	 */
+	level?: LogLevel[]
+	/**
+	 * Filter by user ID. Client-side case-insensitive substring match.
+	 * Matches against `event.userId`.
+	 */
+	userId?: string
+	/**
+	 * Free-text search term matched against `JSON.stringify(event.payload)`.
+	 * The matching strategy is controlled by {@link EventsFilter.searchOperator}.
+	 */
+	search?: string
+	/**
+	 * Operator applied when matching `search` against the event payload.
+	 *
+	 * @remarks
+	 * Defaults to `'contains'` when omitted.
+	 * Has no effect when `search` is empty or undefined.
+	 *
+	 * @default 'contains'
+	 * @see {@link SearchOperator}
+	 */
+	searchOperator?: SearchOperator
+	/**
+	 * Filter navigation events by destination route.
+	 * Client-side exact match on `event.meta.route`.
+	 *
+	 * @remarks
+	 * Used when clicking a Top Pages item or a Navigation Funnel step to
+	 * pre-filter the Events tab to that specific route.
+	 */
+	route?: string
+}
+
+/**
+* Complete reactive state of the dashboard SPA.
+*
+* @remarks
+* Owned by the `store` singleton in `state.ts`. All mutations go through
+* typed mutator methods. Consumers subscribe via the {@link StateEvents} bus.
+*/
+export interface AppState {
+	/** Whether the user has passed the login gate. */
+	authenticated: boolean
+	/** Currently visible tab. */
+	tab: AppTab
+	/** Selected time window, shared between Metrics and Events tabs. */
+	timeRange: TimeRange
+	/** Current render mode for all time series charts. */
+	chartType: ChartType
+	/** Latest metrics result. `null` before the first successful computation. */
+	metrics: MetricsResult | null
+	/** Latest stats result. `null` before the first successful computation. */
+	stats: StatsResult | null
+	/** `true` while metrics + stats are being fetched and computed. */
+	metricsLoading: boolean
+	/** Error message from the last failed metrics fetch. `null` when healthy. */
+	metricsError: string | null
+	/** Events displayed in the Events tab. */
+	events: TrackerEvent[]
+	/** Active filter applied to the Events tab list. */
+	eventsFilter: EventsFilter
+	/** `true` while a full events reload is in-flight. */
+	eventsLoading: boolean
+	/** Error message from the last failed events fetch. `null` when healthy. */
+	eventsError: string | null
+	/** Total count of matching events for pagination display. */
+	eventsTotal: number
+	/** Event currently shown in the detail side panel. `null` when closed. */
+	selectedEvent: TrackerEvent | null
+	/** Whether the backend responded successfully to the last ping check. */
+	backendOnline: boolean
+}
+
+/**
+* Type map for the dashboard reactive pub/sub event bus.
+*
+* @remarks
+* Keys are event names; values are the payload types passed to subscribers.
+* ```ts
+* store.on('tab:change', (tab) => renderTab(tab))
+* ```
+*/
+export interface StateEvents {
+	'auth:change': boolean
+	'tab:change': AppTab
+	'timeRange:change': TimeRange
+	'chartType:change': ChartType
+	'metrics:update': { metrics: MetricsResult; stats: StatsResult }
+	'metrics:loading': boolean
+	'metrics:error': string | null
+	'events:update': TrackerEvent[]
+	'events:filter': EventsFilter
+	'events:loading': boolean
+	'events:error': string | null
+	'events:select': TrackerEvent | null
+	'backend:status': boolean
+}
+
+/**
+* Configuration passed to `createPoller()` to start a polling loop.
+*
+* @remarks
+* Uses `setTimeout` (not `setInterval`) so ticks never overlap: the next tick
+* is scheduled only after `onTick` resolves. This prevents pileup on slow backends.
+*/
+export interface PollOptions {
+	/**
+	* Time in milliseconds to wait between the end of one tick and the start of the next.
+	*
+	* @remarks
+	* Effective interval = `intervalMs + onTick duration`. For fast backends the
+	* difference is imperceptible; for slow ones, the poller self-throttles.
+	*
+	* @default 3000
+	*/
+	intervalMs: number
+
+	/**
+	 * Async function executed on every tick.
+	 *
+	 * @remarks
+	 * Receives the current cursor (`null` on first tick or after `resetCursor()`).
+	 * Returning `null` keeps the cursor at `null` so every subsequent tick
+	 * performs a full reload - this is the intended behaviour for the events
+	 * poller, which always fetches the complete time window from the backend
+	 * and delegates all filtering to the client.
+	 * Returning a non-null string advances the cursor for incremental fetches -
+	 * used only by the metrics poller (which always returns `null` anyway).
+	 * Throwing is safe - errors are forwarded to `onError` and the loop continues.
+	 */
+	onTick: (cursor: string | null) => Promise<string | null>
+
+	/** Called when `onTick` throws. The loop continues after an error. */
+	onError?: (err: unknown) => void
+}
+
+/**
+* Handle returned by `createPoller()` for controlling a running poll loop.
+*
+* @remarks
+* All methods are safe to call from any context. `stop()` is idempotent.
+*/
+export interface PollHandle {
+	/**
+	* Immediately trigger one tick outside the normal interval, then resume normally.
+	*
+	* @remarks
+	* Useful after a user action known to have produced new backend data.
+	*/
+	refresh(): void
+
+	/**
+	* Reset the cursor to `null` so the next tick performs a full data reload.
+	*
+	* @remarks
+	* Does not immediately trigger a tick. Use after a filter change that
+	* invalidates the current event list.
+	*/
+	resetCursor(): void
+
+	/**
+	* Permanently stop the poll loop and cancel any pending timer.
+	*
+	* @remarks
+	* The instance cannot be restarted after `stop()`. Safe to call multiple times.
+	*/
+	stop(): void
+}
+
+/**
+* SVG chart render mode.
+*
+* @remarks
+* Separate alias from {@link ChartType} to decouple the chart component API
+* from the dashboard state model.
+*/
+export type ChartMode = 'line' | 'bar'
+
+/**
+* Immutable configuration passed to `createChart()` at construction time.
+*/
+export interface ChartOptions {
+	/**
+	* CSS color applied to the chart line, area fill gradient, and bar fill.
+	*
+	* @default '#3b82f6'
+	*/
+	color?: string
+
+	/**
+	* Y-axis unit label shown in the tooltip on data-point hover.
+	*
+	* @default 'events'
+	*/
+	label?: string
+
+	onClick?: () => void
+}
+
+/**
+* Public interface of a chart component instance returned by `createChart()`.
+*
+* @remarks
+* Renders as an inline SVG inside a `<div>` wrapper. Mount `el` once;
+* call `render()` repeatedly with updated data.
+*/
+export interface ChartComponent {
+	/** Root `<div>` containing the SVG chart. Append to DOM once. */
+	el: HTMLElement
+	/**
+	* Re-render the chart with new data, optionally switching render mode.
+	*
+	* @param data - Time-bucketed data points to plot.
+	* @param mode - `'line'` or `'bar'`. Defaults to last-used mode.
+	*/
+	render: (data: TimePoint[], mode?: ChartMode) => void
+}
+
+/**
+* Public interface of the Top Pages panel component.
+*/
+export interface TopPagesComponent extends HTMLElement {
+	render(items: RankedItem[]): void
+}
+
+/**
+* Public interface of the Top Errors panel component.
+*/
+export interface TopErrorsComponent extends HTMLElement {
+	render(items: ErrorItem[]): void
+}
+
+/**
+* Public interface of the Navigation Funnel panel component.
+*/
+export interface FunnelComponent extends HTMLElement {
+	render(steps: FunnelStep[]): void
+}
+
+// INFO Plugin internals (Node.js)
+
+/**
+* Logger instance returned by `createLogger()`.
+*
+* @remarks
+* The logger has two distinct responsibilities:
+*
+* 1. **Console output** (`debug`, `info`, `warn`, `error`) - runs on the main
+*    thread, used exclusively for Vite plugin diagnostic messages prefixed with
+*    `[tracker]`.
+*
+* 2. **Event file writing** (`writeEvent`) - delegates all file I/O to a
+*    dedicated worker thread via `postMessage`. The main thread never blocks
+*    on stream backpressure or rotation.
+*
+* **Internal use only** - not part of the public plugin API.
+*
+* @since 0.1.0
+*/
+export interface Logger {
+	/** Emit a debug-level message. Only printed when `LoggingOptions.level = 'debug'`. */
+	debug(msg: string): void
+	/** Emit an info-level message. Printed at `'debug'` or `'info'` level. */
+	info(msg: string): void
+	/** Emit a warn-level message. Printed at `'debug'`, `'info'`, or `'warn'` level. */
+	warn(msg: string): void
+	/** Emit an error-level message. Always printed regardless of level. */
+	error(msg: string): void
+	/**
+	* Write a tracked event to all configured log file transports.
+	*
+	* @remarks
+	* Non-blocking - delegates to the logger worker thread immediately.
+	* Events below `LoggingOptions.level` are discarded before being sent.
+	*/
+	writeEvent(event: TrackerEvent): void
+	/**
+	* Flush pending events and gracefully shut down the logger worker thread.
+	*
+	* @remarks
+	* Called by the shutdown hook on `SIGTERM`/`SIGINT`/`SIGHUP` and by
+	* `closeBundle()` at the end of a production build.
+	*
+	* @returns Resolves when the worker exits or after a 3-second safety timeout.
+	*/
+	destroy(): Promise<void>
 }
 
 /**
 * A cleanup callback registered with `registerShutdownHook()`.
 *
 * @remarks
-* Can be synchronous or return a `Promise`. All registered hooks run
-* **concurrently** via `Promise.allSettled` on shutdown signal, subject to
-* the 5-second global deadline.
-*
-* Hooks must be **idempotent** - they may be called once per signal received
-* and the shutdown module guards against double-invocation, but defensive
-* implementations are safer under HMR.
-*
-* @example
-* ```ts
-* const unregister = registerShutdownHook(async () => {
-*   await logger.destroy()   // flush writes, close streams
-*   server.close()           // stop accepting connections
-* })
-* ```
-*
+* Can be synchronous or return a `Promise`. All hooks run concurrently via
+* `Promise.allSettled` on shutdown, subject to a 5-second global deadline.
+* Hooks must be idempotent.
 */
 export type CleanupFn = () => Promise<void> | void
+
+/**
+* Fully resolved storage configuration produced internally by `resolveOptions()`.
+*
+* @remarks
+* All optional fields are replaced with concrete values.
+* `mode` is never `'auto'` - already expanded to the effective mode.
+*
+* @internal
+*/
+export type ResolvedStorage =
+	| {
+		mode: Exclude<StorageMode, 'websocket'>
+		writeEndpoint: string
+		readEndpoint: string
+		pingEndpoint: string
+		wsEndpoint: ''
+		apiKey: string
+		port: number
+		batchSize: number
+		flushInterval: number
+	}
+	| {
+		mode: 'websocket'
+		wsEndpoint: string
+		pingEndpoint: string
+		writeEndpoint: ''
+		readEndpoint: ''
+		apiKey: string
+		port: number
+		batchSize: number
+		flushInterval: number
+	}
+
+/**
+* Fully resolved plugin configuration with all defaults applied.
+*
+* @remarks
+* Produced by `resolveOptions()` and passed throughout plugin internals.
+* Every field is always present - no optional fields, no `undefined`.
+*
+* @internal
+*/
+export type ResolvedTrackerOptions = {
+	/** Whether the plugin is active. When `false` all hooks are no-ops. */
+	enabled: boolean
+	appId: string
+	storage: ResolvedStorage
+	autoInit: boolean
+	track: {
+		clicks: boolean
+		http: boolean | HttpTrackOptions
+		errors: boolean
+		navigation: boolean
+		console: boolean | ConsoleTrackOptions | false
+		userId: () => string | null
+		level: LogLevel
+		ignoreUrls: string[]
+	}
+	logging: NonNullable<TrackerPluginOptions['logging']>
+	dashboard: Required<NonNullable<TrackerPluginOptions['dashboard']>>
+	overlay: Required<NonNullable<TrackerPluginOptions['overlay']>>
+}
+
+/** @internal Shared fields between the two `TrackerConfig` transport variants. */
+interface TrackerConfigCommon {
+	appId: string
+	apiKey: string
+	batchSize: number
+	flushInterval: number
+	track: {
+		clicks: boolean
+		http: boolean | HttpTrackOptions
+		errors: boolean
+		navigation: boolean
+		console: boolean | ConsoleTrackOptions
+		level: string
+		ignoreUrls: string[]
+	}
+	dashboard: {
+		enabled: boolean
+		route: string
+		pollInterval: number
+		auth: { username: string; password: string } | false
+	}
+	overlay: {
+		enabled: boolean
+		position: string
+	}
+}
+
+/**
+* Runtime configuration object injected into `window.__TRACKER_CONFIG__`
+* by the plugin and read by the browser client.
+*
+* @remarks
+* Uses a discriminated union so the client can determine the active
+* transport mode at runtime. Always produced by the plugin's code
+* generator - never constructed manually.
+*
+* @internal
+*/
+export type TrackerConfig = TrackerConfigCommon & (
+	| {
+		mode: Exclude<StorageMode, 'websocket'>
+		writeEndpoint: string
+		readEndpoint: string
+		pingEndpoint: string
+		wsEndpoint: ''
+	}
+	| {
+		mode: 'websocket'
+		wsEndpoint: string
+		pingEndpoint: string
+		writeEndpoint: ''
+		readEndpoint: ''
+	}
+)
+
+// INFO Internal implementation types
+
+/**
+ * Resolved http options.
+ *
+ * @internal
+ */
+export interface ResolvedHttpOpts {
+	captureRequestHeaders:  boolean
+	captureRequestBody:     boolean
+	captureResponseHeaders: boolean
+	captureResponseBody:    boolean
+	excludeHeaders:         string[]
+	redactKeys:             string[]
+	maxBodySize:            number
+}
+
+/**
+* Options for the client-side `EventQueue`.
+*
+* @internal
+*/
+export interface QueueOptions {
+	wsEndpoint: string
+	writeEndpoint: string
+	apiKey: string
+	batchSize: number
+	flushInterval: number
+}
+
+/**
+* Resolved console tracker options after defaults are applied.
+*
+* @internal
+*/
+export interface ResolvedConsoleOpts {
+	methods: Set<ConsoleMethod>
+	maxArgLength: number
+	maxArgs: number
+	captureStackOnError: boolean
+	ignorePatterns: string[]
+}
+
+/**
+* XMLHttpRequest extended with private tracker state fields.
+*
+* @internal
+*/
+export type TrackedXHR = XMLHttpRequest & {
+	__tracker_method__: string
+	__tracker_url__: string
+	__tracker_startTime__: number
+	__tracker_reqBody__: unknown
+	__tracker_headers__: Record<string, string>
+}
+
+/**
+* Configuration for a single KPI card in the dashboard.
+*
+* @internal
+*/
+export interface KpiCard {
+	id: string
+	label: string
+	getValue: (stats: StatsResult, metrics: MetricsResult | null) => string
+	getClass: (stats: StatsResult, metrics: MetricsResult | null) => string
+}
+
+/**
+* Generic pub/sub listener function.
+*
+* @internal
+*/
+export type Listener<T> = (payload: T) => void
+
+/**
+* SVG element attribute map used by the `svgEl` DOM utility.
+*
+* @internal
+*/
+export type Attrs = Record<string, string | boolean | number | null | undefined>
+
+// INFO Global augmentations
 
 declare global {
 	interface Window {
 		/** @internal Injected and frozen by the plugin. Do not modify. */
 		readonly __TRACKER_CONFIG__: TrackerConfig
-		/** @internal Set once by TrackerClient. Do not modify. */
+		/** @internal Set once by TrackerClient after init. Do not modify. */
 		__tracker_instance__?: Tracker
 	}
 
@@ -2977,7 +2876,6 @@ declare global {
 	* @remarks
 	* Stored on `globalThis` (not module scope) so the array survives HMR
 	* re-evaluations of `shutdown.ts` without losing previously registered hooks.
-	* Initialized lazily to an empty array on first access.
 	*/
 	// eslint-disable-next-line no-var
 	var __tracker_shutdown_hooks__: Array<CleanupFn> | undefined
@@ -2987,8 +2885,7 @@ declare global {
 	*
 	* @remarks
 	* Set to `true` the first time `registerShutdownHook()` installs the signal
-	* handlers (`SIGTERM`, `SIGINT`, `SIGHUP`). Subsequent HMR re-evaluations
-	* see this flag and skip re-registration, preventing duplicate handler stacking.
+	* handlers. Subsequent HMR re-evaluations skip re-registration.
 	*/
 	// eslint-disable-next-line no-var
 	var __tracker_shutdown_installed__: boolean | undefined

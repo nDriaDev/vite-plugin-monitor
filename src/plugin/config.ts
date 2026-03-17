@@ -1,4 +1,10 @@
 import { HttpStorageOptions, ResolvedTrackerOptions, StorageMode, TrackerPluginOptions, WsStorageOptions } from "@tracker/types";
+import { createHmac } from "node:crypto";
+
+
+function hashCredential(value: string, appId: string): string {
+	return createHmac('sha256', appId).update(value).digest('hex')
+}
 
 export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptions {
 	if (!opts.appId) {
@@ -20,6 +26,15 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 
 	const httpOpts = opts.storage as HttpStorageOptions | undefined
 	const wsOpts = opts.storage as WsStorageOptions | undefined
+	let auth = opts.dashboard?.auth;
+	if (auth === false || auth === undefined || auth === null) {
+		auth = false;
+	} else {
+		auth = {
+			username: hashCredential(auth.username, opts.appId),
+			password: hashCredential(auth.password, opts.appId)
+		}
+	}
 
 	return {
 		enabled: opts.enabled ?? true,
@@ -48,12 +63,11 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 				flushInterval: httpOpts?.flushInterval ?? 3000
 			},
 		track: {
-			clicks:      opts.track?.clicks      ?? true,
-			http:        opts.track?.http        ?? true,
-			errors:      opts.track?.errors      ?? true,
-			navigation:  opts.track?.navigation  ?? true,
-			performance: opts.track?.performance ?? true,
-			console:     opts.track?.console     ?? false,
+			clicks:      opts.track?.clicks      ?? false,
+			http:        opts.track?.http        ?? false,
+			errors:      opts.track?.errors      ?? false,
+			navigation:  opts.track?.navigation  ?? false,
+			console:     opts.track?.console     ?? true,
 			userId:      opts.track?.userId      ?? (() => null),
 			level:       opts.track?.level       ?? 'info',
 			ignoreUrls:  opts.track?.ignoreUrls  ?? [],
@@ -69,15 +83,14 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 			],
 		},
 		dashboard: {
-			enabled:        opts.dashboard?.enabled        ?? true,
+			enabled:        opts.dashboard?.enabled        ?? false,
 			route:          opts.dashboard?.route          ?? '/_dashboard',
-			auth: opts.dashboard?.auth ?? { username: 'admin', password: 'admin' },
+			auth,
 			includeInBuild: opts.dashboard?.includeInBuild ?? false,
 			pollInterval:   opts.dashboard?.pollInterval   ?? 3000,
 		},
-
 		overlay: {
-			enabled:  opts.overlay?.enabled  ?? true,
+			enabled:  opts.overlay?.enabled  ?? false,
 			position: opts.overlay?.position ?? 'bottom-right',
 		},
 		autoInit: opts.autoInit ?? true

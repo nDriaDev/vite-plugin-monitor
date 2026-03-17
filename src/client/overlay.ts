@@ -7,7 +7,7 @@ export class DebugOverlay implements IDebugOverlay {
 	/** Host element appended to `document.body`. Contains the Shadow DOM root. */
 	private host: HTMLElement;
 
-	/** Closed Shadow DOM root — prevents external CSS from leaking in or out. */
+	/** Closed Shadow DOM root - prevents external CSS from leaking in or out. */
 	private shadow: ShadowRoot;
 
 	/** The floating panel element. Toggled via the `.open` CSS class. */
@@ -115,7 +115,7 @@ export class DebugOverlay implements IDebugOverlay {
 		this.fab = document.createElement('div');
 		this.fab.id = 'fab';
 		this.fab.innerHTML = ICONS.TRACKER_ICON;
-		this.fab.title = 'Tracker — Session info (Alt+T)';
+		this.fab.title = 'Vite plugin Monitor - Tracks info (Alt+T)';
 		this.shadow.appendChild(this.fab);
 
 		this.panel = document.createElement('div');
@@ -147,7 +147,7 @@ export class DebugOverlay implements IDebugOverlay {
 			{ key: 'Route', val: window.location.pathname },
 			{ key: 'Viewport', val: `${window.innerWidth}×${window.innerHeight}` },
 			{ key: 'Language', val: navigator.language },
-			{ key: 'Connection', val: nav.connection?.effectiveType ?? '—' },
+			{ key: 'Connection', val: nav.connection?.effectiveType ?? '-' },
 		];
 
 		return `
@@ -280,7 +280,7 @@ export class DebugOverlay implements IDebugOverlay {
 
 		this.shadow.querySelector('#close')!.addEventListener('click', () => this.close());
 
-		// INFO Copy buttons — delegated to the shadow root
+		// INFO Copy buttons - delegated to the shadow root
 		this.shadow.addEventListener('click', (e) => {
 			const btn = (e.target as HTMLElement).closest('.copy-btn') as HTMLElement | null;
 			if (!btn) {
@@ -296,7 +296,7 @@ export class DebugOverlay implements IDebugOverlay {
 			});
 		})
 
-		// INFO Drag — initiated from the header, tracked on document
+		// INFO Drag - initiated from the header, tracked on document
 		const header = this.shadow.querySelector('#header') as HTMLElement;
 		header.addEventListener('mousedown', (e) => {
 			if (!this.panel.classList.contains('open')) {
@@ -327,7 +327,7 @@ export class DebugOverlay implements IDebugOverlay {
 		const updates: Record<string, string> = {
 			Route: window.location.pathname,
 			Viewport: `${window.innerWidth}×${window.innerHeight}`,
-			Connection: nav.connection?.effectiveType ?? '—',
+			Connection: nav.connection?.effectiveType ?? '-',
 		};
 		for (const [field, val] of Object.entries(updates)) {
 			const el = this.shadow.querySelector<HTMLElement>(`[data-field="${field}"]`);

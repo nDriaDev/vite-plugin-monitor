@@ -1,17 +1,18 @@
 import { createChart } from './components/chart';
 import { createHeader } from './components/header';
-import { createKpiCards } from './components/kpi-cards';
+import { createHttpInfoCards, createHttpStatusCards, createKpiCards } from './components/kpi-cards';
 import { checkStoredAuth, createLoginScreen } from './components/login';
 import { initRouter } from './router';
-import { store } from './state';
+import { effectiveTimeRange, store } from './state';
 import './style.css';
 import { el, hide, on, show, toggleVisible } from './utils/dom';
-import { createFunnel, createTopErrors, createTopPages, FunnelComponent, TopErrorsComponent, TopPagesComponent } from './components/top-list';
 import { createEventsTable } from './components/events-table';
 import { createEventDetail } from './components/event-detail';
 import { createPoller } from './utils/poll';
-import { fetchEvents, fetchPing } from './api';
-import { computeMetrics, computeStats, fetchAllEvents } from './aggregations';
+import { fetchAllEvents, fetchPing } from './api';
+import { computeMetrics, computeStats } from './aggregations';
+import { FunnelComponent, TopErrorsComponent, TopPagesComponent } from '@tracker/types';
+import { createFunnel, createTopEndpoints, createTopErrors, createTopPages } from './components/top-list';
 
 /**
 * Dashboard entry point.
@@ -52,12 +53,93 @@ function mountApp(root: HTMLElement) {
 
 	root.append(header, errorBanner, main);
 
-	const kpiCards = createKpiCards();
-	const volumeChart = createChart({ color: '#3b82f6', label: 'events' });
-	const errorChart = createChart({ color: '#ef4444', label: '%' });
-	const topPages: TopPagesComponent = createTopPages();
-	const topErrors: TopErrorsComponent = createTopErrors();
-	const funnel: FunnelComponent = createFunnel();
+	// INFO Row 1: Active Sessions | Total Events | Unique Users | App Error Rate
+	const kpiCards = createKpiCards({
+		onTotalEventsClick: () => {
+			store.setEventsFilter({});
+			store.setTab('events');
+		},
+		onAppErrorRateClick: () => {
+			store.setEventsFilter({ type: 'error', level: ["error"] });
+			store.setTab('events');
+		}
+	});
+
+	// INFO Row 2: Top Pages | Top App Errors | Navigation Funnel | Top Endpoints
+	const topPages: TopPagesComponent = createTopPages((route) => {
+		// INFO search on 'to' field of navigation payload, shown in search box
+		store.setEventsFilter({ type: 'navigation', searchOperator: "ends-with", search: route });
+		store.setTab('events');
+	});
+	const topErrors: TopErrorsComponent = createTopErrors((message) => {
+		store.setEventsFilter({ type: 'error', searchOperator: "equals", search: message });
+		store.setTab('events');
+	});
+	const funnel: FunnelComponent = createFunnel((from, to) => {
+		// INFO filter navigation events whose 'to' field matches the destination
+		store.setEventsFilter({ type: 'navigation', searchOperator: "equals", search: `${from} -> ${to}` });
+		store.setTab('events');
+	});
+	const topEndpoints = createTopEndpoints((url) => {
+		store.setEventsFilter({ type: 'http', searchOperator: "contains", search: url });
+		store.setTab('events');
+	});
+	const listsRow = el('div', { class: 'bottom-row bottom-row--4col' });
+	listsRow.append(topPages, topErrors, funnel, topEndpoints);
+
+	// INFO Row 3: Most Called Endpoint | Avg HTTP | HTTP Error Rate | Slowest Endpoint
+	const httpInfoCards = createHttpInfoCards({
+		onMostCalledClick: (url) => {
+			store.setEventsFilter({ type: 'http', searchOperator: "equals", search: url });
+			store.setTab('events');
+		},
+		onHttpErrorRateClick: () => {
+			store.setEventsFilter({ type: 'http', level: ['warn', 'error'] });
+			store.setTab('events');
+		},
+		onSlowestClick: (url) => {
+			store.setEventsFilter({ type: 'http', searchOperator: "equals", search: url });
+			store.setTab('events');
+		},
+	});
+
+	// INFO Row 4: Total Requests | 2xx | 4xx | 5xx (con rating)
+	const httpStatusCards = createHttpStatusCards({
+		onTotalClick: () => {
+			store.setEventsFilter({ type: 'http' });
+			store.setTab('events');
+		},
+		on2xxClick: () => {
+			store.setEventsFilter({ type: 'http', level: ["info"] });
+			store.setTab('events');
+		},
+		on4xxClick: () => {
+			store.setEventsFilter({ type: 'http', level: ["warn"] });
+			store.setTab('events');
+		},
+		on5xxClick: () => {
+			store.setEventsFilter({ type: 'http', level: ["error"] });
+			store.setTab('events');
+		},
+	});
+
+	// INFO Row 5: graphs
+	const volumeChart = createChart({
+		color: '#3b82f6',
+		label: 'events',
+		onClick: () => {
+			store.setEventsFilter({ type: undefined });
+			store.setTab('events');
+		}
+	});
+	const errorChart = createChart({
+		color: '#ef4444',
+		label: '%',
+		onClick: () => {
+			store.setEventsFilter({ level: ['error'] });
+			store.setTab('events');
+		}
+	});
 
 	const chartsRow = el('div', { class: 'charts-row' });
 
@@ -76,17 +158,14 @@ function mountApp(root: HTMLElement) {
 	const errorPanel = el('div', { class: 'panel chart-panel' });
 	errorPanel.innerHTML = `
     <div class="panel-header">
-		<span class="panel-title">Error Rate %</span>
+		<span class="panel-title">Total Error Rate %</span>
     </div>
 `;
 	errorPanel.append(errorChart.el);
 
 	chartsRow.append(volumePanel, errorPanel);
 
-	const bottomRow = el('div', { class: 'bottom-row' });
-	bottomRow.append(topPages, topErrors, funnel);
-
-	metricsTab.append(kpiCards, chartsRow, bottomRow);
+	metricsTab.append(kpiCards, listsRow, httpInfoCards, httpStatusCards, chartsRow);
 
 	volumePanel.querySelectorAll<HTMLButtonElement>('.toggle-btn').forEach(btn => {
 		on(btn, 'click', () => {
@@ -102,7 +181,7 @@ function mountApp(root: HTMLElement) {
 			volumeChart.render(s.metrics.eventVolume, mode);
 			errorChart.render(s.metrics.errorRateTimeline, mode);
 		}
-	})
+	});
 
 	const eventsTable = createEventsTable();
 	const eventDetail = createEventDetail();
@@ -114,12 +193,16 @@ function mountApp(root: HTMLElement) {
 
 	store.on('events:select', (ev) => {
 		eventsLayout.classList.toggle('has-detail', !!ev);
-	})
+	});
 
 	store.on('tab:change', (tab) => {
 		toggleVisible(metricsTab, tab === 'metrics');
 		toggleVisible(eventsTab, tab === 'events');
+		main.scrollTop = 0;
 	});
+	const currentTab = store.get().tab;
+	toggleVisible(metricsTab, currentTab === 'metrics');
+	toggleVisible(eventsTab, currentTab === 'events');
 
 	store.on('metrics:error', (err) => {
 		if (err) {
@@ -128,7 +211,7 @@ function mountApp(root: HTMLElement) {
 		} else {
 			hide(errorBanner);
 		}
-	})
+	});
 
 	const cfg = (window as any).__TRACKER_CONFIG__;
 	const pollIntervalMs = cfg?.dashboard?.pollInterval ?? 3000;
@@ -137,20 +220,21 @@ function mountApp(root: HTMLElement) {
 		intervalMs: pollIntervalMs,
 		onError: (err) => store.setMetricsError(String(err)),
 		onTick: async () => {
-			const { from, to } = store.get().timeRange;
 			store.setMetricsLoading(true);
 			try {
-				const events = await fetchAllEvents(from, to);
+				const events = await fetchAllEvents();
+				const { from, to } = effectiveTimeRange(store.get().timeRange);
 				const metrics = computeMetrics(events, from, to);
 				const stats = computeStats(events, from, to);
 				store.setMetrics(metrics, stats);
 
 				const s = store.get();
 				volumeChart.render(metrics.eventVolume, s.chartType);
-				errorChart.render(metrics.errorRateTimeline,  s.chartType);
+				errorChart.render(metrics.errorRateTimeline, s.chartType);
 				topPages.render(metrics.topPages);
 				topErrors.render(metrics.topErrors);
 				funnel.render(metrics.navigationFunnel);
+				topEndpoints.render(metrics.topEndpoints);
 			} catch (err) {
 				store.setMetricsError(String(err));
 			}
@@ -161,46 +245,36 @@ function mountApp(root: HTMLElement) {
 	const eventsPoller = createPoller({
 		intervalMs: pollIntervalMs,
 		onError: (err) => store.setEventsError(String(err)),
-		onTick: async (cursor) => {
-			const { from, to } = store.get().timeRange;
-			const filter = store.get().eventsFilter;
-
-			if (!cursor) {
-				store.setEventsLoading(true);
-				try {
-					const res = await fetchEvents({ since: from, until: to, limit: 200, ...filter });
-					store.setEvents(res.events ?? [], res.total ?? 0);
-					return res.events?.[0]?.timestamp ?? null;
-				} catch (err) {
-					store.setEventsError(String(err));
-					return null;
-				}
-			} else {
-				try {
-					const res = await fetchEvents({ after: cursor, limit: 100, ...filter });
-					if (res.events?.length) {
-						store.prependEvents(res.events);
-						return res.events[0].timestamp;
-					}
-					return cursor;
-				} catch {
-					return cursor;
-				}
+		onTick: async () => {
+			store.setEventsLoading(true);
+			try {
+				const allEvents = await fetchAllEvents();
+				/**
+				* INFO In live mode, immediately filter to the actual range
+				* before passing to the store, so applyFilter works
+				* on the correct window
+				*/
+				const { from, to } = effectiveTimeRange(store.get().timeRange);
+				const inRange = allEvents.filter(
+					e => e.timestamp >= from && e.timestamp <= to
+				);
+				store.setEvents(inRange, inRange.length);
+			} catch (err) {
+				store.setEventsError(String(err));
 			}
+			return null;
 		}
 	});
 
-	store.on('timeRange:change', () => {
+	store.on('timeRange:change', (range) => {
 		metricsPoller.resetCursor();
-		metricsPoller.refresh();
 		eventsPoller.resetCursor();
-		eventsPoller.refresh();
-	})
-
-	store.on('events:filter', () => {
-		eventsPoller.resetCursor();
-		eventsPoller.refresh();
-	})
+		// INFO In live mode, the pollers automatically advance with each tick. For the other presets, we force an immediate refresh.
+		if (range.preset !== 'live') {
+			metricsPoller.refresh();
+			eventsPoller.refresh();
+		}
+	});
 
 	async function pingBackend() {
 		const ok = await fetchPing();

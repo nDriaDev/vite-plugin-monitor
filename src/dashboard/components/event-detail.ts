@@ -1,14 +1,14 @@
 import { ConsolePayload, TrackerEvent } from "@tracker/types";
 import { store } from "../state";
-import { el, empty, hide, on, qs, setHtml, show } from "../utils/dom"
-import { formatDateTime, formatJson, truncate } from "../utils/format";
+import { el, empty, on, qs, setHtml, show } from "../utils/dom";
+import { formatDateTime, formatDuration, formatJson, truncate } from "../utils/format";
 
 /**
 * Slide-in side panel showing the full detail of a selected event.
 * Appears when the user clicks a row in the Events table.
 */
 export function createEventDetail(): HTMLElement {
-	const panel = el('div', { class: 'detail-panel', hidden: true });
+	const panel = el('div', { class: 'detail-panel' });
 
 	panel.innerHTML = `
     <div class="detail-header">
@@ -26,7 +26,8 @@ export function createEventDetail(): HTMLElement {
 
 	store.on('events:select', (event) => {
 		if (!event) {
-			hide(panel);
+			empty(body);
+			titleEl.textContent = "Event Detail";
 			return;
 		}
 		render(event);
@@ -109,14 +110,40 @@ export function createEventDetail(): HTMLElement {
 				argList.append(argRow);
 			}
 
-			body.append(section(`console.${cp.method}() — args`, argList));
+			body.append(section(`console.${cp.method}() - args`, argList));
 
 			if (cp.stack) {
 				body.append(section('Stack Trace', formatJson(cp.stack)));
 			}
 		}
 
+		// INFO HTTP: show formatted duration and splitted stack before raw payload
+		if (event.type === 'http') {
+			const p = event.payload as any;
+			const httpMeta = el('div', { class: 'detail-meta' });
+			httpMeta.append(metaRow('Method', p.method ?? '-'));
+			httpMeta.append(metaRow('URL', p.url ?? '-'));
+			httpMeta.append(metaRow('Status', String(p.status ?? '-')));
+			if (p.duration !== undefined) {
+				httpMeta.append(metaRow('Duration', formatDuration(p.duration)));
+			}
+			if (p.error) {
+				httpMeta.append(metaRow('Error', p.error));
+			}
+			body.append(section('HTTP Request', httpMeta));
+		}
+
 		body.append(section('Payload', formatJson(event.payload)));
+
+		// INFO Error: show splitted stack if present
+		if (event.type === 'error') {
+			const p = event.payload as any;
+			if (p.stack) {
+				const stackPre = el('pre', { class: 'detail-pre detail-stack' });
+				stackPre.textContent = p.stack;
+				body.append(section('Stack Trace', stackPre));
+			}
+		}
 	}
 
 	return panel;

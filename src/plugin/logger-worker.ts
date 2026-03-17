@@ -1,16 +1,16 @@
 /**
- * logger-worker.ts — Worker thread that owns all file I/O.
+ * logger-worker.ts - Worker thread that owns all file I/O.
  *
  * The main thread sends messages via postMessage(); this worker receives them
  * and does the actual fs.WriteStream work. This keeps every sync fs call
  * (mkdirSync, renameSync, statSync, readdirSync, unlinkSync) off the Vite
  * event loop entirely.
  *
- * Message protocol (main → worker):
+ * Message protocol (main -> worker):
  *   { type: 'write',   event: TrackerEvent,  transportIdx: number }
- *   { type: 'destroy' }   — flush + close all streams, then exit
+ *   { type: 'destroy' }   - flush + close all streams, then exit
  *
- * Message protocol (worker → main):
+ * Message protocol (worker -> main):
  *   { type: 'error', message: string }
  *   { type: 'ready' }
  */
@@ -58,7 +58,7 @@ function parseSize(size: string): number {
 }
 
 // ── StreamTransport (worker-local copy, without the lazy-open complexity) ──────
-// Inside the worker we open streams eagerly — the worker is started after
+// Inside the worker we open streams eagerly - the worker is started after
 // configResolved so the CWD is already correct.
 
 class StreamTransport {

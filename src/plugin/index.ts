@@ -94,7 +94,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			: mode === "standalone"
 				? `http://localhost:${opts.storage.port}/_tracker/events`
 				: mode === "middleware"
-					? '/_tracker/events' // INFO middleware — same origin
+					? '/_tracker/events' // INFO middleware - same origin
 					: '';
 	}
 
@@ -136,7 +136,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			const dashDir = dashboardDistDir();
 
 			server.middlewares.use(opts.dashboard.route, (req, res, next) => {
-				// INFO serve asset files (JS, CSS, fonts) — URL contains a dot
+				// INFO serve asset files (JS, CSS, fonts) - URL contains a dot
 				const url = req.url ?? '/';
 				if (url !== '/' && url.includes('.')) {
 					const filePath = path.join(dashDir, url);
@@ -146,7 +146,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 						return
 					}
 				}
-				// INFO all other requests → serve index.html (SPA fallback)
+				// INFO all other requests -> serve index.html (SPA fallback)
 				const indexPath = path.join(dashDir, 'index.html');
 				if (existsSync(indexPath)) {
 					// INFO Inject config before </head> so window.__TRACKER_CONFIG__ is available when dashboard/main.ts executes
@@ -213,7 +213,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			unregisterShutdown?.();
 			unregisterShutdown = registerShutdownHook(cleanup);
 
-			logger.info(`Plugin initialized — appId: ${opts.appId}, command: ${config.command}`);
+			logger.info(`Plugin initialized - appId: ${opts.appId}, command: ${config.command}`);
 		},
 
 		transformIndexHtml: {

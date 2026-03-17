@@ -1,4 +1,5 @@
-import { AppTab, store } from "./state";
+import { AppTab } from "@tracker/types";
+import { store } from "./state";
 
 const HASH_TO_TAB: Record<string, AppTab> = {
 	'#/metrics': 'metrics',
@@ -19,8 +20,8 @@ function resolveTab(): AppTab {
 *
 * @remarks
 * Routes:
-*   #/metrics  → Metrics tab (default)
-*   #/events   → Events tab
+*   #/metrics  -> Metrics tab (default)
+*   #/events   -> Events tab
 *
 * The router is intentionally thin: it just syncs the URL hash
 * with store.tab so the user can bookmark or share a direct link

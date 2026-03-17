@@ -93,7 +93,7 @@ pnpm version $VERSION_TYPE --no-git-tag-version
 
 # Get new version
 NEW_VERSION=$(node -p "require('./package.json').version")
-echo -e "${GREEN}✅ Version bumped: ${YELLOW}$CURRENT_VERSION → $NEW_VERSION${NC}"
+echo -e "${GREEN}✅ Version bumped: ${YELLOW}$CURRENT_VERSION -> $NEW_VERSION${NC}"
 
 # Generate changelog
 echo -e "\n${BLUE}📝 Generating changelog...${NC}"
