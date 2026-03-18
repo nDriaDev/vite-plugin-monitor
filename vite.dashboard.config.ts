@@ -2,9 +2,11 @@ import { defineConfig } from 'vite'
 import { resolve } from 'node:path'
 import type { Plugin } from 'vite'
 
+const clientSrcPath = resolve(process.cwd(), 'src/client/index.ts');
+
 /**
  * Vite plugin that injects `window.__TRACKER_CONFIG__` into the dashboard
- * HTML **only during development** (`vite dev`).
+ * HTML and enables overly **only during development** (`vite dev`).
  *
  * During `vite build` this plugin is a no-op - the config injected here
  * would be baked into the static HTML, but in production the plugin consumer
@@ -45,14 +47,26 @@ function injectDevConfig(): Plugin {
 					}
 				},
 				overlay: {
-					enabled: false,
+					enabled: true,
 					position: 'bottom-right'
 				}
 			}
 
 			return html.replace(
 				'</head>',
-				`<script>window.__TRACKER_CONFIG__ = Object.freeze(${JSON.stringify(config)})</script>\n</head>`,
+				`<script>window.__TRACKER_CONFIG__ = Object.freeze(${JSON.stringify(config)})</script>
+<script type="module">
+import { setupTrackers, tracker } from '/@fs/${clientSrcPath}';
+setupTrackers();
+if (document.readyState === 'loading') {
+	document.addEventListener('DOMContentLoaded', () => {
+		debugger;
+		tracker.init(() => 'dev-user');
+	});
+} else {
+	tracker.init(() => 'dev-user');
+}
+</script>\n</head>`,
 			);
 		}
 	}
@@ -77,6 +91,10 @@ export default defineConfig({
 	},
 
 	server: {
+		fs: {
+			// INFO allow to import src/client from root in src/dashboard
+			allow: ['..']
+		},
 		proxy: {
 			'/_tracker': {
 				target: 'http://localhost:4242',

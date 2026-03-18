@@ -21,7 +21,7 @@
 	"scripts": {
 		"dev":             "tsdown --watch",
 		"dev:server":      "tsx scripts/dev-server.ts",
-		"dev:dashboard":   "vite --config vite.dashboard.config.ts",
+		"dev:ui":          "vite --config vite.dashboard.config.ts",
 		"test:run":        "echo 'No tests implemented yet'",
 		"typecheck":       "tsc --noEmit",
 		"lint":            "eslint .",
