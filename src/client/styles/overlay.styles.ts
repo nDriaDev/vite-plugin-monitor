@@ -3,6 +3,48 @@ export const STYLES = `
 		all: initial;
 		font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
 		font-size: 12px;
+
+		/* Dark theme (default) */
+		--ov-bg:          #020817;
+		--ov-bg-header:   #0f172a;
+		--ov-bg-input:    #0f172a;
+		--ov-bg-link:     #1e293b33;
+		--ov-border:      #1e293b;
+		--ov-border-mid:  #334155;
+		--ov-text-key:    #475569;
+		--ov-text-val:    #94a3b8;
+		--ov-text-label:  #334155;
+		--ov-text-accent: #60a5fa;
+		--ov-text-hi:     #a3e635;
+		--ov-text-input:  #e2e8f0;
+		--ov-text-close:  #334155;
+		--ov-title:       #60a5fa;
+		--ov-fab-bg:      #1e293b;
+		--ov-fab-border:  #334155;
+		--ov-shadow:      0 20px 60px #000000aa;
+		--ov-fab-shadow:  0 4px 20px #00000066;
+	}
+
+	/* Light theme */
+	:host(.light) {
+		--ov-bg:          #f8fafc;
+		--ov-bg-header:   #ffffff;
+		--ov-bg-input:    #f8fafc;
+		--ov-bg-link:     #f1f5f9;
+		--ov-border:      #e2e8f0;
+		--ov-border-mid:  #cbd5e1;
+		--ov-text-key:    #64748b;
+		--ov-text-val:    #475569;
+		--ov-text-label:  #94a3b8;
+		--ov-text-accent: #3b82f6;
+		--ov-text-hi:     #16a34a;
+		--ov-text-input:  #1e293b;
+		--ov-text-close:  #94a3b8;
+		--ov-title:       #3b82f6;
+		--ov-fab-bg:      #ffffff;
+		--ov-fab-border:  #e2e8f0;
+		--ov-shadow:      0 20px 60px #00000033;
+		--ov-fab-shadow:  0 4px 20px #00000022;
 	}
 
 	/*  FAB  */
@@ -11,14 +53,14 @@ export const STYLES = `
 		width: 40px;
 		height: 40px;
 		border-radius: 50%;
-		background: #1e293b;
-		border: 1.5px solid #334155;
-		color: #60a5fa;
+		background: var(--ov-fab-bg);
+		border: 1.5px solid var(--ov-fab-border);
+		color: var(--ov-text-accent);
 		cursor: pointer;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		box-shadow: 0 4px 20px #00000066;
+		box-shadow: var(--ov-fab-shadow);
 		transition: transform 0.15s ease, box-shadow 0.15s ease;
 		user-select: none;
 		z-index: 2147483647;
@@ -27,7 +69,7 @@ export const STYLES = `
 	#fab:hover {
 		transform: scale(1.1);
 		box-shadow: 0 6px 28px #00000088;
-		border-color: #60a5fa;
+		border-color: var(--ov-text-accent);
 	}
 
 	#fab svg {
@@ -41,10 +83,10 @@ export const STYLES = `
 	#panel {
 		position: fixed;
 		width: 320px;
-		background: #0f172a;
-		border: 1px solid #1e293b;
+		background: var(--ov-bg);
+		border: 1px solid var(--ov-border);
 		border-radius: 12px;
-		box-shadow: 0 20px 60px #000000aa;
+		box-shadow: var(--ov-shadow);
 		overflow: hidden;
 		display: none;
 		z-index: 2147483647;
@@ -60,7 +102,7 @@ export const STYLES = `
 			opacity: 0;
 			transform: translateY(8px);
 		}
-		to	 {
+		to {
 			opacity: 1;
 			transform: translateY(0);
 		}
@@ -69,8 +111,8 @@ export const STYLES = `
 	/*  Header  */
 	#header {
 		padding: 11px 14px;
-		background: #020817;
-		border-bottom: 1px solid #1e293b;
+		background: var(--ov-bg-header);
+		border-bottom: 1px solid var(--ov-border);
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -79,7 +121,7 @@ export const STYLES = `
 	}
 
 	#header-title {
-		color: #60a5fa;
+		color: var(--ov-title);
 		font-weight: 700;
 		font-size: 11px;
 		letter-spacing: 0.5px;
@@ -94,10 +136,34 @@ export const STYLES = `
 		flex-shrink: 0;
 	}
 
+	#header-actions {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+
+	#theme-toggle {
+		background: none;
+		border: 1px solid var(--ov-border);
+		color: var(--ov-text-close);
+		cursor: pointer;
+		font-size: 13px;
+		line-height: 1;
+		padding: 2px 5px;
+		border-radius: 4px;
+		transition: color 0.1s, border-color 0.1s;
+		font-family: inherit;
+	}
+
+	#theme-toggle:hover {
+		color: var(--ov-text-accent);
+		border-color: var(--ov-text-accent);
+	}
+
 	#close {
 		background: none;
 		border: none;
-		color: #334155;
+		color: var(--ov-text-close);
 		cursor: pointer;
 		font-size: 18px;
 		line-height: 1;
@@ -107,7 +173,7 @@ export const STYLES = `
 	}
 
 	#close:hover {
-		color: #94a3b8;
+		color: var(--ov-text-val);
 	}
 
 	/*  Body  */
@@ -120,7 +186,7 @@ export const STYLES = `
 
 	/*  Section label  */
 	.section-label {
-		color: #334155;
+		color: var(--ov-text-label);
 		font-size: 10px;
 		text-transform: uppercase;
 		letter-spacing: 1px;
@@ -138,7 +204,7 @@ export const STYLES = `
 	}
 
 	.row-key {
-		color: #475569;
+		color: var(--ov-text-key);
 		font-size: 11px;
 		flex-shrink: 0;
 	}
@@ -151,7 +217,7 @@ export const STYLES = `
 	}
 
 	.row-val {
-		color: #94a3b8;
+		color: var(--ov-text-val);
 		font-size: 11px;
 		white-space: nowrap;
 		overflow: hidden;
@@ -160,14 +226,14 @@ export const STYLES = `
 	}
 
 	.row-val.highlight {
-		color: #a3e635;
+		color: var(--ov-text-hi);
 	}
 
-	/*  Copy button  */
+	/*  Copy / Edit buttons  */
 	.copy-btn {
 		background: none;
-		border: 1px solid #1e293b;
-		color: #334155;
+		border: 1px solid var(--ov-border);
+		color: var(--ov-text-label);
 		border-radius: 3px;
 		padding: 1px 5px;
 		cursor: pointer;
@@ -176,9 +242,9 @@ export const STYLES = `
 		flex-shrink: 0;
 		transition: color 0.1s, border-color 0.1s;
 	}
-	.copy-btn:hover	{
-		color: #60a5fa;
-		border-color: #60a5fa;
+	.copy-btn:hover {
+		color: var(--ov-text-accent);
+		border-color: var(--ov-text-accent);
 	}
 	.copy-btn.copied {
 		color: #22c55e;
@@ -188,7 +254,7 @@ export const STYLES = `
 	/* Divider */
 	.divider {
 		height: 1px;
-		background: #1e293b;
+		background: var(--ov-border);
 		margin: 0 -14px;
 	}
 
@@ -198,11 +264,11 @@ export const STYLES = `
 		align-items: center;
 		justify-content: space-between;
 		padding: 10px 12px;
-		background: #1e293b33;
-		border: 1px solid #1e293b;
+		background: var(--ov-bg-link);
+		border: 1px solid var(--ov-border);
 		border-radius: 8px;
 		text-decoration: none;
-		color: #60a5fa;
+		color: var(--ov-text-accent);
 		font-size: 12px;
 		font-weight: 600;
 		font-family: inherit;
@@ -211,8 +277,8 @@ export const STYLES = `
 	}
 
 	#dashboard-link:hover {
-		background: #1e293b88;
-		border-color: #334155;
+		background: var(--ov-bg-link);
+		border-color: var(--ov-border-mid);
 	}
 
 	#dashboard-link svg {
@@ -236,8 +302,8 @@ export const STYLES = `
 
 	.edit-btn {
 		background: none;
-		border: 1px solid #1e293b;
-		color: #334155;
+		border: 1px solid var(--ov-border);
+		color: var(--ov-text-label);
 		border-radius: 3px;
 		padding: 1px 5px;
 		cursor: pointer;
@@ -248,8 +314,8 @@ export const STYLES = `
 	}
 
 	.edit-btn:hover {
-		color: #60a5fa;
-		border-color: #60a5fa;
+		color: var(--ov-text-accent);
+		border-color: var(--ov-text-accent);
 	}
 
 	#userid-edit-row {
@@ -261,10 +327,10 @@ export const STYLES = `
 
 	.userid-input {
 		width: 100%;
-		background: #0f172a;
-		border: 1px solid #334155;
+		background: var(--ov-bg-input);
+		border: 1px solid var(--ov-border-mid);
 		border-radius: 4px;
-		color: #e2e8f0;
+		color: var(--ov-text-input);
 		font-family: inherit;
 		font-size: 11px;
 		padding: 4px 8px;
@@ -273,7 +339,7 @@ export const STYLES = `
 	}
 
 	.userid-input:focus {
-		border-color: #60a5fa;
+		border-color: var(--ov-text-accent);
 	}
 
 	.userid-actions {
@@ -284,7 +350,7 @@ export const STYLES = `
 
 	.confirm-btn, .cancel-btn {
 		background: none;
-		border: 1px solid #1e293b;
+		border: 1px solid var(--ov-border);
 		border-radius: 3px;
 		padding: 2px 8px;
 		cursor: pointer;
@@ -301,11 +367,11 @@ export const STYLES = `
 		border-color: #22c55e;
 	}
 
-	.cancel-btn  {
+	.cancel-btn {
 		color: #ef4444;
 	}
 
-	.cancel-btn:hover  {
+	.cancel-btn:hover {
 		border-color: #ef4444;
 	}
 `;

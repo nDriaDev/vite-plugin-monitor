@@ -3,6 +3,8 @@ import { TrackerSession } from "./session";
 import { STYLES } from "./styles/overlay.styles";
 import { ICONS } from "./styles/icons";
 
+const THEME_STORAGE_KEY = '__tracker_theme__';
+
 //INFO Escape user-controlled strings before interpolating into innerHTML.
 function esc(s: string): string {
 	return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -24,6 +26,9 @@ export class DebugOverlay implements IDebugOverlay {
 
 	/** Whether the panel is currently being dragged by the user. */
 	private dragging = false;
+
+	/** Current theme: 'dark' (default) or 'light'. */
+	private theme: 'dark' | 'light' = 'dark';
 
 	/** Horizontal offset from the panel's left edge to the drag start point. */
 	private dragOffsetX = 0;
@@ -80,8 +85,27 @@ export class DebugOverlay implements IDebugOverlay {
 			}
 		}
 
+		// INFO Restore saved theme or uses dark as default
+		const saved = localStorage.getItem(THEME_STORAGE_KEY);
+		this.theme = saved === 'light' ? 'light' : 'dark';
+
 		this.render();
-		document.body.appendChild(this.host);
+		this.applyTheme();
+		if (document.body) {
+			document.body.appendChild(this.host);
+		} else {
+			document.addEventListener('DOMContentLoaded', () => {
+				document.body.appendChild(this.host);
+			});
+		}
+	}
+
+	private applyTheme(): void {
+		if (this.theme === 'light') {
+			this.host.classList.add('light');
+		} else {
+			this.host.classList.remove('light');
+		}
 	}
 
 	private buildUserIdRow(): string {
@@ -182,9 +206,12 @@ export class DebugOverlay implements IDebugOverlay {
 		return `
     <div id="header">
         <div id="header-title">
-			${ICONS.TRACKER_ICON}<span>Tracker</span>
+			${ICONS.TRACKER_ICON}<span>Vite plugin Monitor - Tracker</span>
         </div>
-        <button id="close" title="Close">×</button>
+        <div id="header-actions">
+			<button id="theme-toggle" title="Toggle theme">${this.theme === 'dark' ? '☀' : '☾'}</button>
+			<button id="close" title="Close">×</button>
+        </div>
     </div>
 
     <div id="body">
@@ -220,7 +247,6 @@ export class DebugOverlay implements IDebugOverlay {
 
         <a id="dashboard-link" href="${dashboardUrl}" target="_blank" rel="noopener">
 			<div id="link-left">
-				${ICONS.TRACKER_ICON}
 				<span>Open Dashboard</span>
 			</div>
 			${ICONS.EXTERNAL_LINK_ICON}
@@ -308,6 +334,16 @@ export class DebugOverlay implements IDebugOverlay {
 		this.fab.addEventListener('click', () => this.toggle());
 
 		this.shadow.querySelector('#close')!.addEventListener('click', () => this.close());
+
+		this.shadow.querySelector('#theme-toggle')!.addEventListener('click', () => {
+			this.theme = this.theme === 'dark' ? 'light' : 'dark';
+			try { localStorage.setItem(THEME_STORAGE_KEY, this.theme); } catch { /* ignore */ }
+			this.applyTheme();
+			const btn = this.shadow.querySelector<HTMLButtonElement>('#theme-toggle');
+			if (btn) {
+				btn.textContent = this.theme === 'dark' ? '☀' : '☾';
+			}
+		});
 
 		// INFO Copy buttons - delegated to the shadow root
 		this.shadow.addEventListener('click', (e) => {
