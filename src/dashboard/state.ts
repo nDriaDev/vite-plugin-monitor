@@ -48,7 +48,9 @@ export function presetToRange(preset: TimePreset): { from: string; to: string } 
 export function effectiveTimeRange(range: TimeRange): { from: string; to: string } {
 	if (range.preset === 'live') {
 		const to = new Date();
-		const from = new Date(to.getTime() - LIVE_WINDOW_MS);
+		const originalFrom = new Date(range.from).getTime();
+		const cappedFrom = to.getTime() - LIVE_MAX_WINDOW_MS;
+		const from = new Date(Math.max(originalFrom, cappedFrom));
 		return { from: from.toISOString(), to: to.toISOString() };
 	}
 	return { from: range.from, to: range.to };
@@ -92,7 +94,7 @@ function createStore() {
 	 */
 	function applyFilter(): void {
 		const f = state.eventsFilter;
-		const { from, to } = state.timeRange;
+		const { from, to } = effectiveTimeRange(state.timeRange);
 
 		let result = rawEvents.filter(e => e.timestamp >= from && e.timestamp <= to);
 
@@ -142,7 +144,7 @@ function createStore() {
 			result = result.filter(e => e.meta.route === f.route);
 		}
 
-		state.events = result.slice(0, 500);
+		state.events = result;
 		state.eventsTotal = result.length;
 		emit('events:update', state.events);
 	}

@@ -125,38 +125,8 @@ export function createHeader(): HTMLElement {
 		customRange.hidden = range.preset !== 'custom';
 	}
 
-	// INFO live button indicator - updates label with current range
-	let liveTimer: ReturnType<typeof setInterval> | null = null;
-
-	function startLiveTicker() {
-		if (liveTimer) return;
-		liveTimer = setInterval(() => {
-			const range = store.get().timeRange;
-			if (range.preset !== 'live') {
-				stopLiveTicker();
-				return;
-			}
-			// INFO Updates from/to in the store silently without triggering timeRange:change (which would force a refresh)
-			const to = new Date();
-			const from = new Date(to.getTime() - LIVE_WINDOW_MS);
-			range.from = from.toISOString();
-			range.to = to.toISOString();
-		}, 1000);
-	}
-
-	function stopLiveTicker() {
-		if (liveTimer) {
-			clearInterval(liveTimer);
-			liveTimer = null;
-		}
-	}
-
 	store.on('timeRange:change', (range) => {
-		if (range.preset === 'live') {
-			startLiveTicker();
-		} else {
-			stopLiveTicker();
-		}
+		syncPresetBtns(range);
 	});
 
 	presetBtns.forEach(btn => {
