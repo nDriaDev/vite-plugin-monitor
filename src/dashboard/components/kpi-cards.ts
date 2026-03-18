@@ -1,4 +1,4 @@
-import { formatCount, formatDuration, formatPct, truncate } from "../utils/format";
+import { formatCount, formatDuration, formatPercent, formatPct, truncate } from "../utils/format";
 import { el } from "../utils/dom";
 import { store } from "../state";
 import { HttpStats, KpiCard, MetricsResult, StatsResult } from "@tracker/types";
@@ -25,7 +25,7 @@ const CARDS: KpiCard[] = [
 	{
 		id: 'app-error-rate',
 		label: 'App Error Rate',
-		getValue: s => formatPct(s.errorRate ?? 0),
+		getValue: s => formatPercent(s.errorRate ?? 0),
 		getClass: s => (s.errorRate ?? 0) > 0.05 ? 'kpi-warn' : ''
 	}
 ]
@@ -152,7 +152,7 @@ export function createHttpInfoCards({ onMostCalledClick, onHttpErrorRateClick, o
 
 		const herVal = container.querySelector<HTMLElement>('#kpi-val-http-error-rate')!;
 		const herCard = container.querySelector<HTMLElement>('#kpi-http-error-rate')!;
-		herVal.textContent = formatPct(h.httpErrorRate ?? 0);
+		herVal.textContent = formatPercent(h.httpErrorRate ?? 0);
 		const herWarn = (h.httpErrorRate ?? 0) > 0.05 ? 'kpi-warn' : '';
 		const herClickable = onHttpErrorRateClick ? 'kpi-card--clickable' : '';
 		herCard.className = ['kpi-card', herWarn, herClickable].filter(Boolean).join(' ');

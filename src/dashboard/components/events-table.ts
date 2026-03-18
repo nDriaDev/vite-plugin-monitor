@@ -1,21 +1,22 @@
 import { LogLevel, SearchOperator, TrackerEvent, TrackerEventType } from "@tracker/types";
 import { formatDateTime, formatDuration, truncate } from "../utils/format";
-import { el, empty, on, qs, toggleVisible } from "../utils/dom";
+import { el, empty, escapeHtml, on, qs, toggleVisible } from "../utils/dom";
 import { store } from "../state";
 
 const TYPE_ICONS: Record<TrackerEventType, string> = {
-	click:       '🖱',
-	http:        '🌐',
-	error:       '💥',
-	navigation:  '🧭',
-	console:     '🖥',
-	custom:      '✳️',
+	click: '🖱',
+	http: '🌐',
+	error: '💥',
+	navigation: '🧭',
+	console: '🖥',
+	custom: '✳️',
+	session: '🔄',
 }
 
 const LEVEL_CLASS: Record<LogLevel, string> = {
 	debug: 'lvl-debug',
-	info:  'lvl-info',
-	warn:  'lvl-warn',
+	info: 'lvl-info',
+	warn: 'lvl-warn',
 	error: 'lvl-error',
 }
 
@@ -146,7 +147,7 @@ export function createEventsTable(): HTMLElement {
 			level: selectedLevels.length > 0 ? selectedLevels : undefined,
 			userId: userSelect.value || undefined,
 			search: searchInput.value.trim() || undefined,
-			searchOperator: (searchOpSelect.value as import('@tracker/types').SearchOperator) || 'contains'
+			searchOperator: (searchOpSelect.value as SearchOperator) || 'contains'
 		});
 	}
 
@@ -157,17 +158,11 @@ export function createEventsTable(): HTMLElement {
 	}
 
 	on(typeSelect, 'change', emitFilter);
-	on(typeSelect, 'change', emitFilter);
-	on(searchOpSelect, 'change', emitFilter);
 	on(searchOpSelect, 'change', emitFilter);
 	on(userSelect, 'change', emitFilter);
 	on(searchInput, 'input', debouncedFilter);
 
-	/**
-	 * INFO
-	 * Table rendering
-	 * WeakMap: row element -> event - allows O(1) selection highlight without
-	 */
+	// INFO Rendering
 	const rowEventMap = new WeakMap<HTMLTableRowElement, TrackerEvent>();
 	let selectedRow: HTMLTableRowElement | null = null;
 
@@ -178,8 +173,8 @@ export function createEventsTable(): HTMLElement {
 		<td class="col-time">${formatDateTime(event.timestamp)}</td>
 		<td class="col-type"><span class="type-badge type-${event.type}">${TYPE_ICONS[event.type]} ${event.type}</span></td>
 		<td class="col-level"><span class="level-badge ${LEVEL_CLASS[event.level]}">${event.level}</span></td>
-		<td class="col-user">${truncate(event.userId, 16)}</td>
-		<td class="col-detail">${getDetail(event)}</td>
+		<td class="col-user">${escapeHtml(truncate(event.userId, 16))}</td>
+		<td class="col-detail">${escapeHtml(getDetail(event))}</td>
     `;
 
 		rowEventMap.set(tr, event);

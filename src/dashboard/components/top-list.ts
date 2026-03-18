@@ -1,5 +1,5 @@
 import { ErrorItem, FunnelComponent, FunnelStep, RankedItem, TopErrorsComponent, TopPagesComponent } from "@tracker/types";
-import { el, empty } from "../utils/dom";
+import { el, empty, escapeHtml } from "../utils/dom";
 import { formatCount, formatRelative, truncate } from "../utils/format";
 
 /**
@@ -21,8 +21,9 @@ export function createTopPages(onSelect?: (route: string) => void): TopPagesComp
 		for (const item of items) {
 			const row = el('div', { class: `top-row${onSelect ? ' clickable' : ''}` });
 			const pct = Math.round((item.count / max) * 100);
+			const safe = escapeHtml(item.label);
 			row.innerHTML = `
-        <div class="top-label" title="${item.label}">${truncate(item.label, 40)}</div>
+        <div class="top-label" title="${safe}">${truncate(safe, 40)}</div>
         <div class="top-bar-wrap">
 			<div class="top-bar" style="width:${pct}%"></div>
         </div>
@@ -49,8 +50,9 @@ export function createTopErrors(onSelect?: (message: string) => void): TopErrors
 		}
 		for (const item of items) {
 			const row = el('div', { class: `error-row${onSelect ? ' clickable' : ''}` });
+			const safe = escapeHtml(item.message);
 			row.innerHTML = `
-        <div class="error-msg" title="${item.message}">${truncate(item.message, 80)}</div>
+        <div class="error-msg" title="${safe}">${truncate(safe, 80)}</div>
         <div class="error-meta">
 			<span class="error-count">×${formatCount(item.count)}</span>
 			<span class="error-time">${formatRelative(item.lastSeen)}</span>
@@ -79,13 +81,15 @@ export function createFunnel(onSelect?: (from: string, to: string) => void): Fun
 		for (const step of steps) {
 			const row = el('div', { class: `funnel-row${onSelect ? ' clickable' : ''}` });
 			const pct = Math.round((step.count / max) * 100);
-			const from = truncate(step.from || '(direct)', 20);
-			const to = truncate(step.to || '?', 20);
+			const safeFrom = escapeHtml(step.from || '(direct)');
+			const safeTo   = escapeHtml(step.to   || '?');
+			const from = truncate(safeFrom, 20);
+			const to   = truncate(safeTo,   20);
 			row.innerHTML = `
         <div class="funnel-route">
-			<span class="funnel-from" title="${step.from}">${from}</span>
+			<span class="funnel-from" title="${safeFrom}">${from}</span>
 			<span class="funnel-arrow">-></span>
-			<span class="funnel-to"   title="${step.to}">${to}</span>
+			<span class="funnel-to"   title="${safeTo}">${to}</span>
         </div>
         <div class="top-bar-wrap">
 			<div class="top-bar funnel-bar" style="width:${pct}%"></div>
@@ -118,8 +122,9 @@ export function createTopEndpoints(onSelect?: (url: string) => void): HTMLElemen
 		for (const item of items) {
 			const row = el('div', { class: `top-row${onSelect ? ' clickable' : ''}` });
 			const pct = Math.round((item.count / max) * 100);
+			const safe = escapeHtml(item.label);
 			row.innerHTML = `
-        <div class="top-label top-label--mono" title="${item.label}">${truncate(item.label, 45)}</div>
+        <div class="top-label top-label--mono" title="${safe}">${truncate(safe, 45)}</div>
         <div class="top-bar-wrap">
 			<div class="top-bar top-bar--endpoint" style="width:${pct}%"></div>
         </div>
