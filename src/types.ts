@@ -10,14 +10,15 @@
 * {@link ClickPayload}, and so on. It is also the primary axis for filtering
 * events in the dashboard query API.
 *
-* | Value           | Payload type               | Emitted by                       |
-* |-----------------|----------------------------|----------------------------------|
-* | `'click'`       | {@link ClickPayload}       | Click tracker                    |
-* | `'http'`        | {@link HttpPayload}        | HTTP tracker (fetch + XHR)       |
-* | `'error'`       | {@link ErrorPayload}       | Error tracker                    |
-* | `'navigation'`  | {@link NavigationPayload}  | Navigation tracker               |
-* | `'console'`     | {@link ConsolePayload}     | Console tracker                  |
-* | `'custom'`      | {@link CustomPayload}      | `tracker.track()` / `timeEnd()`  |
+* | Value           | Payload type               | Emitted by                                    |
+* |-----------------|----------------------------|-----------------------------------------------|
+* | `'click'`       | {@link ClickPayload}       | Click tracker                                 |
+* | `'http'`        | {@link HttpPayload}        | HTTP tracker (fetch + XHR)                    |
+* | `'error'`       | {@link ErrorPayload}       | Error tracker                                 |
+* | `'navigation'`  | {@link NavigationPayload}  | Navigation tracker                            |
+* | `'console'`     | {@link ConsolePayload}     | Console tracker                               |
+* | `'custom'`      | {@link CustomPayload}      | `tracker.track()` / `timeEnd()`               |
+* | `'session'`     | {@link SessionPayload}     | Lifecycle hooks (`init`, `setUser`, unload)   |
 *
 */
 export type TrackerEventType =
@@ -1087,16 +1088,21 @@ export interface HttpStorageOptions {
 	* @remarks
 	* **Request** (dashboard -> server):
 	* ```
-	* GET <readEndpoint>
+	* GET <readEndpoint>?since=<ISO8601>&until=<ISO8601>
 	* Accept: application/json
 	* X-Tracker-Key: <apiKey> (optional, only if configured)
 	* ```
-	* The dashboard does not send any query parameters. The server must
-	* return all events available in its buffer or database,
-	* sorted from newest to oldest, in the {@link EventsResponse} format.
 	*
-	* All filtering, temporal grouping, and aggregations
-	* occur client-side in the browser after receiving the full dataset.
+	* The dashboard **always** sends `since` and `until` as ISO 8601 UTC query
+	* parameters matching the time range selected by the user. Your server
+	* **must** honour these parameters and return only events whose `timestamp`
+	* falls within `[since, until]`, sorted from newest to oldest, in the
+	* {@link EventsResponse} format.
+	*
+	* All further filtering (type, level, userId, full-text search) and all
+	* aggregations (charts, KPI cards, top lists) are performed client-side in
+	* the browser after receiving the time-windowed dataset, so your server does
+	* not need to implement any additional query logic beyond the time range.
 	*
 	* @example `'https://api.myapp.com/tracker/events'`
 	*/
@@ -1140,7 +1146,7 @@ export interface HttpStorageOptions {
 	* The queue flushes when `batchSize` **or** `flushInterval` is reached first.
 	* On page unload, remaining events are flushed via `navigator.sendBeacon`.
 	*
-	* @default 10
+	* @default 25
 	*/
 	batchSize?: number
 
@@ -1154,6 +1160,24 @@ export interface HttpStorageOptions {
 	* @default 3000
 	*/
 	flushInterval?: number
+
+	/**
+	* Maximum number of events kept in the server-side in-memory ring buffer.
+	*
+	* @remarks
+	* Only used when `mode = 'standalone'` or `mode = 'middleware'`. The ring
+	* buffer holds the most recent events in memory so the dashboard can query
+	* them without reading log files on every request. When the buffer exceeds
+	* this limit, the oldest events are evicted automatically (FIFO).
+	*
+	* Because the dashboard now always queries the buffer with a `since`/`until`
+	* time window, the buffer only needs to hold events for the widest time range
+	* your users are likely to inspect (e.g. the last 30 days at typical traffic).
+	* Raising this value increases memory usage on the Node.js process linearly.
+	*
+	* @default 500000
+	*/
+	maxBufferSize?: number
 }
 
 /**
@@ -1179,8 +1203,13 @@ export interface HttpStorageOptions {
 * ```
 * Dashboard -> Server (query):
 * ```json
-* { "type": "events:query", "reqId": string, "query": EventsQuery }
+* { "type": "events:query", "reqId": string, "query": { "since": string, "until": string } }
 * ```
+* The `query` object always contains `since` and `until` as ISO 8601 UTC strings
+* matching the time range selected by the user. Your server **must** return only
+* events whose `timestamp` falls within `[since, until]`. All further filtering
+* and aggregations are performed client-side.
+*
 * Server -> Browser (query response):
 * ```json
 * { "type": "events:response", "reqId": string, "response": EventsResponse }
@@ -1219,7 +1248,7 @@ export interface WsStorageOptions {
 	/**
 	* Maximum number of events accumulated client-side before flushing.
 	*
-	* @default 10
+	* @default 25
 	*/
 	batchSize?: number
 
@@ -1417,12 +1446,13 @@ export interface TrackOptions {
 	* Enable console method interception.
 	*
 	* @remarks
-	* - `false` - disabled (default). No methods are patched.
-	* - `true` - intercept all 19 methods with safe defaults.
+	* - `true` - intercept all 19 methods with safe defaults (default).
+	* - `false` - disabled. No methods are patched.
 	* - {@link ConsoleTrackOptions} - restrict methods, tune limits, configure stacks.
 	*
-	* Disabled by default because existing codebases may log sensitive data
-	* without expecting it to be sent to a remote backend.
+	* Enabled by default. Consider setting this to `false` or restricting to
+	* `['error', 'warn']` if your codebase logs sensitive data that should not
+	* be sent to the backend.
 	*
 	* @default true
 	*/
@@ -2113,7 +2143,7 @@ export interface IngestRequest {
 	* Batch of events collected since the previous flush.
 	*
 	* @remarks
-	* Length bounded by {@link HttpStorageOptions.batchSize} (default 10) for
+	* Length bounded by {@link HttpStorageOptions.batchSize} (default 25) for
 	* timer-triggered flushes. On page unload (`sendBeacon`), the entire
 	* remaining queue is sent in one shot.
 	*/
@@ -2121,26 +2151,51 @@ export interface IngestRequest {
 }
 
 /**
-* Optional parameters accepted by the event reading endpoint.
+* Parameters sent by the dashboard to the event reading endpoint on every poll tick.
 *
 * @remarks
-* **The built-in dashboard does not send any of these parameters.**
-* The call to the backend is always `GET <readEndpoint>` without a
-* query string. The server must return all available events
-* and the dashboard takes care of everything: filtering, temporal
-* grouping, aggregations, full-text search-all client-side.
+* The built-in dashboard **always** sends `since` and `until`. Your server
+* implementation **must** honour these two parameters and return only events
+* whose `timestamp` falls within `[since, until]`, sorted from newest to oldest.
 *
-* This interface is maintained solely for compatibility with
-* external backends or custom integrations that wish to implement
-* server-side filtering to optimize data transfer on
-* very large datasets.
+* All other fields (`type`, `level`, `userId`, etc.) are retained for
+* compatibility with custom backends or external integrations that wish to
+* implement additional server-side pre-filtering. The built-in dashboard does
+* **not** send them - it performs all further filtering, grouping, aggregations,
+* and full-text search client-side on the time-windowed dataset returned by
+* the server.
+*
+* @example Minimal compliant server implementation (Express):
+* ```ts
+* app.get('/tracker/events', (req, res) => {
+*   const { since, until } = req.query
+*   const events = db.events
+*     .filter(e => e.timestamp >= since && e.timestamp <= until)
+*     .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+*   res.json({ events, total: events.length, page: 1, limit: events.length })
+* })
+* ```
 */
 export interface EventsQuery {
-	/** Returns only events with `timestamp >= since`. ISO 8601 UTC. */
+	/**
+	 * Lower bound (inclusive) of the requested time window. ISO 8601 UTC.
+	 *
+	 * @remarks
+	 * **Used by the built-in dashboard** on every poll tick. Always set to
+	 * the start of the time range selected by the user (e.g. last 1h, 24h, etc.).
+	 * Your server must return only events with `timestamp >= since`.
+	 */
 	since?: string
-	/** Returns only events with `timestamp <= until`. ISO 8601 UTC. */
+	/**
+	 * Upper bound (inclusive) of the requested time window. ISO 8601 UTC.
+	 *
+	 * @remarks
+	 * **Used by the built-in dashboard** on every poll tick. Always set to
+	 * the end of the time range selected by the user.
+	 * Your server must return only events with `timestamp <= until`.
+	 */
 	until?: string
-	/** Returns only events with `timestamp > after`. ISO 8601 UTC. */
+	/** Returns only events with `timestamp > after`. ISO 8601 UTC. Not used by the built-in dashboard. */
 	after?: string
 	/** Filter by category. Not used by the built-in dashboard. */
 	type?: TrackerEventType
@@ -2168,23 +2223,25 @@ export interface EventsQuery {
 * @remarks
 * **Contract that the backend must respect:**
 * ```
-* GET <readEndpoint>
+* GET <readEndpoint>?since=<ISO8601>&until=<ISO8601>
 * Accept: application/json
 * X-Tracker-Key: <apiKey> (optional)
 * ```
-* The backend must return all events available in the
-* `events` field, without filtering anything. The dashboard only reads `events`
-* and ignores the other pagination fields (`total`, `page`, `limit`,
-* `nextCursor`), which are retained for compatibility with backends that
-* implement their own pagination.
+* The backend must return, in the `events` field, all events whose `timestamp`
+* falls within the requested `[since, until]` window, sorted from newest to
+* oldest. The dashboard reads only `events` and ignores the pagination fields
+* (`total`, `page`, `limit`, `nextCursor`), which are retained for compatibility
+* with backends that implement their own pagination or expose the same endpoint
+* for other consumers.
 */
 export interface EventsResponse {
 	/**
-	* All available events, sorted from newest to oldest.
+	* Events matching the requested time window (`since`/`until`), sorted from newest to oldest.
 	*
 	* @remarks
 	* This is the only field the built-in dashboard reads from the response.
-	* The backend must include all of them without additional filters.
+	* The backend must include all events within the requested time range without
+	* applying any additional filtering beyond `since`/`until`.
 	*/
 	events: TrackerEvent[]
 
@@ -2760,6 +2817,7 @@ export type ResolvedStorage =
 		port: number
 		batchSize: number
 		flushInterval: number
+		maxBufferSize: number
 	}
 	| {
 		mode: 'websocket'
@@ -2771,6 +2829,7 @@ export type ResolvedStorage =
 		port: number
 		batchSize: number
 		flushInterval: number
+		maxBufferSize: number
 	}
 
 /**
