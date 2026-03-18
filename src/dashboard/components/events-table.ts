@@ -20,6 +20,16 @@ const LEVEL_CLASS: Record<LogLevel, string> = {
 	error: 'lvl-error',
 }
 
+const LEVEL_ORDER: Record<LogLevel, number> = {
+	debug: 0, info: 1, warn: 2, error: 3,
+}
+
+type SortKey = 'timestamp' | 'type' | 'level' | 'userId'
+type SortDir = 'asc' | 'desc'
+
+const DEFAULT_SORT_KEY: SortKey = 'timestamp'
+const DEFAULT_SORT_DIR: SortDir = 'asc'
+
 function getDetail(event: TrackerEvent): string {
 	const p = event.payload as any;
 	switch (event.type) {
@@ -47,7 +57,14 @@ function getDetail(event: TrackerEvent): string {
 }
 
 /**
- * Events tab: filterable table of raw events with cursor-based live polling.
+ * Events tab: filterable, sortable table of raw events.
+ *
+ * @remarks
+ * Sort is local to this component (not persisted in the store).
+ * Default order is timestamp ascending — oldest events at the top — so the
+ * user reads the sequence top-to-bottom as it happened in time.
+ * Clicking a column header sorts by that column ascending; clicking again
+ * toggles to descending. The Reset button restores the default sort.
  */
 export function createEventsTable(): HTMLElement {
 	const container = el('div', { class: 'events-tab' });
@@ -81,7 +98,7 @@ export function createEventsTable(): HTMLElement {
 			<input class="filter-input filter-input--search" id="filter-search" type="text" placeholder="Search payload…" />
 		</div>
 
-		<button class="filter-reset-btn" id="filter-reset" title="Reset filters">✕ Reset</button>
+		<button class="filter-reset-btn" id="filter-reset" title="Reset filters and sort">✕ Reset</button>
 		<div class="events-count" id="events-count">0 events</div>
 		<div class="events-loading" id="events-loading" hidden>
 			<span class="spinner"></span>
@@ -92,11 +109,11 @@ export function createEventsTable(): HTMLElement {
 		<table class="events-table">
 			<thead>
 				<tr>
-					<th>Time</th>
-					<th>Type</th>
-					<th>Level</th>
-					<th>User</th>
-					<th>Detail</th>
+					<th class="col-th sortable" data-sort="timestamp">Time <span class="sort-indicator">▲</span></th>
+					<th class="col-th sortable" data-sort="type">Type <span class="sort-indicator"></span></th>
+					<th class="col-th sortable" data-sort="level">Level <span class="sort-indicator"></span></th>
+					<th class="col-th sortable" data-sort="userId">User <span class="sort-indicator"></span></th>
+					<th class="col-th">Detail</th>
 				</tr>
 			</thead>
 			<tbody id="events-tbody"></tbody>
@@ -115,6 +132,60 @@ export function createEventsTable(): HTMLElement {
 		levelGroup.querySelectorAll<HTMLButtonElement>('.level-toggle')
 	);
 
+	// INFO Sort
+	let sortKey: SortKey = DEFAULT_SORT_KEY;
+	let sortDir: SortDir = DEFAULT_SORT_DIR;
+	let lastEvents: TrackerEvent[] = [];
+
+	const sortHeaders = Array.from(container.querySelectorAll<HTMLElement>('th[data-sort]'));
+
+	function syncSortHeaders() {
+		for (const th of sortHeaders) {
+			const key = th.dataset.sort as SortKey;
+			const indicator = th.querySelector<HTMLElement>('.sort-indicator')!;
+			th.classList.toggle('sort-active', key === sortKey);
+			indicator.textContent = key === sortKey ? (sortDir === 'asc' ? '▲' : '▼') : '';
+		}
+	}
+
+	function sortEvents(events: TrackerEvent[]): TrackerEvent[] {
+		return [...events].sort((a, b) => {
+			let cmp = 0;
+			switch (sortKey) {
+				case 'timestamp':
+					cmp = a.timestamp.localeCompare(b.timestamp);
+					break;
+				case 'type':
+					cmp = a.type.localeCompare(b.type);
+					break;
+				case 'level':
+					cmp = LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level];
+					break;
+				case 'userId':
+					cmp = a.userId.localeCompare(b.userId);
+					break;
+			}
+			return sortDir === 'asc' ? cmp : -cmp;
+		});
+	}
+
+	for (const th of sortHeaders) {
+		on(th, 'click', () => {
+			const key = th.dataset.sort as SortKey;
+			if (key === sortKey) {
+				sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+			} else {
+				sortKey = key;
+				sortDir = 'asc';
+			}
+			syncSortHeaders();
+			renderAll(lastEvents);
+		});
+	}
+
+	syncSortHeaders();
+
+	// INFO Filter
 	function getSelectedLevels(): LogLevel[] {
 		return levelButtons
 			.filter(b => b.classList.contains('active'))
@@ -135,8 +206,14 @@ export function createEventsTable(): HTMLElement {
 	const resetBtn = qs<HTMLButtonElement>('#filter-reset', container);
 
 	on(resetBtn, 'click', () => {
+		// INFO Reset filter in store
 		store.resetSelectEvent();
 		store.setEventsFilter({});
+		// INFO Reset sort to default
+		sortKey = DEFAULT_SORT_KEY;
+		sortDir = DEFAULT_SORT_DIR;
+		syncSortHeaders();
+		renderAll(lastEvents);
 	});
 
 	function emitFilter() {
@@ -183,14 +260,16 @@ export function createEventsTable(): HTMLElement {
 	}
 
 	function renderAll(events: TrackerEvent[]) {
+		lastEvents = events;
+		const sorted = sortEvents(events);
 		empty(tbody);
-		toggleVisible(emptyEl, events.length === 0);
+		toggleVisible(emptyEl, sorted.length === 0);
 		const frag = document.createDocumentFragment();
-		for (const e of events) {
+		for (const e of sorted) {
 			frag.append(buildRow(e));
 		}
 		tbody.append(frag);
-		countEl.textContent = `${events.length} events`;
+		countEl.textContent = `${sorted.length} events`;
 	}
 
 	function populateUsers() {

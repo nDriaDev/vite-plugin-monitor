@@ -926,6 +926,29 @@ select {
 	text-transform: uppercase;
 	letter-spacing: .5px;
 	border-bottom: 1px solid var(--border);
+	white-space: nowrap;
+}
+
+.events-table th.sortable {
+	cursor: pointer;
+	user-select: none;
+	transition: color .15s;
+}
+
+.events-table th.sortable:hover {
+	color: var(--text-secondary);
+}
+
+.events-table th.sort-active {
+	color: var(--accent-light);
+}
+
+.sort-indicator {
+	display: inline-block;
+	width: 10px;
+	font-size: 9px;
+	margin-left: 2px;
+	opacity: 0.8;
 }
 
 .events-table td {
