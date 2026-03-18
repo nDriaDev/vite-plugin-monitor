@@ -8,8 +8,6 @@ export const STYLES = `
 	/*  FAB  */
 	#fab {
 		position: fixed;
-		bottom: 20px;
-		right: 20px;
 		width: 40px;
 		height: 40px;
 		border-radius: 50%;
@@ -42,8 +40,6 @@ export const STYLES = `
 	/*  Panel  */
 	#panel {
 		position: fixed;
-		bottom: 70px;
-		right: 20px;
 		width: 320px;
 		background: #0f172a;
 		border: 1px solid #1e293b;

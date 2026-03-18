@@ -3,6 +3,12 @@ import { TrackerSession } from "./session";
 import { STYLES } from "./styles/overlay.styles";
 import { ICONS } from "./styles/icons";
 
+//INFO Escape user-controlled strings before interpolating into innerHTML.
+function esc(s: string): string {
+	return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 export class DebugOverlay implements IDebugOverlay {
 	/** Host element appended to `document.body`. Contains the Shadow DOM root. */
 	private host: HTMLElement;
@@ -47,8 +53,10 @@ export class DebugOverlay implements IDebugOverlay {
 	*                         userId, sessionId, and appId for display.
 	* @param dashboardRoute - The URL pathname where the dashboard SPA is served
 	*                         (e.g. `'/_tracker'`).
+	* @param position       - Corner of the viewport where the FAB is anchored.
+	* @param onUserIdChange - Callback invoked when the user edits their ID in the overlay.
 	*/
-	constructor(private session: TrackerSession, private dashboardRoute: string, private onUserIdChange: (newId: string | null) => void) {
+	constructor(private session: TrackerSession, private dashboardRoute: string, private position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left', private onUserIdChange: (newId: string | null) => void) {
 		this.host = document.createElement('div');
 		this.host.setAttribute('data-tracker-overlay', '');
 		this.shadow = this.host.attachShadow({ mode: 'closed' });
@@ -77,12 +85,13 @@ export class DebugOverlay implements IDebugOverlay {
 	}
 
 	private buildUserIdRow(): string {
+		const uid = esc(this.session.userId);
 		return `
     <div class="row">
 		<span class="row-key">User ID</span>
 		<div class="row-right">
-			<span class="row-val highlight" id="userid-display" title="${this.session.userId}">${this.session.userId}</span>
-			<button class="copy-btn" data-val="${this.session.userId}" id="userid-copy">copy</button>
+			<span class="row-val highlight" id="userid-display" title="${uid}">${uid}</span>
+			<button class="copy-btn" data-val="${uid}" id="userid-copy">copy</button>
 			<button class="edit-btn" id="userid-edit" title="Change user ID">edit</button>
 		</div>
     </div>
@@ -92,7 +101,7 @@ export class DebugOverlay implements IDebugOverlay {
 			class="userid-input"
 			type="text"
 			placeholder="Enter user ID or leave empty to clear"
-			value="${this.session.userId}"
+			value="${uid}"
 		/>
 		<div class="userid-actions">
 			<button class="confirm-btn" id="userid-confirm">✓</button>
@@ -123,6 +132,26 @@ export class DebugOverlay implements IDebugOverlay {
 		this.panel.innerHTML = this.buildHTML();
 		this.shadow.appendChild(this.panel);
 
+		// INFO Apply configured corner position to both FAB and panel
+		const isBottom = this.position.startsWith('bottom');
+		const isRight = this.position.endsWith('right');
+		const vEdge = isBottom ? 'bottom' : 'top';
+		const hEdge = isRight ? 'right' : 'left';
+		const vOpp  = isBottom ? 'top' : 'bottom';
+		const hOpp  = isRight ? 'left' : 'right';
+
+		// INFO FAB
+		this.fab.style.setProperty(vEdge, '20px');
+		this.fab.style.setProperty(hEdge, '20px');
+		this.fab.style.removeProperty(vOpp);
+		this.fab.style.removeProperty(hOpp);
+
+		// INFO Panel: offset from the FAB (60px on the same axis)
+		this.panel.style.setProperty(vEdge, isBottom ? '70px' : '70px');
+		this.panel.style.setProperty(hEdge, '20px');
+		this.panel.style.removeProperty(vOpp);
+		this.panel.style.removeProperty(hOpp);
+
 		this.bindEvents();
 	}
 
@@ -139,15 +168,15 @@ export class DebugOverlay implements IDebugOverlay {
 		const nav = navigator as Navigator & { connection?: { effectiveType?: string } };
 
 		const identityRows: Array<{ key: string; val: string; copy: boolean }> = [
-			{ key: 'Session ID', val: this.session.sessionId, copy: true },
-			{ key: 'App ID', val: this.session.appId, copy: false },
+			{ key: 'Session ID', val: esc(this.session.sessionId), copy: true },
+			{ key: 'App ID', val: esc(this.session.appId), copy: false },
 		];
 
 		const contextRows: Array<{ key: string; val: string }> = [
-			{ key: 'Route', val: window.location.pathname },
-			{ key: 'Viewport', val: `${window.innerWidth}×${window.innerHeight}` },
-			{ key: 'Language', val: navigator.language },
-			{ key: 'Connection', val: nav.connection?.effectiveType ?? '-' },
+			{ key: 'Route', val: esc(window.location.pathname) },
+			{ key: 'Viewport', val: esc(`${window.innerWidth}×${window.innerHeight}`) },
+			{ key: 'Language', val: esc(navigator.language) },
+			{ key: 'Connection', val: esc(nav.connection?.effectiveType ?? '-') },
 		];
 
 		return `
@@ -325,9 +354,9 @@ export class DebugOverlay implements IDebugOverlay {
 	private refreshDynamicFields() {
 		const nav = navigator as Navigator & { connection?: { effectiveType?: string } };
 		const updates: Record<string, string> = {
-			Route: window.location.pathname,
-			Viewport: `${window.innerWidth}×${window.innerHeight}`,
-			Connection: nav.connection?.effectiveType ?? '-',
+			Route: esc(window.location.pathname),
+			Viewport: esc(`${window.innerWidth}×${window.innerHeight}`),
+			Connection: esc(nav.connection?.effectiveType ?? '-')
 		};
 		for (const [field, val] of Object.entries(updates)) {
 			const el = this.shadow.querySelector<HTMLElement>(`[data-field="${field}"]`);
