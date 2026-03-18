@@ -111,9 +111,9 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 	function dashboardDistDir(): string {
 		try {
 			const __filename = fileURLToPath(import.meta.url);
-			return path.join(path.dirname(__filename), '..', 'dashboard');
+			return path.join(path.dirname(__filename), 'dashboard');
 		} catch {
-			return path.join(__dirname, '..', 'dashboard');
+			return path.join(__dirname, 'dashboard');
 		}
 	}
 
