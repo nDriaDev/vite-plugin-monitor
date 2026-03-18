@@ -26,8 +26,9 @@ const opts: ResolvedTrackerOptions = {
 		wsEndpoint: '',
 		apiKey: '',
 		port: 4242,
-		batchSize: 10,
-		flushInterval: 3000
+		batchSize: 25,
+		flushInterval: 3000,
+		maxBufferSize: 500000
 	},
 	track: {
 		clicks: true,
@@ -92,18 +93,6 @@ function ts(minutesAgo: number): string {
 	return new Date(Date.now() - minutesAgo * 60_000).toISOString()
 }
 
-/**
- * Base metadata shared by all fixture events.
- */
-function meta(route: string, viewport = '1440x900', language = 'it-IT') {
-	return {
-		userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-		route,
-		viewport,
-		language
-	}
-}
-
 function seedEvents() {
 	const SESSIONS = [
 		'sess_aaa111', 'sess_bbb222', 'sess_ccc333',
@@ -146,43 +135,45 @@ function seedEvents() {
 		};
 	}
 
-	// ── Navigations ────────────────────────────────────────────────────────────
+	// INFO Navigations
 	const navEvents: TrackerEvent[] = [
-		// Session 0: alice browses products -> cart -> checkout
+		// INFO Session 0: alice browses products -> cart -> checkout
 		ev(88, 'info', 'navigation', 0, 0, { from: '/', to: '/products', trigger: 'pushState', duration: undefined }, '/'),
 		ev(82, 'info', 'navigation', 0, 0, { from: '/products', to: '/products/42', trigger: 'pushState', duration: 6000 }, '/products'),
 		ev(75, 'info', 'navigation', 0, 0, { from: '/products/42', to: '/cart', trigger: 'pushState', duration: 7000 }, '/products/42'),
 		ev(68, 'info', 'navigation', 0, 0, { from: '/cart', to: '/checkout', trigger: 'pushState', duration: 7000 }, '/cart'),
 		ev(55, 'info', 'navigation', 0, 0, { from: '/checkout', to: '/account', trigger: 'pushState', duration: 13000 }, '/checkout'),
-		// Session 1: bob quick browse
+		// INFO Session 1: bob quick browse
 		ev(85, 'info', 'navigation', 1, 1, { from: '/', to: '/products', trigger: 'pushState', duration: undefined }, '/'),
 		ev(80, 'info', 'navigation', 1, 1, { from: '/products', to: '/products/18', trigger: 'pushState', duration: 5000 }, '/products'),
 		ev(72, 'info', 'navigation', 1, 1, { from: '/products/18', to: '/products', trigger: 'popstate', duration: 8000 }, '/products/18'),
 		ev(65, 'info', 'navigation', 1, 1, { from: '/products', to: '/products/55', trigger: 'pushState', duration: 7000 }, '/products'),
 		ev(58, 'info', 'navigation', 1, 1, { from: '/products/55', to: '/cart', trigger: 'pushState', duration: 7000 }, '/products/55'),
-		// Session 2: carol account + dashboard
+		// INFO Session 2: carol account + dashboard
 		ev(70, 'info', 'navigation', 2, 2, { from: '/', to: '/account', trigger: 'pushState', duration: undefined }, '/'),
 		ev(60, 'info', 'navigation', 2, 2, { from: '/account', to: '/account/orders', trigger: 'pushState', duration: 10000 }, '/account'),
 		ev(45, 'info', 'navigation', 2, 2, { from: '/account/orders', to: '/account/orders/ORD-100', trigger: 'pushState', duration: 15000 }, '/account/orders'),
-		// Session 3: dave lands on checkout directly
+		// INFO Session 3: dave lands on checkout directly
 		ev(50, 'info', 'navigation', 3, 3, { from: '/', to: '/checkout', trigger: 'pushState', duration: undefined }, '/'),
 		ev(40, 'info', 'navigation', 3, 3, { from: '/checkout', to: '/checkout/confirm', trigger: 'pushState', duration: 10000 }, '/checkout'),
-		// Session 4: anon bounces
+		// INFO Session 4: anon bounces
 		ev(30, 'info', 'navigation', 4, 4, { from: '/', to: '/products', trigger: 'pushState', duration: undefined }, '/'),
 		ev(28, 'info', 'navigation', 4, 4, { from: '/products', to: '/', trigger: 'popstate', duration: 2000 }, '/products'),
-		// Session 5: anon explores
+		// INFO Session 5: anon explores
 		ev(20, 'info', 'navigation', 5, 5, { from: '/', to: '/products', trigger: 'pushState', duration: undefined }, '/'),
 		ev(18, 'info', 'navigation', 5, 5, { from: '/products', to: '/products/42', trigger: 'pushState', duration: 2000 }, '/products'),
 		ev(12, 'info', 'navigation', 5, 5, { from: '/products/42', to: '/cart', trigger: 'pushState', duration: 6000 }, '/products/42'),
 		ev(5, 'info', 'navigation', 5, 5, { from: '/cart', to: '/checkout', trigger: 'pushState', duration: 7000 }, '/cart'),
 	];
 
-	// ── HTTP requests ─────────────────────────────────────────────────────────
-	// endpoints: /api/products (many calls), /api/products/:id, /api/cart,
-	//            /api/orders (slow), /api/payments, /api/reports/export (very slow),
-	//            /api/auth/me, /api/account/orders
+	/**
+	 * INFO HTTP
+	 * endpoints: /api/products (many calls), /api/products/:id, /api/cart,
+	 *            /api/orders (slow), /api/payments, /api/reports/export (very slow),
+	 *            /api/auth/me, /api/account/orders
+	 */
 	const httpEvents: TrackerEvent[] = [
-		// GET /api/products - high frequency
+		// INFO GET /api/products - high frequency
 		ev(87, 'info', 'http', 0, 0, { method: 'GET', url: 'https://api.dev.io/api/products?page=1', status: 200, duration: 118 }, '/products'),
 		ev(84, 'info', 'http', 1, 1, { method: 'GET', url: 'https://api.dev.io/api/products?page=1', status: 200, duration: 134 }, '/products'),
 		ev(79, 'info', 'http', 1, 1, { method: 'GET', url: 'https://api.dev.io/api/products?page=2', status: 200, duration: 121 }, '/products'),
@@ -191,13 +182,13 @@ function seedEvents() {
 		ev(21, 'info', 'http', 4, 4, { method: 'GET', url: 'https://api.dev.io/api/products?page=1', status: 200, duration: 128 }, '/products'),
 		ev(19, 'info', 'http', 5, 5, { method: 'GET', url: 'https://api.dev.io/api/products?page=1', status: 200, duration: 139 }, '/products'),
 
-		// GET /api/products/:id
+		// INFO GET /api/products/:id
 		ev(81, 'info', 'http', 0, 0, { method: 'GET', url: 'https://api.dev.io/api/products/42', status: 200, duration: 88 }, '/products/42'),
 		ev(74, 'info', 'http', 1, 1, { method: 'GET', url: 'https://api.dev.io/api/products/18', status: 200, duration: 95 }, '/products/18'),
 		ev(64, 'info', 'http', 1, 1, { method: 'GET', url: 'https://api.dev.io/api/products/55', status: 200, duration: 102 }, '/products/55'),
 		ev(17, 'info', 'http', 5, 5, { method: 'GET', url: 'https://api.dev.io/api/products/42', status: 200, duration: 91 }, '/products/42'),
 
-		// GET /api/auth/me - called on every page load
+		// INFO GET /api/auth/me - called on every page load
 		ev(89, 'info', 'http', 0, 0, { method: 'GET', url: 'https://api.dev.io/api/auth/me', status: 200, duration: 44 }, '/'),
 		ev(86, 'info', 'http', 1, 1, { method: 'GET', url: 'https://api.dev.io/api/auth/me', status: 200, duration: 51 }, '/'),
 		ev(71, 'info', 'http', 2, 2, { method: 'GET', url: 'https://api.dev.io/api/auth/me', status: 200, duration: 47 }, '/'),
@@ -205,45 +196,45 @@ function seedEvents() {
 		ev(31, 'info', 'http', 4, 4, { method: 'GET', url: 'https://api.dev.io/api/auth/me', status: 200, duration: 55 }, '/'),
 		ev(22, 'info', 'http', 5, 5, { method: 'GET', url: 'https://api.dev.io/api/auth/me', status: 200, duration: 42 }, '/'),
 
-		// POST /api/cart/items
+		// INFO POST /api/cart/items
 		ev(76, 'info', 'http', 0, 0, { method: 'POST', url: 'https://api.dev.io/api/cart/items', status: 201, duration: 210 }, '/products/42'),
 		ev(63, 'info', 'http', 1, 1, { method: 'POST', url: 'https://api.dev.io/api/cart/items', status: 201, duration: 198 }, '/products/55'),
 		ev(11, 'info', 'http', 5, 5, { method: 'POST', url: 'https://api.dev.io/api/cart/items', status: 201, duration: 225 }, '/products/42'),
 
-		// GET /api/cart
+		// INFO GET /api/cart
 		ev(74, 'info', 'http', 0, 0, { method: 'GET', url: 'https://api.dev.io/api/cart', status: 200, duration: 76 }, '/cart'),
 		ev(57, 'info', 'http', 1, 1, { method: 'GET', url: 'https://api.dev.io/api/cart', status: 200, duration: 82 }, '/cart'),
 		ev(10, 'info', 'http', 5, 5, { method: 'GET', url: 'https://api.dev.io/api/cart', status: 200, duration: 79 }, '/cart'),
 
-		// POST /api/orders
+		// INFO POST /api/orders
 		ev(44, 'info', 'http', 0, 0, { method: 'POST', url: 'https://api.dev.io/api/orders', status: 201, duration: 540 }, '/checkout'),
 		ev(38, 'info', 'http', 3, 3, { method: 'POST', url: 'https://api.dev.io/api/orders', status: 201, duration: 488 }, '/checkout'),
 
-		// POST /api/payments - one 5xx
+		// INFO POST /api/payments - one 5xx
 		ev(42, 'info', 'http', 0, 0, { method: 'POST', url: 'https://api.dev.io/api/payments', status: 200, duration: 820 }, '/checkout'),
 		ev(36, 'error', 'http', 3, 3, { method: 'POST', url: 'https://api.dev.io/api/payments', status: 500, duration: 3240 }, '/checkout'),
 		ev(8, 'info', 'http', 5, 5, { method: 'POST', url: 'https://api.dev.io/api/payments', status: 200, duration: 910 }, '/checkout'),
 
-		// GET /api/account/orders
+		// INFO GET /api/account/orders
 		ev(59, 'info', 'http', 2, 2, { method: 'GET', url: 'https://api.dev.io/api/account/orders', status: 200, duration: 164 }, '/account/orders'),
 		ev(44, 'info', 'http', 2, 2, { method: 'GET', url: 'https://api.dev.io/api/account/orders/ORD-100', status: 200, duration: 188 }, '/account/orders'),
-		// 401 when session expired
+		// INFO 401 when session expired
 		ev(9, 'warn', 'http', 4, 4, { method: 'GET', url: 'https://api.dev.io/api/account/orders', status: 401, duration: 38 }, '/account'),
 
-		// GET /api/reports/export - very slow, used for Slowest Endpoint
+		// INFO GET /api/reports/export - very slow, used for Slowest Endpoint
 		ev(62, 'info', 'http', 2, 2, { method: 'GET', url: 'https://api.dev.io/api/reports/export?format=csv', status: 200, duration: 4850 }, '/account'),
 		ev(33, 'info', 'http', 3, 3, { method: 'GET', url: 'https://api.dev.io/api/reports/export?format=xlsx', status: 200, duration: 5120 }, '/account'),
 
-		// 4xx miscellaneous
+		// INFO 4xx miscellaneous
 		ev(56, 'warn', 'http', 1, 1, { method: 'GET', url: 'https://api.dev.io/api/products/999', status: 404, duration: 42 }, '/products'),
 		ev(27, 'warn', 'http', 4, 4, { method: 'POST', url: 'https://api.dev.io/api/cart/items', status: 422, duration: 95 }, '/cart'),
 
-		// 5xx - server errors
+		// INFO 5xx - server errors
 		ev(35, 'error', 'http', 2, 2, { method: 'GET', url: 'https://api.dev.io/api/reports/export?format=csv', status: 503, duration: 6000 }, '/account'),
 		ev(6, 'error', 'http', 5, 5, { method: 'POST', url: 'https://api.dev.io/api/orders', status: 500, duration: 2100 }, '/checkout'),
 	];
 
-	// ── JS Errors (type === 'error') ──────────────────────────────────────────
+	// INFO JS (type === 'error')
 	const errorEvents: TrackerEvent[] = [
 		ev(69, 'error', 'error', 0, 0, {
 			message: "Cannot read properties of undefined (reading 'price')",
@@ -278,7 +269,7 @@ function seedEvents() {
 		}, '/checkout'),
 	];
 
-	// ── Clicks ────────────────────────────────────────────────────────────────
+	// INFO Clicks
 	const clickEvents: TrackerEvent[] = [
 		ev(83, 'info', 'click', 0, 0, { tag: 'button', text: 'Add to cart', id: 'add-to-cart-btn', coordinates: { x: 320, y: 480 } }, '/products/42'),
 		ev(78, 'info', 'click', 1, 1, { tag: 'button', text: 'Add to cart', id: 'add-to-cart-btn', coordinates: { x: 320, y: 480 } }, '/products/18'),
@@ -290,7 +281,7 @@ function seedEvents() {
 		ev(4, 'info', 'click', 5, 5, { tag: 'button', text: 'Pay now', id: 'pay-btn', coordinates: { x: 640, y: 600 } }, '/checkout'),
 	];
 
-	// ── Custom events ─────────────────────────────────────────────────────────
+	// INFO Custom
 	const customEvents: TrackerEvent[] = [
 		ev(85, 'info', 'custom', 0, 0, { name: 'search:query', data: { term: 'running shoes', resultCount: 24 } }, '/products'),
 		ev(77, 'info', 'custom', 1, 1, { name: 'search:query', data: { term: 'winter jacket', resultCount: 8 } }, '/products'),
@@ -302,12 +293,38 @@ function seedEvents() {
 		ev(3, 'warn', 'custom', 5, 5, { name: 'payment:failed', data: { code: 'INSUFFICIENT_FUNDS', retryCount: 2 }, duration: 0 }, '/checkout'),
 	];
 
+	// INFO Session events
+	const sessionEvents: TrackerEvent[] = [
+		// INFO Session 0: alice - init, then login (userId change), then page close
+		ev(90, 'info', 'session', 0, 4, { action: 'start', trigger: 'init' }, '/'),
+		ev(70, 'info', 'session', 0, 4, { action: 'end',   trigger: 'userId-change', previousUserId: USERS[4] }, '/products/42'),
+		ev(70, 'info', 'session', 0, 0, { action: 'start', trigger: 'userId-change', newUserId: USERS[0] }, '/products/42'),
+		ev(54, 'info', 'session', 0, 0, { action: 'end',   trigger: 'unload' }, '/checkout'),
+		// INFO Session 1: bob - init and close
+		ev(86, 'info', 'session', 1, 1, { action: 'start', trigger: 'init' }, '/'),
+		ev(57, 'info', 'session', 1, 1, { action: 'end',   trigger: 'unload' }, '/cart'),
+		// INFO Session 2: carol - init and explicit destroy
+		ev(71, 'info', 'session', 2, 2, { action: 'start', trigger: 'init' }, '/'),
+		ev(44, 'info', 'session', 2, 2, { action: 'end',   trigger: 'destroy' }, '/account/orders'),
+		// INFO Session 3: dave - init, then logout (userId change to anon)
+		ev(52, 'info', 'session', 3, 3, { action: 'start', trigger: 'init' }, '/'),
+		ev(39, 'info', 'session', 3, 3, { action: 'end',   trigger: 'userId-change', previousUserId: USERS[3] }, '/checkout/confirm'),
+		ev(39, 'info', 'session', 3, 4, { action: 'start', trigger: 'userId-change', newUserId: USERS[4] }, '/checkout/confirm'),
+		ev(35, 'info', 'session', 3, 4, { action: 'end',   trigger: 'unload' }, '/checkout/confirm'),
+		// INFO Session 4: anon - quick bounce
+		ev(31, 'info', 'session', 4, 4, { action: 'start', trigger: 'init' }, '/'),
+		ev(27, 'info', 'session', 4, 4, { action: 'end',   trigger: 'unload' }, '/'),
+		// INFO Session 5: anon - init and still active (no end event = current session)
+		ev(21, 'info', 'session', 5, 5, { action: 'start', trigger: 'init' }, '/'),
+	];
+
 	const events: TrackerEvent[] = [
 		...navEvents,
 		...httpEvents,
 		...errorEvents,
 		...clickEvents,
 		...customEvents,
+		...sessionEvents,
 	];
 
 	fetch('http://localhost:4242/_tracker/events', {

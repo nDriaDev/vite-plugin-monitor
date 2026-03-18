@@ -140,7 +140,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo -e "${GREEN}✅ Git tag pushed to remote${NC}"
     echo -e "${GREEN}✅ Changelog updated${NC}"
     echo -e ""
-    echo -e "${BLUE}📦 npm: ${YELLOW}https://www.npmjs.com/package/@ndriadev/vite-plugin-universal-api${NC}"
+    echo -e "${BLUE}📦 npm: ${YELLOW}https://www.npmjs.com/package/@ndriadev/vite-plugin-monitor${NC}"
     echo -e "${BLUE}🏷️  Tag: ${YELLOW}https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v$NEW_VERSION${NC}"
 else
     echo -e "\n${YELLOW}⚠️  Skipped npm publish${NC}"

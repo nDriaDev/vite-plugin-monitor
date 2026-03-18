@@ -112,6 +112,11 @@ function main() {
 	allFilesExist &= checkFile('index.cjs', 'CommonJS build');
 	allFilesExist &= checkFile('index.js', 'ESM build');
 	allFilesExist &= checkFile('index.d.ts', 'TypeScript declarations');
+	allFilesExist &= checkFile('plugin/logger-worker.js', 'Logger worker (ESM)');
+	allFilesExist &= checkFile('plugin/logger-worker.cjs', 'Logger worker (CJS)');
+	allFilesExist &= checkFile('client/index.js', 'Browser client');
+	allFilesExist &= checkFile('client/index.d.ts', 'Browser client types');
+	allFilesExist &= checkFile('dashboard/index.html', 'Dashboard SPA');
 
 	const packageJsonOk = verifyPackageJson();
 

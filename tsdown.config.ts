@@ -10,7 +10,7 @@ export default defineConfig([
 		platform: 'node',
 		dts: true,
 		sourcemap: true,
-		clean: true,
+		clean: true,   // INFO cleans dist/ on the first pass (prebuild already ran rimraf, but this is a safety net)
 		external: ['vite'],
 	},
 	{
@@ -20,6 +20,6 @@ export default defineConfig([
 		dts: true,
 		sourcemap: true,
 		minify: true,
-		clean: true,
+		clean: false,  // INFO must NOT clean: first config's output (index.*, plugin/*) is already in dist/
 	},
 ])
