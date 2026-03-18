@@ -97,6 +97,21 @@ export function toggleVisible(el: HTMLElement, visible: boolean): void {
 }
 
 /**
+* Escape a string for safe interpolation inside HTML markup or attribute values.
+* Replaces &, <, >, ", ' with their HTML entities.
+* Use this whenever inserting user-supplied or event-derived data into innerHTML
+* or HTML attribute strings (e.g. title="...").
+*/
+export function escapeHtml(s: string): string {
+	return s
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
+
+/**
 * Set text content safely: escapes HTML by using textContent.
 * Use this instead of innerHTML when rendering user-supplied strings.
 */

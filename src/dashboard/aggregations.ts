@@ -1,4 +1,4 @@
-import { HttpStats, LogLevel, MetricsResult, StatsResult, TrackerEvent, TrackerEventType } from "@tracker/types";
+import { HttpStats, MetricsResult, StatsResult, TrackerEvent } from "@tracker/types";
 
 /**
 * Metrics computation pure, from buffer
@@ -121,8 +121,6 @@ export function computeStats(events: TrackerEvent[], since: string, until: strin
 	const sessions = new Set(ranged.map(e => e.sessionId));
 	const users = new Set(ranged.map(e => e.userId));
 
-	const byType = {} as Record<TrackerEventType, number>;
-	const byLevel = {} as Record<LogLevel, number>;
 	let httpDurationSum = 0, httpCount = 0;
 
 	// INFO HTTP stats counters
@@ -137,9 +135,6 @@ export function computeStats(events: TrackerEvent[], since: string, until: strin
 	let appErrors = 0;
 
 	for (const e of ranged) {
-		byType[e.type] = (byType[e.type] ?? 0) + 1;
-		byLevel[e.level] = (byLevel[e.level] ?? 0) + 1;
-
 		if (e.type === 'http') {
 			const p = e.payload as any;
 			const duration = p.duration as number | undefined;

@@ -33,12 +33,12 @@ export function setupClickTracker(onEvent: (payload: ClickPayload) => void): () 
 			return;
 		}
 		onEvent({
-			tag:         target.tagName.toLowerCase(),
-			text:        (target.textContent ?? '').trim().slice(0, 100),
-			id:          target.id || undefined,
-			classes:     target.className || undefined,
-			xpath:       getXPath(target),
-			coordinates: { x: e.clientX, y: e.clientY },
+			tag: target.tagName.toLowerCase(),
+			text: (target.textContent ?? '').trim().slice(0, 100),
+			id: target.id || undefined,
+			classes: (typeof target.className === 'string' ? target.className : String((target.className as SVGAnimatedString).baseVal)) || undefined,
+			xpath: getXPath(target),
+			coordinates: { x: e.clientX, y: e.clientY }
 		});
 	}
 

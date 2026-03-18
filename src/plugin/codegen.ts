@@ -87,20 +87,24 @@ tracker.init(${userIdFn});
 }
 
 /**
- * Generates the config-only script injected into index.html when `autoInit: false`.
+ * Generates the inline `<script>` that injects `window.__TRACKER_CONFIG__` into
+ * the dashboard HTML (`dashboard/index.html`).
  *
  * @remarks
- * Injects `window.__TRACKER_CONFIG__` exactly as `generateAutoInitScript` does,
- * but does **not** call `tracker.init()`. The consumer is responsible for calling
- * `tracker.init()` manually at the appropriate point in the application lifecycle:
+ * Called in two places inside the plugin:
  *
- * ```ts
- * import { tracker } from 'vite-plugin-tracker/client'
- * tracker.init(() => authStore.userId)
- * ```
+ * 1. **Dev / preview** (`configureServer`) - injected into the dashboard HTML
+ *    served by the Vite middleware or the standalone server on every request,
+ *    so the dashboard SPA always has the current resolved config available as
+ *    `window.__TRACKER_CONFIG__` when its `main.ts` executes.
  *
- * The `userIdFn` is **not** serialized here - when `autoInit: false` the consumer
- * provides it directly as an argument to `tracker.init()`.
+ * 2. **Production build** (`closeBundle`, when `includeInBuild: true`) - injected
+ *    into the copied `dashboard/index.html` so the statically-served dashboard
+ *    contains the correct production endpoints baked in.
+ *
+ * This function is **not** used to inject config into the consumer application's
+ * `index.html`. The consumer app always receives config via {@link generateSetupScript},
+ * which also calls `setupTrackers()`. This function is dashboard-only.
  */
 export function generateConfigScript(opts: ResolvedTrackerOptions): string {
 	const config = buildConfig(opts);

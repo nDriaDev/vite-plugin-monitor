@@ -42,7 +42,11 @@ export function clearAuth() {
 	try {
 		sessionStorage.removeItem(SESSION_KEY);
 	} catch { /* ignore */ }
-	store.setAuth(false);
+	/**
+	 * INFO Reload the page so the boot() function re-runs and shows the login screen.
+	 * This is simpler and more reliable than trying to unmount the full app tree.
+	 */
+	window.location.reload();
 }
 
 /**

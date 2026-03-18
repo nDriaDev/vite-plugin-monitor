@@ -127,7 +127,7 @@ export function setupNavigationTracker(onEvent: (payload: NavigationPayload) => 
 	const teardownMpa = setupMpaLinkInterceptor();
 
 	/**
-	 * ── Initial page load ────────────────────────────────────────────────────
+	 * INFO Initial page load
 	 * Determine the `from` for this page load:
 	 *   1. MPA: read sessionStorage key saved by the previous page (most accurate)
 	 *   2. Fallback: document.referrer (same-origin pathname)

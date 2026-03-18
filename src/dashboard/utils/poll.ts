@@ -1,16 +1,20 @@
 import { PollHandle, PollOptions } from "@tracker/types";
 
 /**
-* Cursor-based polling engine.
+* setTimeout-based polling engine.
 *
-* Polls an endpoint every `intervalMs` milliseconds.
-* Uses a timestamp cursor (?after=ISO) so each response contains
-* only events newer than the last received one: no re-fetching.
+* Polls at a fixed interval. The next tick is scheduled only after the
+* previous `onTick` promise resolves, so ticks never pile up on slow backends.
 *
-* The cursor is reset when the time range changes (full reload).
+* `onTick` receives a cursor (always `null` in current usage) and may return
+* a non-null string to advance it for future incremental fetches : this path
+* is unused by the built-in dashboard, which always fetches the full time
+* window from the backend and returns `null`. The cursor mechanism is retained
+* for extensibility.
 *
-* Handles OpenShift's 30s connection timeout by keeping intervals
-* at 3s (well under the limit) and using standard fetch (not SSE).
+* `resetCursor()` resets the cursor to `null` without triggering an immediate
+* tick. Use it when the active time range changes and the next tick should
+* perform a full reload.
 */
 export function createPoller(opts: PollOptions): PollHandle {
 	let cursor: string | null = null;
