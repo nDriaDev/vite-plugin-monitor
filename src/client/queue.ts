@@ -97,17 +97,21 @@ export class EventQueue {
 		}
 
 		if (document.visibilityState === 'hidden' && navigator.sendBeacon) {
-			const blob = new Blob([body], { type: 'application/json' });
+			// INFO On page hide/unload, send the current batch AND any remaining events in one shot via sendBeacon so nothing is lost on tab close.
+			const remaining = this.queue.splice(0);
+			const allEvents = [...batch, ...remaining];
+			const beaconBody = JSON.stringify({ events: allEvents } satisfies IngestRequest);
+			const blob = new Blob([beaconBody], { type: 'application/json' });
 			const sent = navigator.sendBeacon(this.opts.writeEndpoint, blob);
 			if (!sent) {
-				this.queue.unshift(...batch);
+				this.queue.unshift(...allEvents);
 			}
 			this.sending = false;
 			this.scheduleFlush();
 			return;
 		}
 
-		fetch(this.opts.writeEndpoint, { method: 'POST', headers, body: JSON.stringify(body), keepalive: true })
+		fetch(this.opts.writeEndpoint, { method: 'POST', headers, body, keepalive: true })
 		.catch((err) => {
 			console.warn('[vite-plugin-monitor] Failed to send events, requeueing:', err);
 			this.queue.unshift(...batch);

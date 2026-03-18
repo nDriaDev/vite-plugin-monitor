@@ -32,7 +32,6 @@
 	/* Accents */
 	--accent: #3b82f6;
 	--accent-light: #60a5fa;
-	--accent-bg: #1e3a5f22;
 	--accent-btn: #1e40af;
 	--accent-btn-hover: #1d4ed8;
 
@@ -96,7 +95,6 @@
 	/* Accents */
 	--accent: #0969da;
 	--accent-light: #218bff;
-	--accent-bg: #ddf4ff;
 	--accent-btn: #0969da;
 	--accent-btn-hover: #0550ae;
 
@@ -611,7 +609,7 @@ select {
 }
 
 .top-bar--endpoint {
-	background: #8b5cf6;
+	background: var(--color-funnel-bar);
 }
 
 .top-label--mono {
@@ -1330,11 +1328,6 @@ select {
 
 /* Web Vitals */
 
-.web-vitals-panel {
-	grid-column: 1 / -1;
-	/* occupa tutta la larghezza nella bottom-row */
-}
-
 .vitals-grid {
 	display: grid;
 	grid-template-columns: repeat(4, 1fr);
@@ -1408,18 +1401,6 @@ select {
 	max-width: 100%;
 }
 
-@media (max-width: 1100px) {
-	.vitals-grid {
-		grid-template-columns: repeat(3, 1fr);
-	}
-}
-
-@media (max-width: 768px) {
-	.vitals-grid {
-		grid-template-columns: repeat(2, 1fr);
-	}
-}
-
 /* Responsive */
 
 @media (max-width: 1100px) {
@@ -1430,7 +1411,7 @@ select {
 	}
 
 	.vitals-grid {
-		grid-template-columns: repeat(2, 1fr);
+		grid-template-columns: repeat(3, 1fr);
 	}
 
 	.bottom-row,

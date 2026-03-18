@@ -9,8 +9,18 @@ export const PRESETS: { label: string; value: TimePreset; minutes: number }[] = 
 	{ label: '30d', value: '30d', minutes: 43200 },
 ];
 
-// INFO Live window width in milliseconds (last 5 minutes).
+/**
+ * INFO Initial live window width in milliseconds: the `from` is set to (now - 5min)
+ * when the user clicks "Live", and then stays fixed as the window grows forward.
+ */
 export const LIVE_WINDOW_MS = 5 * 60_000;
+
+/**
+ * INFO Maximum duration a live session window can span before `from` is capped.
+ * Once (to - from) exceeds this threshold, `from` is advanced to keep the window
+ * at most this wide, preventing unbounded growth and excessive backend payload.
+ */
+export const LIVE_MAX_WINDOW_MS = 30 * 60_000;
 
 export function presetToRange(preset: TimePreset): { from: string; to: string } {
 	const to = new Date();
@@ -25,9 +35,15 @@ export function presetToRange(preset: TimePreset): { from: string; to: string } 
 * Returns the actual time range to use in queries.
 *
 * @remarks
-* When the preset is live, recalculates the from/to range based on the current time
-* so that each call reflects the updated time window.
-* For all other presets, returns the fixed range in the store.
+* **Live mode** uses a growing window anchored to when the user pressed "Live":
+* - `from` stays fixed at the original click time, so the user always sees
+*   everything that happened since they started the live session.
+* - `to` always advances to the current moment on every call.
+* - If the session has been open long enough that `(to - from)` exceeds
+*   {@link LIVE_MAX_WINDOW_MS} (30 minutes), `from` is capped to `to - 30min`
+*   so the backend payload stays bounded and the dashboard remains responsive.
+*
+* **All other presets** return the fixed `from`/`to` values stored in the state.
 */
 export function effectiveTimeRange(range: TimeRange): { from: string; to: string } {
 	if (range.preset === 'live') {
