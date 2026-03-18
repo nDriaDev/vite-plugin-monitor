@@ -219,6 +219,14 @@ export function getEventDetail(event: { type: string; payload: unknown }): strin
 			return `[${p.method}] ${p.message ?? ''}`;
 		case 'custom':
 			return p.name ?? '';
+		case 'session': {
+			const who = p.previousUserId
+				? ` ${p.previousUserId} -> ${p.newUserId ?? '-'}`
+				: p.newUserId
+					? ` ${p.newUserId}`
+					: '';
+			return `${p.action} ${p.trigger}${who}`;
+		}
 		default:
 			return '';
 	}

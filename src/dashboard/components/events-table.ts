@@ -36,6 +36,10 @@ function getDetail(event: TrackerEvent): string {
 		}
 		case 'custom':
 			return `${p.name}${p.duration !== undefined ? ` - ${formatDuration(p.duration)}` : ''}`;
+		case 'session': {
+			const who = p.previousUserId ? ` (${truncate(p.previousUserId, 16)} → ${truncate(p.newUserId ?? '-', 16)})` : '';
+			return `${p.action} · ${p.trigger}${who}`;
+		}
 		default:
 			return '';
 	}
@@ -51,7 +55,7 @@ export function createEventsTable(): HTMLElement {
     <div class="events-toolbar">
 		<select class="filter-select" id="filter-type">
 			<option value="">All types</option>
-			${(['click', 'http', 'error', 'navigation', 'console', 'custom'] as TrackerEventType[]).map(t => `<option value="${t}">${TYPE_ICONS[t]} ${t}</option>`).join('')}
+			${(['click', 'http', 'error', 'navigation', 'console', 'custom', 'session'] as TrackerEventType[]).map(t => `<option value="${t}">${TYPE_ICONS[t]} ${t}</option>`).join('')}
 		</select>
 
 		<div class="level-toggle-group" id="filter-level">

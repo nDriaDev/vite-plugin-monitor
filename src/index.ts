@@ -35,6 +35,7 @@ export type {
 	ConsoleMethod,
 	SerializedArg,
 	CustomPayload,
+	SessionPayload,
 	// Public client API
 	TrackEventOptions,
 	SetUserOptions,

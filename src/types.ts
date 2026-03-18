@@ -27,6 +27,7 @@ export type TrackerEventType =
 	| 'navigation'
 	| 'console'
 	| 'custom'
+	| 'session'
 
 /**
 * Severity level attached to every tracked event.
@@ -234,6 +235,7 @@ export type EventPayload =
 	| NavigationPayload
 	| ConsolePayload
 	| CustomPayload
+	| SessionPayload
 
 /**
 * Payload for events with `type === 'click'`.
@@ -638,6 +640,84 @@ export interface CustomPayload {
 	* @example `142`, `3200`
 	*/
 	duration?: number
+}
+
+/**
+* Payload for events with `type === 'session'`.
+*
+* @remarks
+* Automatically emitted by the tracker at key identity lifecycle moments.
+* Session events form a timeline of user identity segments within the log:
+* each segment starts with `action === 'start'` and ends with `action === 'end'`.
+* Together they allow the dashboard and log analysis tools to reconstruct the
+* complete sequence of tracked interactions for each user, from first contact
+* to page close.
+*
+* **Emission points:**
+* | Trigger          | action  | When                                                       |
+* |------------------|---------|------------------------------------------------------------|
+* | `'init'`         | `start` | `tracker.init()` is called (autoInit or manual)            |
+* | `'userId-change'`| `end`   | `tracker.setUser()` is called : ends the previous identity |
+* | `'userId-change'`| `start` | `tracker.setUser()` is called : starts the new identity    |
+* | `'unload'`       | `end`   | The page is being unloaded (`beforeunload`)                |
+* | `'destroy'`      | `end`   | `tracker.destroy()` is called explicitly                   |
+*
+* @example Reconstructing a user session from log events:
+* ```
+* session:start  init          userId=anon_xyz    10:00:00
+* navigation     load          from=''  to=/home  10:00:00
+* http           GET /api/...  200  42ms           10:00:01
+* session:end    userId-change userId=anon_xyz    10:00:05  ← user logged in
+* session:start  userId-change userId=user_42     10:00:05
+* click          button#buy                       10:00:08
+* session:end    unload        userId=user_42     10:00:12  ← page closed
+* ```
+*/
+export interface SessionPayload {
+	/**
+	* Whether this marks the beginning or end of an identity segment.
+	*
+	* @remarks
+	* Every `start` event should be paired with a subsequent `end` event for the
+	* same `sessionId`. The duration of the segment can be computed as
+	* `end.timestamp - start.timestamp`.
+	*/
+	action: 'start' | 'end'
+
+	/**
+	* The event that caused this session boundary to be emitted.
+	*
+	* @remarks
+	* | Value            | Description                                                    |
+	* |------------------|----------------------------------------------------------------|
+	* | `'init'`         | `tracker.init()` was called : first start of the session.      |
+	* | `'userId-change'`| `tracker.setUser()` changed the active identity.               |
+	* | `'unload'`       | The browser fired `beforeunload` : page is being navigated away.|
+	* | `'destroy'`      | `tracker.destroy()` was called explicitly by the application.  |
+	*/
+	trigger: 'init' | 'userId-change' | 'unload' | 'destroy'
+
+	/**
+	* The `userId` that is ending its segment.
+	*
+	* @remarks
+	* Only present on `action === 'end'` events caused by `trigger === 'userId-change'`.
+	* Allows correlating the closing segment with its earlier `session:start` event.
+	*
+	* @example `'anon_xyz'`, `'user_42'`
+	*/
+	previousUserId?: string
+
+	/**
+	* The `userId` that is opening a new segment.
+	*
+	* @remarks
+	* Only present on `action === 'start'` events caused by `trigger === 'userId-change'`.
+	* Mirrors the `userId` field on the event envelope for convenience.
+	*
+	* @example `'user_42'`, `'anon_newxyz'`
+	*/
+	newUserId?: string
 }
 
 /**

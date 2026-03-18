@@ -1,4 +1,4 @@
-import { IDebugOverlay, ITrackerClient, LogLevel, SetUserOptions, Tracker, TrackerConfig, TrackerEvent, TrackEventOptions } from "@tracker/types";
+import { IDebugOverlay, ITrackerClient, LogLevel, SessionPayload, SetUserOptions, Tracker, TrackerConfig, TrackerEvent, TrackEventOptions } from "@tracker/types";
 import { TrackerSession } from "./session";
 import { EventQueue } from "./queue";
 import { setupConsoleTracker } from "./trackers/console";
@@ -86,6 +86,9 @@ class TrackerClient implements ITrackerClient {
 
 		this.queue.init();
 
+		// INFO Emit session:start to mark the beginning of this tracked session.
+		this.emitSession('start', 'init');
+
 		if (this.config.overlay.enabled) {
 			this._mountOverlay(DebugOverlay);
 		}
@@ -95,7 +98,34 @@ class TrackerClient implements ITrackerClient {
 				this.queue.flush();
 			}
 		});
-		window.addEventListener('beforeunload', () => this.queue.flush());
+		window.addEventListener('beforeunload', () => {
+			/**
+			 * INFO Emit session:end before flushing so the closing event is included
+			 * in the final sendBeacon batch and reaches the backend before the tab closes.
+			 */
+			this.emitSession('end', 'unload');
+			this.queue.flush();
+		});
+	}
+
+	/**
+	* Enqueue a session lifecycle event directly (bypasses the `custom` type path).
+	*
+	* @remarks
+	* Uses `session.createEvent('session', ...)` so the event carries the current
+	* userId and sessionId at the exact moment the boundary occurs. This is
+	* intentional: `session:end` for a userId-change captures the OLD userId
+	* because it is called before `session.userId` is updated, while `session:start`
+	* captures the NEW userId because it is called after the update.
+	*/
+	private emitSession(
+		action: SessionPayload['action'],
+		trigger: SessionPayload['trigger'],
+		extra?: Pick<SessionPayload, 'previousUserId' | 'newUserId'>
+	): void {
+		const payload: SessionPayload = { action, trigger, ...extra };
+		const event = this.session.createEvent('session', 'info', payload);
+		this.queue.enqueue(event);
 	}
 
 	private emit(name: string, data: Record<string, unknown>, opts: TrackEventOptions = {}) {
@@ -140,6 +170,11 @@ class TrackerClient implements ITrackerClient {
 	}
 
 	setUser(userId: string | null, opts: SetUserOptions = {}): void {
+		const previousUserId = this.session.userId;
+
+		// INFO Emit session:end BEFORE changing userId so the event carries the old identity.
+		this.emitSession('end', 'userId-change', { previousUserId });
+
 		if (userId === null) {
 			try {
 				sessionStorage.removeItem('__tracker_user_id__');
@@ -153,6 +188,10 @@ class TrackerClient implements ITrackerClient {
 				sessionStorage.setItem('__tracker_user_id__', userId);
 			} catch { /* ignore */ }
 		}
+
+		// INFO Emit session:start AFTER changing userId so the event carries the new identity.
+		this.emitSession('start', 'userId-change', { newUserId: this.session.userId });
+
 		this.overlay?.refreshUserId();
 	}
 
@@ -171,6 +210,7 @@ class TrackerClient implements ITrackerClient {
 		this.overlay = new OverlayClass(
 			this.session,
 			this.config.dashboard.route,
+			this.config.overlay.position as 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left',
 			(newId: string | null) => {
 				const prevId = this.session.userId;
 				this.setUser(newId);
@@ -187,6 +227,8 @@ class TrackerClient implements ITrackerClient {
 	}
 
 	destroy() {
+		// INFO Emit session:end before tearing down trackers so it is included in the final flush.
+		this.emitSession('end', 'destroy');
 		this.teardowns.forEach(fn => fn());
 		this.overlay?.destroy();
 		this.timers.clear();

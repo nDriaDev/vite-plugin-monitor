@@ -1,6 +1,6 @@
 import { ConsolePayload, TrackerEvent } from "@tracker/types";
 import { store } from "../state";
-import { el, empty, on, qs, setHtml, show } from "../utils/dom";
+import { el, empty, escapeHtml, on, qs, setHtml, show } from "../utils/dom";
 import { formatDateTime, formatDuration, formatJson, truncate } from "../utils/format";
 
 /**
@@ -50,7 +50,7 @@ export function createEventDetail(): HTMLElement {
 
 	function metaRow(key: string, value: string): HTMLElement {
 		const row = el('div', { class: 'meta-row' });
-		row.innerHTML = `<span class="meta-key">${key}</span><span class="meta-val">${value}</span>`;
+		row.innerHTML = `<span class="meta-key">${key}</span><span class="meta-val">${escapeHtml(value)}</span>`;
 		return row;
 	}
 
@@ -134,6 +134,21 @@ export function createEventDetail(): HTMLElement {
 		}
 
 		body.append(section('Payload', formatJson(event.payload)));
+
+		// INFO Session: show identity transition clearly
+		if (event.type === 'session') {
+			const p = event.payload as any;
+			const sessionMeta = el('div', { class: 'detail-meta' });
+			sessionMeta.append(metaRow('Action', p.action));
+			sessionMeta.append(metaRow('Trigger', p.trigger));
+			if (p.previousUserId) {
+				sessionMeta.append(metaRow('Previous User', p.previousUserId));
+			}
+			if (p.newUserId) {
+				sessionMeta.append(metaRow('New User', p.newUserId));
+			}
+			body.append(section('Session Boundary', sessionMeta));
+		}
 
 		// INFO Error: show splitted stack if present
 		if (event.type === 'error') {
