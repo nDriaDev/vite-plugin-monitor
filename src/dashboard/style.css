@@ -208,9 +208,11 @@ select {
 	font-size: 14px;
 }
 
-.header-logo svg {
-	width: 18px;
-	height: 18px;
+.header-logo-img {
+	width: 42px;
+	height: 42px;
+	object-fit: contain;
+	filter: contrast(1.4);
 }
 
 /* Theme toggle */
