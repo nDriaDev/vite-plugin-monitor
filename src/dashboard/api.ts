@@ -10,61 +10,42 @@ function getConfig() {
 
 let wsInstance: WebSocket | null = null;
 
-function getOrOpenWs(onEvents: (events: TrackerEvent[]) => void): WebSocket | null {
-	const { wsEndpoint, apiKey } = getConfig();
-	if (!wsEndpoint) {
-		return null;
-	}
-	if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
-		return wsInstance;
-	}
-
-	const ws = new WebSocket(wsEndpoint);
-	wsInstance = ws;
-
-	ws.addEventListener('message', (e) => {
-		try {
-			const msg = JSON.parse(e.data) as { type: string; events?: TrackerEvent[] };
-			if (msg.type === 'push' && Array.isArray(msg.events)) {
-				onEvents(msg.events);
-			}
-		} catch { /* ignore malformed */ }
-	});
-
-	ws.addEventListener('close', () => {
-		wsInstance = null;
-		// INFO reconnect dopo 3s
-		setTimeout(() => getOrOpenWs(onEvents), 3000);
-	});
-
-	return ws;
-}
-
-async function apiFetch<T>(params: Record<string, string | number | undefined> = {}): Promise<T> {
-	const { readEndpoint, apiKey } = getConfig();
-
-	const url = new URL(readEndpoint);
-
-	for (const [k, v] of Object.entries(params)) {
-		if (v !== undefined && v !== null && v !== '') {
-			url.searchParams.set(k, String(v));
+/**
+ * Opens (or reuses) the dashboard WebSocket connection.
+ *
+ * @remarks
+ * Called lazily the first time `fetchAllEvents` runs in WebSocket mode.
+ * The connection is kept alive with automatic reconnection on close.
+ * Incoming `push` messages (real-time server-push) are ignored by the
+ * built-in dashboard - it relies entirely on its polling loop instead.
+ */
+function ensureWsConnected(): Promise<WebSocket> {
+	return new Promise((resolve, reject) => {
+		if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+			resolve(wsInstance);
+			return;
 		}
-	}
 
-	const headers: Record<string, string> = {
-		'Accept': 'application/json',
-	};
-	if (apiKey) {
-		headers['X-Tracker-Key'] = apiKey;
-	}
+		const { wsEndpoint } = getConfig();
+		if (!wsEndpoint) {
+			reject(new Error('[vite-plugin-monitor] wsEndpoint is not configured'));
+			return;
+		}
 
-	const res = await fetch(url.toString(), { headers });
+		const ws = new WebSocket(wsEndpoint);
+		wsInstance = ws;
 
-	if (!res.ok) {
-		throw new Error(`[vite-plugin-monitor] API ${res.status} ${res.statusText}`);
-	}
-
-	return res.json() as Promise<T>;
+		ws.addEventListener('open', () => resolve(ws), { once: true });
+		ws.addEventListener('error', () => {
+			wsInstance = null;
+			reject(new Error('[vite-plugin-monitor] WebSocket connection failed'));
+		}, { once: true });
+		ws.addEventListener('close', () => {
+			wsInstance = null;
+			// INFO reconnect after 3s - mirrors flushInterval cadence
+			setTimeout(() => ensureWsConnected().catch(() => {}), 3000);
+		}, { once: true });
+	});
 }
 
 /**
@@ -91,27 +72,23 @@ export async function fetchPing(): Promise<boolean> {
 }
 
 /**
-* Downloads all events from the backend without any filters.
+* Downloads events from the backend for the requested time window.
 *
 * @remarks
-* The backend is responsible for returning the entire collection of available events,
-* without applying any filters. All the filtering, temporal grouping, and aggregation logic occurs
-* client-side in the browser after receiving the complete dataset.
+* The `since` and `until` parameters are always sent to the backend so it can
+* return only the events that fall within the selected time range. All further
+* filtering (type, level, userId, full-text search) and all aggregations are
+* performed client-side on the returned dataset.
 *
-* The call does not send any query parameters. The backend must
-* respond with all the events it has available in its buffer
-* or database, sorted from newest to oldest.
+* @param since - ISO 8601 UTC lower bound (inclusive). Maps to `EventsQuery.since`.
+* @param until - ISO 8601 UTC upper bound (inclusive). Maps to `EventsQuery.until`.
 */
-export async function fetchAllEvents(): Promise<TrackerEvent[]> {
+export async function fetchAllEvents(since: string, until: string): Promise<TrackerEvent[]> {
 	const config = getConfig();
 
 	if (config.wsEndpoint) {
+		const ws = await ensureWsConnected();
 		return new Promise((resolve, reject) => {
-			const ws = wsInstance;
-			if (!ws || ws.readyState !== WebSocket.OPEN) {
-				reject(new Error('[vite-plugin-monitor] WebSocket not connected'));
-				return;
-			}
 			const reqId = Math.random().toString(36).slice(2);
 			const handler = (e: MessageEvent) => {
 				try {
@@ -123,7 +100,7 @@ export async function fetchAllEvents(): Promise<TrackerEvent[]> {
 				} catch { /* ignore */ }
 			};
 			ws.addEventListener('message', handler);
-			ws.send(JSON.stringify({ type: 'events:query', reqId, query: {} }));
+			ws.send(JSON.stringify({ type: 'events:query', reqId, query: { since, until } }));
 			setTimeout(() => {
 				ws.removeEventListener('message', handler);
 				reject(new Error('[vite-plugin-monitor] WebSocket query timeout'));
@@ -132,10 +109,14 @@ export async function fetchAllEvents(): Promise<TrackerEvent[]> {
 	}
 
 	const { readEndpoint, apiKey } = config;
+	const url = new URL(readEndpoint);
+	url.searchParams.set('since', since);
+	url.searchParams.set('until', until);
+
 	const headers: Record<string, string> = { 'Accept': 'application/json' };
 	if (apiKey) headers['X-Tracker-Key'] = apiKey;
 
-	const res = await fetch(readEndpoint, { headers });
+	const res = await fetch(url.toString(), { headers });
 	if (!res.ok) {
 		throw new Error(`[vite-plugin-monitor] API ${res.status} ${res.statusText}`);
 	}

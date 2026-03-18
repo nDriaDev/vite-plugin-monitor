@@ -222,8 +222,8 @@ function mountApp(root: HTMLElement) {
 		onTick: async () => {
 			store.setMetricsLoading(true);
 			try {
-				const events = await fetchAllEvents();
 				const { from, to } = effectiveTimeRange(store.get().timeRange);
+				const events = await fetchAllEvents(from, to);
 				const metrics = computeMetrics(events, from, to);
 				const stats = computeStats(events, from, to);
 				store.setMetrics(metrics, stats);
@@ -248,17 +248,9 @@ function mountApp(root: HTMLElement) {
 		onTick: async () => {
 			store.setEventsLoading(true);
 			try {
-				const allEvents = await fetchAllEvents();
-				/**
-				* INFO In live mode, immediately filter to the actual range
-				* before passing to the store, so applyFilter works
-				* on the correct window
-				*/
 				const { from, to } = effectiveTimeRange(store.get().timeRange);
-				const inRange = allEvents.filter(
-					e => e.timestamp >= from && e.timestamp <= to
-				);
-				store.setEvents(inRange, inRange.length);
+				const events = await fetchAllEvents(from, to);
+				store.setEvents(events, events.length);
 			} catch (err) {
 				store.setEventsError(String(err));
 			}

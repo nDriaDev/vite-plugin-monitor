@@ -6,22 +6,26 @@ import { version } from '../../package.json';
 import { Connect } from "vite";
 import { WebSocketServer } from "ws";
 
-const MAX_BUFFER = 5000000;
-
 /**
 * Ring buffer
 *
 * @remarks
 * Keeps the last N events in memory for fast dashboard queries.
 * Backed by the log files for persistence across restarts.
+* Capacity is controlled by {@link HttpStorageOptions.maxBufferSize}.
 */
 class RingBuffer {
 	private buf: TrackerEvent[] = [];
+	private readonly cap: number;
+
+	constructor(maxSize: number) {
+		this.cap = maxSize;
+	}
 
 	push(events: TrackerEvent[]) {
 		this.buf.push(...events);
-		if (this.buf.length > MAX_BUFFER) {
-			this.buf = this.buf.slice(this.buf.length - MAX_BUFFER);
+		if (this.buf.length > this.cap) {
+			this.buf = this.buf.slice(this.buf.length - this.cap);
 		}
 	}
 
@@ -32,11 +36,8 @@ class RingBuffer {
 	 * Server-side filtering is intentionally minimal: only `since`, `until`,
 	 * and `after` (cursor) are applied here. All other filtering (type, level,
 	 * userId, search, etc.) is performed client-side in the dashboard so that
-	 * the full unfiltered dataset is always available for instant re-filtering
+	 * the full time-windowed dataset is always available for instant re-filtering
 	 * without round-trips.
-	 *
-	 * The `limit` cap is `MAX_BUFFER` (not the old 500) so the client can
-	 * request the entire buffer in a single call when needed.
 	 */
 	query(filters: { since?: string; until?: string; after?: string; limit: number; page: number }): { events: TrackerEvent[]; total: number } {
 		let result = [...this.buf];
@@ -195,8 +196,7 @@ export function createRequestHandler(opts: ResolvedTrackerOptions, buffer: RingB
 				return true;
 			}
 			const qs = parseQs(url);
-			// INFO If limit is undefined, returns all buffer.
-			const limit = qs['limit'] ? Math.min(parseInt(qs['limit'], 10), MAX_BUFFER) : MAX_BUFFER;
+			const limit = qs['limit'] ? parseInt(qs['limit'], 10) : buffer.size();
 			const page = Math.max(parseInt(qs['page'] ?? '1', 10), 1);
 			const { events, total } = buffer.query({
 				since: qs['since'],
@@ -227,7 +227,7 @@ export function createRequestHandler(opts: ResolvedTrackerOptions, buffer: RingB
 }
 
 export function createStandaloneServer(opts: ResolvedTrackerOptions, logger: Logger): { start: () => void; stop: () => void } {
-	const buffer = new RingBuffer();
+	const buffer = new RingBuffer(opts.storage.maxBufferSize);
 	const handler = createRequestHandler(opts, buffer, logger);
 
 	loadFromLogFiles(opts, buffer, logger);
@@ -241,7 +241,11 @@ export function createStandaloneServer(opts: ResolvedTrackerOptions, logger: Log
 
 	const wss = new WebSocketServer({ server, path: '/_tracker/ws' });
 
-	wss.on('connection', (ws) => {
+	wss.on('connection', (ws, req) => {
+		if (opts.storage.apiKey && req.headers['x-tracker-key'] !== opts.storage.apiKey) {
+			ws.close(1008, 'Unauthorized');
+			return;
+		}
 		ws.on('message', (data) => {
 			try {
 				const msg = JSON.parse(data.toString()) as { events: TrackerEvent[] };
@@ -280,7 +284,7 @@ export function createStandaloneServer(opts: ResolvedTrackerOptions, logger: Log
 }
 
 export function createMiddleware(opts: ResolvedTrackerOptions, logger: Logger): Connect.HandleFunction {
-	const buffer = new RingBuffer();
+	const buffer = new RingBuffer(opts.storage.maxBufferSize);
 	const handler = createRequestHandler(opts, buffer, logger);
 
 	loadFromLogFiles(opts, buffer, logger);

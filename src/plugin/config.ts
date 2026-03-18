@@ -48,8 +48,9 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 				pingEndpoint: wsOpts!.pingEndpoint ?? '',
 				apiKey: wsOpts!.apiKey ?? '',
 				port: 4242,
-				batchSize: wsOpts!.batchSize ?? 10,
-				flushInterval: wsOpts!.flushInterval ?? 3000
+				batchSize: wsOpts!.batchSize ?? 25,
+				flushInterval: wsOpts!.flushInterval ?? 3000,
+				maxBufferSize: 500000,
 			}
 			: {
 				mode,
@@ -59,8 +60,9 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 				pingEndpoint: httpOpts?.pingEndpoint ?? '',
 				apiKey: httpOpts?.apiKey ?? '',
 				port: httpOpts?.port ?? 4242,
-				batchSize: httpOpts?.batchSize ?? 10,
-				flushInterval: httpOpts?.flushInterval ?? 3000
+				batchSize: httpOpts?.batchSize ?? 25,
+				flushInterval: httpOpts?.flushInterval ?? 3000,
+				maxBufferSize: httpOpts?.maxBufferSize ?? 500000,
 			},
 		track: {
 			clicks:      opts.track?.clicks      ?? false,

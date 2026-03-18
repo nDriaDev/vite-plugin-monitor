@@ -24,7 +24,7 @@ function injectDevConfig(): Plugin {
 				pingEndpoint: '',
 				wsEndpoint: '',
 				apiKey: '',
-				batchSize: 10,
+				batchSize: 25,
 				flushInterval: 3000,
 				track: {
 					clicks: true,
