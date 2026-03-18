@@ -80,7 +80,7 @@ export function createLoginScreen(): HTMLElement {
 				<line x1="2" y1="12" x2="5" y2="12"/>
 				<line x1="19" y1="12" x2="22" y2="12"/>
 			</svg>
-			<span>Monitor Dashboard</span>
+			<span>Vite plugin Monitor - Dashboard</span>
 		</div>
 
 		<div class="login-error" id="login-error" hidden></div>
