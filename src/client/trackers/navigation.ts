@@ -108,8 +108,8 @@ export function setupNavigationTracker(onEvent: (payload: NavigationPayload) => 
 		const duration = Math.round(performance.now() - routeStart);
 		currentRoute = to;
 		routeStart = performance.now();
-		if (from === to && trigger !== 'load') {
-			return;  // INFO ignore no-op replaceState calls
+		if (from === to && (trigger === 'replaceState' || trigger === 'pushState')) {
+			return;  // INFO ignore no-op SPA state updates (same path, only state object changed)
 		}
 		/**
 		 * INFO Suppress navigations that involve the dashboard route on either end.
@@ -122,16 +122,16 @@ export function setupNavigationTracker(onEvent: (payload: NavigationPayload) => 
 	}
 
 	// INFO SPA: patch history API
-	const originalPushState = history.pushState.bind(history);
-	const originalReplaceState = history.replaceState.bind(history);
+	const originalPushState = history.pushState;
+	const originalReplaceState = history.replaceState;
 
 	history.pushState = function (...args) {
-		originalPushState(...args);
+		originalPushState.apply(history, args);
 		navigate(window.location.pathname + window.location.search, 'pushState');
 	}
 
 	history.replaceState = function (...args) {
-		originalReplaceState(...args);
+		originalReplaceState.apply(history, args);
 		navigate(window.location.pathname + window.location.search, 'replaceState');
 	}
 
@@ -152,7 +152,7 @@ export function setupNavigationTracker(onEvent: (payload: NavigationPayload) => 
 	 *   3. Empty string if first visit or cross-origin
 	 */
 	const savedFrom = consumePreviousRoute();
-	const from = savedFrom || referrerPath();
+	const from = savedFrom || referrerPath() || currentRoute;
 
 	navigate(currentRoute, 'load', from);
 
