@@ -11,6 +11,12 @@ import { DebugOverlay } from "./overlay";
 // INFO Holds the TrackerClient created by setupTrackers() before init() is called.
 let preInitClient: TrackerClient | null = null
 
+/**
+ * INFO Module-level singleton reference. Used by instance() instead of reading
+ * window.__tracker_instance__ directly.
+ */
+let _instance: ITrackerClient | undefined;
+
 class TrackerClient implements ITrackerClient {
 	private config: TrackerConfig;
 	private session: TrackerSession;
@@ -278,7 +284,7 @@ export function setupTrackers(userIdFn?: () => string | null): void {
 	if (typeof window === 'undefined') {
 		return;
 	}
-	if (preInitClient) {
+	if (preInitClient || _instance) {
 		return;
 	}
 	const config = getConfig();
@@ -311,7 +317,7 @@ function initTracker(userIdFn?: () => string | null): void {
 	if (typeof window === 'undefined') {
 		return;
 	}
-	if (window.__tracker_instance__) {
+	if (_instance) {
 		return;
 	}
 
@@ -323,14 +329,21 @@ function initTracker(userIdFn?: () => string | null): void {
 	*/
 	const client = preInitClient ?? new TrackerClient(getConfig(), userIdFn);
 	preInitClient = null;
+	_instance = client;
 	client.init(userIdFn);
 
-	Object.defineProperty(window, '__tracker_instance__', {
-		value: client,
-		writable: false,
-		configurable: false,
-		enumerable: false
-	});
+	/**
+	 * INFO Expose on window for external consumers (overlays, devtools, etc.), only set once.
+	 * Configurable:false and writable:false prevent user tampering.
+	 */
+	if(!Object.getOwnPropertyDescriptor(window, '__tracker_instance__')) {
+		Object.defineProperty(window, '__tracker_instance__', {
+			value: client,
+			writable: false,
+			configurable: false,
+			enumerable: false
+		});
+	}
 }
 
 /**
@@ -339,9 +352,10 @@ function initTracker(userIdFn?: () => string | null): void {
  * @remarks
  * Safe to call before initTracker() - calls are silently dropped if the
  * instance is not yet available (e.g. during SSR or before initialization).
+ * Reads from the module-level _instance.
  */
 function instance(): ITrackerClient | undefined {
-	return typeof window !== 'undefined' ? window.__tracker_instance__ : undefined;
+	return _instance;
 }
 
 export const tracker: Tracker = {
