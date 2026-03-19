@@ -19,7 +19,7 @@ export function setupErrorTracker(onEvent: (payload: ErrorPayload) => void): () 
 	const onUnhandledRejection = (e: PromiseRejectionEvent) => {
 		const reason = e.reason;
 		onEvent({
-			message: reason?.message ?? (reason != null ? String(reason) : 'Unhandled promise rejection'),
+			message: reason?.message ?? (reason === undefined || reason === null ? 'Unhandled promise rejection' : String(reason)),
 			stack: reason?.stack,
 			errorType: reason?.name ?? 'UnhandledRejection',
 		});
