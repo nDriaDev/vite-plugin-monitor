@@ -84,7 +84,14 @@ function setupMpaLinkInterceptor(): () => void {
 	return () => document.removeEventListener('click', onAnchorClick, { capture: true });
 }
 
-export function setupNavigationTracker(onEvent: (payload: NavigationPayload) => void): () => void {
+/**
+ * @param onEvent     - Callback invoked for every tracked navigation.
+ * @param ignorePaths - Route prefixes that should not be tracked as navigation
+ *                     destinations OR origins (e.g. the dashboard route).
+ *                     A navigation is suppressed when either `from` or `to`
+ *                     starts with one of these prefixes.
+ */
+export function setupNavigationTracker(onEvent: (payload: NavigationPayload) => void, ignorePaths: string[] = []): () => void {
 	if (typeof window === 'undefined') {
 		return () => { };
 	}
@@ -92,13 +99,24 @@ export function setupNavigationTracker(onEvent: (payload: NavigationPayload) => 
 	let currentRoute = window.location.pathname + window.location.search;
 	let routeStart = performance.now();
 
+	function isIgnored(path: string): boolean {
+		return ignorePaths.some(p => p && path.startsWith(p));
+	}
+
 	function navigate(to: string, trigger: NavigationPayload['trigger'], fromOverride?: string) {
 		const from = fromOverride ?? currentRoute;
 		const duration = Math.round(performance.now() - routeStart);
 		currentRoute = to;
 		routeStart = performance.now();
 		if (from === to && trigger !== 'load') {
-			return;  // ignore no-op replaceState calls
+			return;  // INFO ignore no-op replaceState calls
+		}
+		/**
+		 * INFO Suppress navigations that involve the dashboard route on either end.
+		 * This prevents the dashboard's own SPA routing from polluting the tracked events.
+		 */
+		if (isIgnored(from) || isIgnored(to)) {
+			return;
 		}
 		onEvent({ from, to, trigger, duration });
 	}

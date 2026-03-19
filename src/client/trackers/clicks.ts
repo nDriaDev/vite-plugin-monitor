@@ -22,7 +22,15 @@ function getXPath(el: Element, maxDepth = 8): string {
 	return '/' + parts.join('/');
 }
 
-export function setupClickTracker(onEvent: (payload: ClickPayload) => void): () => void {
+/**
+ * @param onEvent     - Callback invoked for every tracked click.
+ * @param ignorePaths - Route prefixes where click tracking is suppressed.
+ *                     Checked against `window.location.pathname` at click-time,
+ *                     so it reacts to runtime navigations without re-registration.
+ *                     The dashboard route is automatically injected here by TrackerClient
+ *                     so the dashboard's own UI interactions are never self-tracked.
+ */
+export function setupClickTracker(onEvent: (payload: ClickPayload) => void, ignorePaths: string[] = []): () => void {
 	if (typeof window === 'undefined') {
 		return () => { };
 	}
@@ -32,6 +40,16 @@ export function setupClickTracker(onEvent: (payload: ClickPayload) => void): () 
 		if (!target?.tagName) {
 			return;
 		}
+
+		/**
+		 * INFO Skip clicks while the user is on an ignored route (e.g. the dashboard itself).
+		 * Evaluated at click-time so it adapts to runtime navigation without re-registration.
+		 */
+		const currentPath = window.location.pathname;
+		if (ignorePaths.some(p => p && currentPath.startsWith(p))) {
+			return;
+		}
+
 		onEvent({
 			tag: target.tagName.toLowerCase(),
 			text: (target.textContent ?? '').trim().slice(0, 100),
