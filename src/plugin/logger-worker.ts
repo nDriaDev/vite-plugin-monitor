@@ -49,7 +49,7 @@ function formatPretty(event: TrackerEvent): string {
 // INFO Size parser
 
 function parseSize(size: string): number {
-	const match = size.match(/^(\d+(?:\.\d+)?)(kb|mb|gb)?$/i);
+	const match = size.match(/^(\d+(?:\.\d+)?)(kb|mb|gb|b)?$/i);
 	if (!match) {
 		return 10 * 1024 * 1024;
 	}
