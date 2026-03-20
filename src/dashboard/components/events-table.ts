@@ -1,5 +1,5 @@
 import { LogLevel, SearchOperator, TrackerEvent, TrackerEventType } from "@tracker/types";
-import { formatDateTime, formatDuration, truncate } from "../utils/format";
+import { formatDateTime, formatDuration, getEventDetail, truncate } from "../utils/format";
 import { el, empty, escapeHtml, on, qs, toggleVisible } from "../utils/dom";
 import { store } from "../state";
 
@@ -27,34 +27,8 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
 type SortKey = 'timestamp' | 'type' | 'level' | 'userId'
 type SortDir = 'asc' | 'desc'
 
-const DEFAULT_SORT_KEY: SortKey = 'timestamp'
-const DEFAULT_SORT_DIR: SortDir = 'asc'
-
-function getDetail(event: TrackerEvent): string {
-	const p = event.payload as any;
-	switch (event.type) {
-		case 'click':
-			return `${p.tag}${p.id ? '#' + p.id : ''} ${truncate(p.text ?? '', 30)}`;
-		case 'http':
-			return `${p.method} ${truncate(p.url, 50)} ${p.status ?? ''}`;
-		case 'error':
-			return truncate(p.message ?? '', 70);
-		case 'navigation':
-			return `${truncate(p.from ?? '', 25)} -> ${truncate(p.to ?? '', 25)}`;
-		case 'console': {
-			const indent = '  '.repeat(Number(p.groupDepth ?? 0));
-			return `${indent}[${p.method}] ${truncate(String(p.message ?? ''), 60)}`;
-		}
-		case 'custom':
-			return `${p.name}${p.duration !== undefined ? ` - ${formatDuration(p.duration)}` : ''}`;
-		case 'session': {
-			const who = p.previousUserId ? ` (${truncate(p.previousUserId, 16)} → ${truncate(p.newUserId ?? '-', 16)})` : '';
-			return `${p.action} · ${p.trigger}${who}`;
-		}
-		default:
-			return '';
-	}
-}
+const DEFAULT_SORT_KEY: SortKey = 'timestamp';
+const DEFAULT_SORT_DIR: SortDir = 'asc';
 
 /**
  * Events tab: filterable, sortable table of raw events.
@@ -95,7 +69,7 @@ export function createEventsTable(): HTMLElement {
 				<option value="ends-with">ends with</option>
 				<option value="regex">regex</option>
 			</select>
-			<input class="filter-input filter-input--search" id="filter-search" type="text" placeholder="Search payload…" />
+			<input class="filter-input filter-input--search" id="filter-search" type="text" placeholder="Search payload" />
 		</div>
 
 		<button class="filter-reset-btn" id="filter-reset" title="Reset filters and sort">✕ Reset</button>
@@ -245,13 +219,15 @@ export function createEventsTable(): HTMLElement {
 
 	function buildRow(event: TrackerEvent): HTMLTableRowElement {
 		const tr = el('tr', { class: `event-row ${LEVEL_CLASS[event.level]}` });
+		const value = getEventDetail(event, false);
+		const valueTruncated = getEventDetail(event, true);
 
 		tr.innerHTML = `
 		<td class="col-time">${formatDateTime(event.timestamp)}</td>
 		<td class="col-type"><span class="type-badge type-${event.type}">${TYPE_ICONS[event.type]} ${event.type}</span></td>
 		<td class="col-level"><span class="level-badge ${LEVEL_CLASS[event.level]}">${event.level}</span></td>
-		<td class="col-user">${escapeHtml(truncate(event.userId, 16))}</td>
-		<td class="col-detail">${escapeHtml(getDetail(event))}</td>
+		<td class="col-user" title="${escapeHtml(event.userId)}>${escapeHtml(truncate(event.userId, 16))}</td>
+		<td class="col-detail" title="${escapeHtml(value)}">${escapeHtml(valueTruncated)}</td>
     `;
 
 		rowEventMap.set(tr, event);
