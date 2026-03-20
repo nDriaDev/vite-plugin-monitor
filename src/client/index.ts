@@ -11,6 +11,9 @@ import { DebugOverlay } from "./overlay";
 // INFO Holds the TrackerClient created by setupTrackers() before init() is called.
 let preInitClient: TrackerClient | null = null
 
+// INFO Counter for group IDs: guarantees uniqueness.
+let _groupCounter = 0;
+
 /**
  * INFO Module-level singleton reference. Used by instance() instead of reading
  * window.__tracker_instance__ directly.
@@ -228,7 +231,7 @@ class TrackerClient implements ITrackerClient {
 	}
 
 	group(name: string): string {
-		return `grp_${name}_${Date.now().toString(36)}`;
+		return `grp_${name}_${(++_groupCounter).toString(36)}_${Date.now().toString(36)}`;
 	}
 
 	_mountOverlay(OverlayClass: typeof DebugOverlay) {
@@ -336,7 +339,7 @@ function initTracker(userIdFn?: () => string | null): void {
 	 * INFO Expose on window for external consumers (overlays, devtools, etc.), only set once.
 	 * Configurable:false and writable:false prevent user tampering.
 	 */
-	if(!Object.getOwnPropertyDescriptor(window, '__tracker_instance__')) {
+	if (!Object.getOwnPropertyDescriptor(window, '__tracker_instance__')) {
 		Object.defineProperty(window, '__tracker_instance__', {
 			value: client,
 			writable: false,
@@ -378,7 +381,7 @@ export const tracker: Tracker = {
 		instance()?.setContext(attrs);
 	},
 	group(name: string): string {
-		return instance()?.group(name) ?? `grp_${name}_offline`;
+		return instance()?.group(name) ?? `grp_${name}_${Math.random().toString(36).slice(2)}_offline`;
 	},
 	destroy() {
 		instance()?.destroy();
