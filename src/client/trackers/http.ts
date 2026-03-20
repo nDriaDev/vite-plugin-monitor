@@ -65,7 +65,7 @@ function sanitizeHeaders(headers: Record<string, string>, extraExcludes: string[
 	const out: Record<string, string> = {};
 	for (const [k, v] of Object.entries(headers)) {
 		if (!isSensitiveHeader(k, extraExcludes)) {
-			out[k] = v;
+			out[k.toLowerCase()] = v;
 		}
 	}
 	return out;
@@ -121,6 +121,15 @@ function headersToRecord(headers: HeadersInit | undefined | null): Record<string
 	}
 	if (Array.isArray(headers)) {
 		return Object.fromEntries(headers);
+	}
+	/**
+	 * INFO Duck-typing fallback: handles cross-realm Headers instances (e.g. jsdom vs undici)
+	 * where instanceof check fails but the object still has a forEach method like Headers.
+	 */
+	if(typeof (headers as any).forEach === 'function' && typeof (headers as any).get === 'function') {
+		const out: Record<string, string> = {};
+		(headers as any).forEach((v: string, k: string) => { out[k] = v });
+		return out;
 	}
 	return { ...(headers as Record<string, string>) };
 }
@@ -283,41 +292,30 @@ function patchXHR(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (pa
 		this.__tracker_method__ = method.toUpperCase();
 		this.__tracker_url__ = url;
 		this.__tracker_headers__ = {};
+
+		// INFO Call originalOpen FIRST: jsdom resets EventTarget listeners during open(),
+		// so listeners must be registered AFTER the native open to survive.
 		// @ts-expect-error variadic
-		return originalOpen.apply(this, [method, url, ...rest]);
-	}
-
-	// INFO Intercept setRequestHeader to capture request headers
-	OriginalXHR.prototype.setRequestHeader = function (this: TrackedXHR, name: string, value: string) {
-		if (httpOpts.captureRequestHeaders && this.__tracker_headers__) {
-			this.__tracker_headers__[name] = value;
-		}
-		return originalSetRequestHeader.call(this, name, value);
-	}
-
-	OriginalXHR.prototype.send = function (this: TrackedXHR, body?: Document | XMLHttpRequestBodyInit | null) {
-		const url: string = this.__tracker_url__ ?? '';
-		const method: string = this.__tracker_method__ ?? 'GET';
-
-		if (ignoreUrls.some(p => url.includes(p))) {
-			return originalSend.apply(this, [body]);
-		}
-
-		const rawReqHeaders = this.__tracker_headers__ ?? {};
-		const reqHeaders = httpOpts.captureRequestHeaders
-			? sanitizeHeaders(rawReqHeaders, httpOpts.excludeHeaders)
-			: undefined;
-
-		const rawBody = body != null ? String(body) : '';
-		const reqBody = httpOpts.captureRequestBody && rawBody
-			? parseBody(rawBody, httpOpts.maxBodySize, httpOpts.redactKeys)
-			: undefined;
-		const reqSize = rawBody ? rawBody.length : undefined;
-
-		const start = performance.now();
+		const result = originalOpen.apply(this, [method, url, ...rest]);
 
 		this.addEventListener('loadend', () => {
-			const duration = Math.round(performance.now() - start);
+			const xhrUrl    = this.__tracker_url__    ?? '';
+			const xhrMethod = this.__tracker_method__ ?? 'GET';
+
+			if (ignoreUrls.some(p => xhrUrl.includes(p))) return;
+
+			const startTime = (this.__tracker_startTime__ as number | undefined) ?? performance.now();
+			const duration = Math.round(performance.now() - startTime);
+
+			const reqHeaders = httpOpts.captureRequestHeaders
+				? sanitizeHeaders(this.__tracker_headers__ ?? {}, httpOpts.excludeHeaders)
+				: undefined;
+
+			const rawReqBody = ((this.__tracker_reqBody__ as string | undefined) ?? '');
+			const reqBody = httpOpts.captureRequestBody && rawReqBody
+				? parseBody(rawReqBody, httpOpts.maxBodySize, httpOpts.redactKeys)
+				: undefined;
+			const reqSize = rawReqBody ? rawReqBody.length : undefined;
 
 			let resHeaders: Record<string, string> | undefined;
 			if (httpOpts.captureResponseHeaders) {
@@ -341,8 +339,8 @@ function patchXHR(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (pa
 
 			onEvent(
 				{
-					method,
-					url,
+					method: xhrMethod,
+					url: xhrUrl,
 					status: this.status,
 					duration,
 					requestHeaders: reqHeaders,
@@ -350,36 +348,67 @@ function patchXHR(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (pa
 					requestSize: reqSize,
 					responseHeaders: resHeaders,
 					responseBody: resBody,
-					responseSize: resSize
+					responseSize: resSize,
 				},
 				levelFromStatus(this.status)
 			);
 		});
 
 		this.addEventListener('error', () => {
-			const duration = Math.round(performance.now() - start);
-			onEvent({ method, url, duration, error: 'Network error', requestHeaders: reqHeaders }, 'error');
+			const xhrUrl    = this.__tracker_url__    ?? '';
+			const xhrMethod = this.__tracker_method__ ?? 'GET';
+
+			if (ignoreUrls.some(p => xhrUrl.includes(p))) return;
+
+			const startTime = (this.__tracker_startTime__ as number | undefined) ?? performance.now();
+			const duration = Math.round(performance.now() - startTime);
+			const reqHeaders = httpOpts.captureRequestHeaders
+				? sanitizeHeaders(this.__tracker_headers__ ?? {}, httpOpts.excludeHeaders)
+				: undefined;
+			onEvent({ method: xhrMethod, url: xhrUrl, duration, error: 'Network error', requestHeaders: reqHeaders }, 'error');
 		});
 
+		return result;
+	}
+
+	// INFO Intercept setRequestHeader to capture request headers
+	OriginalXHR.prototype.setRequestHeader = function (this: TrackedXHR, name: string, value: string) {
+		if (httpOpts.captureRequestHeaders && this.__tracker_headers__) {
+			this.__tracker_headers__[name] = value;
+		}
+		return originalSetRequestHeader.call(this, name, value);
+	}
+
+	OriginalXHR.prototype.send = function (this: TrackedXHR, body?: Document | XMLHttpRequestBodyInit | null) {
+		const url: string = this.__tracker_url__ ?? '';
+
+		if (ignoreUrls.some(p => url.includes(p))) {
+			return originalSend.apply(this, [body]);
+		}
+
+		// INFO Store start time and raw body on the instance so the listener in open() can read them
+		this.__tracker_startTime__ = performance.now();
+		this.__tracker_reqBody__   = body != null ? String(body) : '';
+
 		return originalSend.apply(this, [body]);
-		}
-
-		return () => {
-			OriginalXHR.prototype.open = originalOpen;
-			OriginalXHR.prototype.send = originalSend;
-			OriginalXHR.prototype.setRequestHeader = originalSetRequestHeader;
-		}
 	}
 
-	function levelFromStatus(status: number): LogLevel {
-		if (status >= 500) {
-			return 'error';
-		}
-		if (status >= 400) {
-			return 'warn';
-		}
-		return 'info';
+	return () => {
+		OriginalXHR.prototype.open             = originalOpen;
+		OriginalXHR.prototype.send             = originalSend;
+		OriginalXHR.prototype.setRequestHeader = originalSetRequestHeader;
 	}
+}
+
+function levelFromStatus(status: number): LogLevel {
+	if (status >= 500) {
+		return 'error';
+	}
+	if (status >= 400) {
+		return 'warn';
+	}
+	return 'info';
+}
 
 export function setupHttpTracker(ignoreUrls: string[], httpConfig: boolean | HttpTrackOptions | undefined, onEvent: (payload: HttpPayload, level: LogLevel) => void): () => void {
 	if (typeof window === 'undefined') {
