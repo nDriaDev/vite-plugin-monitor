@@ -167,7 +167,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 					);
 					next();
 				}
-			})
+			});
 		}
 
 		server.printUrls = (function (originalPrint) {
@@ -240,7 +240,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 						attrs: { type: 'module' },
 						children: generateAutoInitScript(opts),
 						injectTo: 'head-prepend',
-					})
+					});
 				}
 
 				return tags;
