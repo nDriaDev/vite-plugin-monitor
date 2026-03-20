@@ -61,7 +61,7 @@ function getDetail(event: TrackerEvent): string {
  *
  * @remarks
  * Sort is local to this component (not persisted in the store).
- * Default order is timestamp ascending — oldest events at the top — so the
+ * Default order is timestamp ascending: oldest events at the top: so the
  * user reads the sequence top-to-bottom as it happened in time.
  * Clicking a column header sorts by that column ascending; clicking again
  * toggles to descending. The Reset button restores the default sort.
