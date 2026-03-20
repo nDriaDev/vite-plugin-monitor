@@ -1,4 +1,4 @@
-import { ResolvedTrackerOptions, TrackerPluginOptions } from "@tracker/types";
+import { Logger, ResolvedTrackerOptions, TrackerPluginOptions } from "@tracker/types";
 import { HtmlTagDescriptor, Plugin, PreviewServer, ResolvedConfig, ViteDevServer } from "vite";
 import { resolveOptions } from "./config";
 import { createLogger } from "./logger";
@@ -44,7 +44,9 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 	if (!opts.enabled) {
 		return { name: 'vite-plugin-monitor' } // INFO no-op plugin: no hooks, no side effects
 	}
-	const logger = createLogger(opts.logging);
+	// INFO logger is initialised in configResolved (after Vite has resolved the config
+	// and the CWD is final). Declaring it here lets every hook close over the same ref.
+	let logger: Logger;
 	let viteConfig: ResolvedConfig;
 	let isBuild = false;
 	let mode: "http" | "standalone" | "middleware" | "websocket";
@@ -54,7 +56,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 	async function cleanup() {
 		standalone?.stop();
 		standalone = null;
-		await logger.destroy();
+		await logger?.destroy();
 	}
 
 	function effectiveMode(opts: ResolvedTrackerOptions, isBuild: boolean): 'http' | 'standalone' | 'middleware' | 'websocket' {
@@ -203,6 +205,9 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			viteConfig = config;
 			isBuild = config.command === 'build';
 			mode = effectiveMode(opts, isBuild);
+
+			// INFO logger is created here so the worker inherits the correct CWD
+			logger = createLogger(opts.logging);
 
 			// INFO resolve effective endpoints
 			opts.storage.wsEndpoint = resolvedWsEndpoint(mode);
