@@ -115,7 +115,7 @@ function createStore() {
 
 			result = result.filter(e => {
 				// INFO apply search to detail column table text
-				const detail = getEventDetail(e).toLowerCase();
+				const detail = getEventDetail(e, false).toLowerCase();
 				switch (op) {
 					case 'contains':
 						return detail.includes(lower);

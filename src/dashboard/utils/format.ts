@@ -204,28 +204,35 @@ export function formatJson(value: unknown, indent = 2): string {
 * version displayed in the table) so as not to lose matches on
 * long strings. The displayed version truncates with `truncate()`.
 */
-export function getEventDetail(event: { type: string; payload: unknown }): string {
+export function getEventDetail(event: { type: string, payload: unknown }, truncateValue?: boolean): string {
 	const p = event.payload as any;
+	let val;
 	switch (event.type) {
 		case 'click':
-			return `${p.tag}${p.id ? '#' + p.id : ''} ${p.text ?? ''}`.trim();
+			val = truncateValue ? truncate((p.text ?? "").trim(), 30) : (p.text ?? "").trim();
+			return `${p.tag}${p.id ? '#' + p.id : ''} ${val}`;
 		case 'http':
-			return `${p.method} ${p.url ?? ''} ${p.status ?? ''}`.trim();
+			val = truncateValue ? truncate((p.url ?? ""), 50) : (p.url ?? "").trim();
+			return `${p.method} ${val} ${p.status ?? ''}`;
 		case 'error':
-			return p.message ?? '';
+			val = truncateValue ? truncate((p.message ?? ""), 70) : (p.message ?? "").trim();
+			return val;
 		case 'navigation':
-			return `${p.from ?? ''} -> ${p.to ?? ''}`;
-		case 'console':
-			return `[${p.method}] ${p.message ?? ''}`;
+			val = truncateValue ? truncate((p.from ?? ""), 25) : (p.from ?? "").trim();
+			let to = truncateValue ? truncate((p.to ?? ""), 25) : (p.to ?? "").trim();
+			return `${val} -> ${to}`;
+		case 'console': {
+			const indent = '  '.repeat(Number(p.groupDepth ?? 0));
+			val = truncateValue ? truncate((p.message ?? ""), 60) : (p.message ?? "").trim();
+			return `${indent}[${p.method}] ${val}`;
+		}
 		case 'custom':
-			return p.name ?? '';
+			return `${p.name}${p.duration !== undefined ? ` - ${formatDuration(p.duration)}` : ''}`;
 		case 'session': {
-			const who = p.previousUserId
-				? ` ${p.previousUserId} -> ${p.newUserId ?? '-'}`
-				: p.newUserId
-					? ` ${p.newUserId}`
-					: '';
-			return `${p.action} ${p.trigger}${who}`;
+			val = truncateValue ? truncate((p.previousUserId ?? ""), 16) : (p.previousUserId ?? "").trim();
+			let newUserId = truncateValue ? truncate((p.newUserId ?? "-"), 16) : (p.newUserId ?? "-").trim();
+			const who = p.previousUserId ? ` (${val} -> ${newUserId})` : '';
+			return `${p.action} · ${p.trigger}${who}`;
 		}
 		default:
 			return '';
