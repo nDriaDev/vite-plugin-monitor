@@ -44,8 +44,10 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 	if (!opts.enabled) {
 		return { name: 'vite-plugin-monitor' } // INFO no-op plugin: no hooks, no side effects
 	}
-	// INFO logger is initialised in configResolved (after Vite has resolved the config
-	// and the CWD is final). Declaring it here lets every hook close over the same ref.
+	/**
+	 * INFO logger is initialised in configResolved (after Vite has resolved the config
+	 * and the CWD is final). Declaring it here lets every hook close over the same ref.
+	 */
 	let logger: Logger;
 	let viteConfig: ResolvedConfig;
 	let isBuild = false;
