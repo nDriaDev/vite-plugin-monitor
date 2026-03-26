@@ -41,7 +41,11 @@ export function formatShortTime(iso: string): string {
 */
 export function formatRelative(iso: string): string {
 	try {
-		const diffMs = Date.now() - new Date(iso).getTime();
+		const date = new Date(iso);
+		if (!(date instanceof Date && !isNaN(date.getTime()))) {
+			throw Error("Invalid Date");
+		}
+		const diffMs = Date.now() - date.getTime();
 		if (diffMs < 0) {
 			return 'just now';
 		}
@@ -73,17 +77,19 @@ export function formatRelative(iso: string): string {
 * "2026-03-11"       -> "Mar 11"
 */
 export function formatBucket(bucket: string): string {
-	if (bucket.includes('T')) {
+	let result = bucket;
+	if (bucket.split('T').filter(el => el).length === 2 ) {
 		// INFO Hourly bucket: show HH:MM
-		return bucket.slice(11, 16);
+		result = bucket.slice(11, 16);
 	}
 	// INFO Daily bucket: show "Mar 11"
 	try {
 		const d = new Date(bucket + 'T00:00:00');
-		return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-	} catch {
-		return bucket;
-	}
+		if (d instanceof Date && !isNaN(d.getTime())) {
+			result = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+		}
+	} catch { /* ignore */ }
+	return result;
 }
 
 // INFO 1234 -> "1,234"  |  999 -> "999"
