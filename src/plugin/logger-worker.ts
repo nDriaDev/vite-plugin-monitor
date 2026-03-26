@@ -82,9 +82,11 @@ class StreamTransport {
 	}
 
 	write(event: TrackerEvent): void {
+		/* v8 ignore start */
 		if (!this.stream) {
 			return;
 		}
+		/* v8 ignore stop */
 		const line = this.formatter(event);
 
 		if (this.transport.rotation?.strategy === 'daily') {

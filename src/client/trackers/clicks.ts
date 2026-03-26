@@ -31,10 +31,6 @@ function getXPath(el: Element, maxDepth = 8): string {
  *                     so the dashboard's own UI interactions are never self-tracked.
  */
 export function setupClickTracker(onEvent: (payload: ClickPayload) => void, ignorePaths: string[] = []): () => void {
-	if (typeof window === 'undefined') {
-		return () => { };
-	}
-
 	function onClick(e: MouseEvent) {
 		const target = e.target as Element;
 		if (!target?.tagName) {

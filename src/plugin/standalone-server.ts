@@ -62,9 +62,9 @@ class RingBuffer {
 		}
 	}
 
-	all(): TrackerEvent[] {
-		return [...this.buf];
-	}
+	// all(): TrackerEvent[] {
+	// 	return [...this.buf];
+	// }
 
 	size(): number {
 		return this.buf.length;

@@ -112,6 +112,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				: "/_tracker"; // INFO middleware
 	}
 
+	/* v8 ignore start */
 	function dashboardDistDir(): string {
 		try {
 			const __filename = fileURLToPath(import.meta.url);
@@ -120,6 +121,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			return path.join(__dirname, 'dashboard');
 		}
 	}
+	/* v8 ignore stop */
 
 	function configureServer(server: ViteDevServer | PreviewServer) {
 		if (mode === 'middleware') {

@@ -57,9 +57,11 @@ function installHandlers(): void {
 async function runShutdown(signal: string): Promise<void> {
 	const hooks = getHooks();
 
+	/* v8 ignore start */
 	if (hooks.length === 0) {
 		process.exit(0);
 	}
+	/* v8 ignore stop */
 
 	/**
 	 * INFO

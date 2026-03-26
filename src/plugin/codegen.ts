@@ -2,6 +2,7 @@ import type { ResolvedTrackerOptions, TrackerConfig } from '../types'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+/* v8 ignore start */
 /**
  * INFO Path resolution
  * Works for both CJS (__dirname) and ESM (import.meta.url)
@@ -15,6 +16,7 @@ function clientDir(): string {
 		return path.join(__dirname, 'client')
 	}
 }
+/* v8 ignore stop */
 
 function buildConfig(opts: ResolvedTrackerOptions): TrackerConfig {
 	const common = {

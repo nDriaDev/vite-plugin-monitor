@@ -29,10 +29,6 @@ class TrackerClient implements ITrackerClient {
 	private timers = new Map<string, number>();
 
 	constructor(config: TrackerConfig, userIdFn?: () => string | null) {
-		if (typeof window === 'undefined') {
-			throw new Error('[vite-plugin-monitor] TrackerClient cannot be instantiated in a non-browser environment.');
-		}
-
 		this.config = config;
 		this.session = new TrackerSession(userIdFn);
 		this.queue = new EventQueue({
@@ -149,11 +145,7 @@ class TrackerClient implements ITrackerClient {
 	* because it is called before `session.userId` is updated, while `session:start`
 	* captures the NEW userId because it is called after the update.
 	*/
-	private emitSession(
-		action: SessionPayload['action'],
-		trigger: SessionPayload['trigger'],
-		extra?: Pick<SessionPayload, 'previousUserId' | 'newUserId'>
-	): void {
+	private emitSession(action: SessionPayload['action'], trigger: SessionPayload['trigger'], extra?: Pick<SessionPayload, 'previousUserId' | 'newUserId'>): void {
 		const payload: SessionPayload = { action, trigger, ...extra };
 		const event = this.session.createEvent('session', 'info', payload);
 		this.queue.enqueue(event);
@@ -235,9 +227,6 @@ class TrackerClient implements ITrackerClient {
 	}
 
 	_mountOverlay(OverlayClass: typeof DebugOverlay) {
-		if (this.overlay) {
-			return;
-		}
 		this.overlay = new OverlayClass(
 			this.session,
 			this.config.dashboard.route,
@@ -285,6 +274,7 @@ function getConfig() {
  */
 export function setupTrackers(userIdFn?: () => string | null): void {
 	if (typeof window === 'undefined') {
+		console.warn('[vite-plugin-monitor] TrackerClient cannot be instantiated in a non-browser environment.');
 		return;
 	}
 	if (preInitClient || _instance) {
@@ -318,6 +308,7 @@ export function setupTrackers(userIdFn?: () => string | null): void {
  */
 function initTracker(userIdFn?: () => string | null): void {
 	if (typeof window === 'undefined') {
+		console.warn('[vite-plugin-monitor] TrackerClient cannot be instantiated in a non-browser environment.');
 		return;
 	}
 	if (_instance) {

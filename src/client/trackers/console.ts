@@ -9,25 +9,25 @@ const ALL_METHODS: ConsoleMethod[] = [
 ];
 
 const METHOD_LEVEL: Record<ConsoleMethod, LogLevel> = {
-	log:            'info',
-	info:           'info',
-	debug:          'debug',
-	warn:           'warn',
-	error:          'error',
-	trace:          'debug',
-	table:          'info',
-	group:          'debug',
+	log: 'info',
+	info: 'info',
+	debug: 'debug',
+	warn: 'warn',
+	error: 'error',
+	trace: 'debug',
+	table: 'info',
+	group: 'debug',
 	groupCollapsed: 'debug',
-	groupEnd:       'debug',
-	count:          'debug',
-	countReset:     'debug',
-	time:           'debug',
-	timeEnd:        'debug',
-	timeLog:        'debug',
-	assert:         'warn',
-	dir:            'debug',
-	dirxml:         'debug',
-	clear:          'info',
+	groupEnd: 'debug',
+	count: 'debug',
+	countReset: 'debug',
+	time: 'debug',
+	timeEnd: 'debug',
+	timeLog: 'debug',
+	assert: 'warn',
+	dir: 'debug',
+	dirxml: 'debug',
+	clear: 'info',
 };
 
 const DEFAULT_IGNORE_PATTERNS = ['[vite]', '[HMR]', '[tracker]', '[vue]'];
@@ -40,9 +40,10 @@ const DEFAULT_IGNORE_PATTERNS = ['[vite]', '[HMR]', '[tracker]', '[vue]'];
 *  - DOM nodes -> described as '[HTMLTagName]'
 *  - Functions -> described as '[Function: name]'
 *  - Errors -> { message, name, stack }
-*  - Everything else -> structuredClone then JSON.stringify
-*    (structuredClone captures the value at call time, not a mutable ref)
-*    Falls back to a safe manual serializer on circular refs or clone failures.
+*  - Everything else -> JSON.stringify with a custom replacer that handles:
+*    circular refs (WeakSet), DOM nodes (instanceof Element/Node), functions, BigInt.
+*    The original value (not a structuredClone) is stringified so that DOM node
+*    identity is preserved — jsdom's structuredClone loses Element instanceof info.
 */
 function serializeArg(value: unknown, maxLength: number): SerializedArg {
 	if (value === null) {
@@ -54,14 +55,14 @@ function serializeArg(value: unknown, maxLength: number): SerializedArg {
 	if (typeof value === 'boolean') {
 		return { type: 'boolean', value };
 	}
-	if (typeof value === 'number')  {
-		return { type: 'number',  value: Number.isFinite(value) ? value : String(value) };
+	if (typeof value === 'number') {
+		return { type: 'number', value: Number.isFinite(value) ? value : String(value) };
 	}
-	if (typeof value === 'bigint')  {
-		return { type: 'bigint',  value: value.toString() + 'n' };
+	if (typeof value === 'bigint') {
+		return { type: 'bigint', value: value.toString() + 'n' };
 	}
-	if (typeof value === 'symbol')  {
-		return { type: 'symbol',  value: value.toString() };
+	if (typeof value === 'symbol') {
+		return { type: 'symbol', value: value.toString() };
 	}
 	if (typeof value === 'string') {
 		return {
@@ -89,26 +90,23 @@ function serializeArg(value: unknown, maxLength: number): SerializedArg {
 			value: { name: value.name, message: value.message, stack: value.stack }
 		};
 	}
-	let cloned: unknown
+	// INFO Always stringify the original value with the replacer (which handles Element, circular,
+	// functions, etc.). structuredClone is intentionally NOT used here: in jsdom it clones
+	// HTMLElements as empty plain objects, losing all type identity. The replacer's WeakSet
+	// handles circular references directly on the original object graph.
 	try {
-		cloned = structuredClone(value)
-	} catch {
-		cloned = value
-	}
-
-	try {
-		const json = JSON.stringify(cloned, replacer(new WeakSet()), 2);
-		const truncated = json.length > maxLength
-			? json.slice(0, maxLength) + `\n…[+${json.length - maxLength} chars]`
-			: json;
+		const json = JSON.stringify(value, replacer(new WeakSet()), 2);
+		if (json.length <= maxLength) {
+			return {
+				type: Array.isArray(value) ? 'array' : 'object',
+				value: JSON.parse(json)
+			}
+		}
+		const truncated = json.slice(0, maxLength) + `\n…[+${json.length - maxLength} chars]`;
 		return {
 			type: Array.isArray(value) ? 'array' : 'object',
-			value: JSON.parse(
-				truncated.endsWith('}') || truncated.endsWith(']')
-					? truncated
-					: truncated.slice(0, truncated.lastIndexOf('\n')) + '\n…}'
-			),
-		};
+			value: truncated
+		}
 	} catch {
 		return { type: 'object', value: '[unserializable object]' };
 	}
@@ -192,11 +190,11 @@ function extractMessage(args: unknown[]): string {
 function resolveConsoleOpts(raw: boolean | ConsoleTrackOptions): ResolvedConsoleOpts {
 	const opts = raw === true ? {} : raw as ConsoleTrackOptions;
 	return {
-		methods:             new Set(opts.methods ?? ALL_METHODS),
-		maxArgLength:        opts.maxArgLength       ?? 1024,
-		maxArgs:             opts.maxArgs            ?? 10,
+		methods: new Set(opts.methods ?? ALL_METHODS),
+		maxArgLength: opts.maxArgLength ?? 1024,
+		maxArgs: opts.maxArgs ?? 10,
 		captureStackOnError: opts.captureStackOnError ?? false,
-		ignorePatterns:      [
+		ignorePatterns: [
 			...DEFAULT_IGNORE_PATTERNS,
 			...(opts.ignorePatterns ?? []),
 		]
@@ -204,10 +202,6 @@ function resolveConsoleOpts(raw: boolean | ConsoleTrackOptions): ResolvedConsole
 }
 
 export function setupConsoleTracker(consoleConfig: boolean | ConsoleTrackOptions, onEvent: (payload: ConsolePayload, level: LogLevel) => void): () => void {
-	if (typeof window === 'undefined') {
-		return () => { };
-	}
-
 	const opts = resolveConsoleOpts(consoleConfig);
 	const originals = new Map<ConsoleMethod, (...args: unknown[]) => void>();
 

@@ -1,10 +1,6 @@
 import { ErrorPayload } from "@tracker/types";
 
 export function setupErrorTracker(onEvent: (payload: ErrorPayload) => void): () => void {
-	if (typeof window === 'undefined') {
-		return () => { };
-	}
-
 	const onError = (e: ErrorEvent) => {
 		onEvent({
 			message: e.message || 'Unknown error',

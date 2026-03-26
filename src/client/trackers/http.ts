@@ -126,7 +126,7 @@ function headersToRecord(headers: HeadersInit | undefined | null): Record<string
 	 * INFO Duck-typing fallback: handles cross-realm Headers instances (e.g. jsdom vs undici)
 	 * where instanceof check fails but the object still has a forEach method like Headers.
 	 */
-	if(typeof (headers as any).forEach === 'function' && typeof (headers as any).get === 'function') {
+	if (typeof (headers as any).forEach === 'function' && typeof (headers as any).get === 'function') {
 		const out: Record<string, string> = {};
 		(headers as any).forEach((v: string, k: string) => { out[k] = v });
 		return out;
@@ -137,23 +137,23 @@ function headersToRecord(headers: HeadersInit | undefined | null): Record<string
 function resolveHttpOpts(raw: boolean | HttpTrackOptions | undefined): ResolvedHttpOpts {
 	if (!raw || raw === true) {
 		return {
-			captureRequestHeaders:  false,
-			captureRequestBody:     false,
+			captureRequestHeaders: false,
+			captureRequestBody: false,
 			captureResponseHeaders: false,
-			captureResponseBody:    false,
-			excludeHeaders:         [],
-			redactKeys:             [],
-			maxBodySize:            DEFAULT_MAX_BODY,
+			captureResponseBody: false,
+			excludeHeaders: [],
+			redactKeys: [],
+			maxBodySize: DEFAULT_MAX_BODY,
 		};
 	}
 	return {
-		captureRequestHeaders:  raw.captureRequestHeaders  ?? false,
-		captureRequestBody:     raw.captureRequestBody     ?? false,
+		captureRequestHeaders: raw.captureRequestHeaders ?? false,
+		captureRequestBody: raw.captureRequestBody ?? false,
 		captureResponseHeaders: raw.captureResponseHeaders ?? false,
-		captureResponseBody:    raw.captureResponseBody    ?? false,
-		excludeHeaders:         raw.excludeHeaders         ?? [],
-		redactKeys:             raw.redactKeys             ?? [],
-		maxBodySize:            raw.maxBodySize            ?? DEFAULT_MAX_BODY,
+		captureResponseBody: raw.captureResponseBody ?? false,
+		excludeHeaders: raw.excludeHeaders ?? [],
+		redactKeys: raw.redactKeys ?? [],
+		maxBodySize: raw.maxBodySize ?? DEFAULT_MAX_BODY,
 	};
 }
 
@@ -179,10 +179,8 @@ async function cloneBody(body: BodyInit | null | undefined, isStream?: boolean):
 	if (body instanceof ArrayBuffer || ArrayBuffer.isView(body)) {
 		return `[Binary ${(body as ArrayBuffer).byteLength ?? (body as ArrayBufferView).byteLength}B]`;
 	}
-	if (body instanceof ReadableStream) {
-		return '[ReadableStream - not captured]';
-	}
-	return String(body);
+
+	return '';
 }
 
 function patchFetch(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (payload: HttpPayload, level: LogLevel) => void): () => void {
@@ -299,7 +297,7 @@ function patchXHR(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (pa
 		const result = originalOpen.apply(this, [method, url, ...rest]);
 
 		this.addEventListener('loadend', () => {
-			const xhrUrl    = this.__tracker_url__    ?? '';
+			const xhrUrl = this.__tracker_url__ ?? '';
 			const xhrMethod = this.__tracker_method__ ?? 'GET';
 
 			if (ignoreUrls.some(p => xhrUrl.includes(p))) return;
@@ -355,7 +353,7 @@ function patchXHR(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (pa
 		});
 
 		this.addEventListener('error', () => {
-			const xhrUrl    = this.__tracker_url__    ?? '';
+			const xhrUrl = this.__tracker_url__ ?? '';
 			const xhrMethod = this.__tracker_method__ ?? 'GET';
 
 			if (ignoreUrls.some(p => xhrUrl.includes(p))) return;
@@ -388,14 +386,14 @@ function patchXHR(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (pa
 
 		// INFO Store start time and raw body on the instance so the listener in open() can read them
 		this.__tracker_startTime__ = performance.now();
-		this.__tracker_reqBody__   = body != null ? String(body) : '';
+		this.__tracker_reqBody__ = body != null ? String(body) : '';
 
 		return originalSend.apply(this, [body]);
 	}
 
 	return () => {
-		OriginalXHR.prototype.open             = originalOpen;
-		OriginalXHR.prototype.send             = originalSend;
+		OriginalXHR.prototype.open = originalOpen;
+		OriginalXHR.prototype.send = originalSend;
 		OriginalXHR.prototype.setRequestHeader = originalSetRequestHeader;
 	}
 }
@@ -411,9 +409,6 @@ function levelFromStatus(status: number): LogLevel {
 }
 
 export function setupHttpTracker(ignoreUrls: string[], httpConfig: boolean | HttpTrackOptions | undefined, onEvent: (payload: HttpPayload, level: LogLevel) => void): () => void {
-	if (typeof window === 'undefined') {
-		return () => { };
-	}
 	const httpOpts = resolveHttpOpts(httpConfig);
 	const teardownFetch = patchFetch(ignoreUrls, httpOpts, onEvent);
 	const teardownXHR = patchXHR(ignoreUrls, httpOpts, onEvent);

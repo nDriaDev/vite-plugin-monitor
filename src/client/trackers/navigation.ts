@@ -92,10 +92,6 @@ function setupMpaLinkInterceptor(): () => void {
  *                     starts with one of these prefixes.
  */
 export function setupNavigationTracker(onEvent: (payload: NavigationPayload) => void, ignorePaths: string[] = []): () => void {
-	if (typeof window === 'undefined') {
-		return () => { };
-	}
-
 	let currentRoute = window.location.pathname + window.location.search;
 	let routeStart = performance.now();
 

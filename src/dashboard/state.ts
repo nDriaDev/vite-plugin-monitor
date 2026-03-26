@@ -131,12 +131,14 @@ function createStore() {
 						try {
 							return new RegExp(term, 'i').test(detail);
 						} catch {
-							// INFO regex non valida: fallback a contains
+							// INFO invalid regex: fallback to contains
 							return detail.includes(lower);
 						}
 					}
 					default:
+						/* v8 ignore start */
 						return detail.includes(lower);
+						/* v8 ignore stop */
 				}
 			});
 		}

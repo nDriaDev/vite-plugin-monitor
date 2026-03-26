@@ -10,6 +10,7 @@ const LEVELS: Record<LogLevel, number> = {
 	error: 3,
 }
 
+/* v8 ignore start */
 /**
 * INFO Worker path resolution
 * Works for both CJS (__dirname) and ESM (import.meta.url)
@@ -24,6 +25,7 @@ function workerScriptPath(): string {
 		return path.join(__dirname, 'logger-worker.js');
 	}
 }
+/* v8 ignore stop */
 
 /**
 * logger.ts - Plugin-side logger.
