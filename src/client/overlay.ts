@@ -54,6 +54,13 @@ export class DebugOverlay implements IDebugOverlay {
 	private onKeyDown: (e: KeyboardEvent) => void;
 
 	/**
+	* Bound `DOMContentLoaded` handler used when `document.body` is not yet
+	* available at construction time. Stored so `destroy()` can remove it even
+	* if it never fired, preventing listener leaks across tests and hot-reloads.
+	*/
+	private onDOMContentLoaded: (() => void) | null = null;
+
+	/**
 	* @param session        - The active {@link TrackerSession}, used to read
 	*                         userId, sessionId, and appId for display.
 	* @param dashboardRoute - The URL pathname where the dashboard SPA is served
@@ -94,9 +101,15 @@ export class DebugOverlay implements IDebugOverlay {
 		if (document.body) {
 			document.body.appendChild(this.host);
 		} else {
-			document.addEventListener('DOMContentLoaded', () => {
+			// Store the reference so destroy() can remove it if DOMContentLoaded
+			// never fires (e.g. the overlay is destroyed before the document loads).
+			// The handler removes itself on first call — DOMContentLoaded is one-shot.
+			this.onDOMContentLoaded = () => {
 				document.body.appendChild(this.host);
-			});
+				document.removeEventListener('DOMContentLoaded', this.onDOMContentLoaded!);
+				this.onDOMContentLoaded = null;
+			};
+			document.addEventListener('DOMContentLoaded', this.onDOMContentLoaded);
 		}
 	}
 
@@ -161,8 +174,8 @@ export class DebugOverlay implements IDebugOverlay {
 		const isRight = this.position.endsWith('right');
 		const vEdge = isBottom ? 'bottom' : 'top';
 		const hEdge = isRight ? 'right' : 'left';
-		const vOpp  = isBottom ? 'top' : 'bottom';
-		const hOpp  = isRight ? 'left' : 'right';
+		const vOpp = isBottom ? 'top' : 'bottom';
+		const hOpp = isRight ? 'left' : 'right';
 
 		// INFO FAB
 		this.fab.style.setProperty(vEdge, '20px');
@@ -391,7 +404,7 @@ export class DebugOverlay implements IDebugOverlay {
 		const nav = navigator as Navigator & { connection?: { effectiveType?: string } };
 		const updates: Record<string, string> = {
 			Route: esc(window.location.pathname),
-			Viewport: esc(`${window.innerWidth}×${window.innerHeight}`),
+			Viewport: esc(`${window.innerWidth} x ${window.innerHeight}`),
 			Connection: esc(nav.connection?.effectiveType ?? '-')
 		};
 		for (const [field, val] of Object.entries(updates)) {
@@ -424,6 +437,12 @@ export class DebugOverlay implements IDebugOverlay {
 
 	/** @inheritdoc */
 	destroy() {
+		/* v8 ignore start */
+		if (this.onDOMContentLoaded) {
+			document.removeEventListener('DOMContentLoaded', this.onDOMContentLoaded);
+			this.onDOMContentLoaded = null;
+		}
+		/* v8 ignore stop */
 		document.removeEventListener('mousemove', this.onMouseMove);
 		document.removeEventListener('mouseup', this.onMouseUp);
 		document.removeEventListener('keydown', this.onKeyDown);
