@@ -13,28 +13,28 @@ describe('router', () => {
 	});
 
 	describe('initRouter', () => {
-		it('imposta tab su "metrics" se hash non è riconosciuto', async () => {
+		it('sets tab to "metrics" when hash is not recognized', async () => {
 			window.location.hash = '';
 			const { initRouter, store } = await importRouter();
 			initRouter();
 			expect(store.get().tab).toBe('metrics');
 		});
 
-		it('imposta tab su "metrics" per hash #/metrics', async () => {
+		it('set tab to "metrics" to hash #/metrics', async () => {
 			window.location.hash = '#/metrics';
 			const { initRouter, store } = await importRouter();
 			initRouter();
 			expect(store.get().tab).toBe('metrics');
 		});
 
-		it('imposta tab su "events" per hash #/events', async () => {
+		it('set tab to "events" to hash #/events', async () => {
 			window.location.hash = '#/events';
 			const { initRouter, store } = await importRouter();
 			initRouter();
 			expect(store.get().tab).toBe('events');
 		});
 
-		it('aggiorna il tab quando cambia l\'hash (hashchange)', async () => {
+		it('Refresh the tab when the hash changes (hashchange)', async () => {
 			window.location.hash = '#/metrics';
 			const { initRouter, store } = await importRouter();
 			initRouter();
@@ -43,7 +43,7 @@ describe('router', () => {
 			expect(store.get().tab).toBe('events');
 		});
 
-		it('non cambia tab se l\'hash è già quello corrente', async () => {
+		it('does not change tab when the hash is already the current one', async () => {
 			window.location.hash = '#/metrics';
 			const { initRouter, store } = await importRouter();
 			initRouter();
@@ -52,7 +52,7 @@ describe('router', () => {
 			expect(setTabSpy).not.toHaveBeenCalled();
 		});
 
-		it('store.on tab:change aggiorna l\'hash della pagina', async () => {
+		it('store.on tab:change updates the page hash', async () => {
 			window.location.hash = '';
 			const { initRouter, store } = await importRouter();
 			initRouter();
@@ -60,7 +60,7 @@ describe('router', () => {
 			expect(window.location.hash).toBe('#/events');
 		});
 
-		it('non chiama replaceState se l\'hash è già corretto', async () => {
+		it('does not call replaceState when the hash is already correct', async () => {
 			window.location.hash = '#/metrics';
 			const { initRouter, store } = await importRouter();
 			const replaceSpy = vi.spyOn(history, 'replaceState');
@@ -71,7 +71,7 @@ describe('router', () => {
 	});
 
 	describe('navigateTo', () => {
-		it('chiama store.setTab con il tab fornito', async () => {
+		it('calls store.setTab with the provided tab', async () => {
 			const { navigateTo, store } = await importRouter();
 			navigateTo('events');
 			expect(store.get().tab).toBe('events');

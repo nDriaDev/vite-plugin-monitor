@@ -27,7 +27,7 @@ function makePermissiveRange() {
 }
 
 describe('presetToRange', async () => {
-	it('restituisce from e to come stringhe ISO', async () => {
+	it('returns from and to as ISO strings', async () => {
 		const { presetToRange } = await import('../../src/dashboard/state');
 		const range = presetToRange('1h');
 		expect(typeof range.from).toBe('string');
@@ -35,7 +35,7 @@ describe('presetToRange', async () => {
 		expect(() => new Date(range.from)).not.toThrow();
 	});
 
-	it('from è circa X minuti prima di to per ogni preset', async () => {
+	it('from is approximately X minutes before to for each preset', async () => {
 		const { PRESETS, presetToRange } = await import('../../src/dashboard/state');
 		for (const preset of PRESETS) {
 			const { from, to } = presetToRange(preset.value);
@@ -47,13 +47,13 @@ describe('presetToRange', async () => {
 
 describe('effectiveTimeRange', async () => {
 
-	it('ritorna from/to invariati per preset non-live', async () => {
+	it('returns from/to unchanged for non-live preset', async () => {
 		const { effectiveTimeRange } = await import('../../src/dashboard/state');
 		const range = { preset: '24h' as const, from: '2026-01-01T00:00:00.000Z', to: '2026-01-02T00:00:00.000Z' };
 		expect(effectiveTimeRange(range)).toEqual({ from: range.from, to: range.to });
 	});
 
-	it('in live mode: to è circa now', async () => {
+	it('in live mode: to is approximately now', async () => {
 		const { effectiveTimeRange } = await import('../../src/dashboard/state');
 		const from = new Date(Date.now() - 5 * 60_000).toISOString();
 		const range = { preset: 'live' as const, from, to: new Date().toISOString() };
@@ -62,7 +62,7 @@ describe('effectiveTimeRange', async () => {
 		expect(diff).toBeLessThan(500);
 	});
 
-	it('in live mode: from non può essere più vecchio di LIVE_MAX_WINDOW_MS', async () => {
+	it('in live mode: from cannot be older than LIVE_MAX_WINDOW_MS', async () => {
 		const { effectiveTimeRange, LIVE_MAX_WINDOW_MS } = await import('../../src/dashboard/state');
 		const veryOldFrom = new Date(Date.now() - LIVE_MAX_WINDOW_MS - 60_000).toISOString();
 		const range = { preset: 'live' as const, from: veryOldFrom, to: new Date().toISOString() };
@@ -73,7 +73,7 @@ describe('effectiveTimeRange', async () => {
 });
 
 describe('store', () => {
-	describe('stato iniziale', () => {
+	describe('initial state', () => {
 		it('authenticated = false', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			expect(store.get().authenticated).toBe(false);
@@ -96,7 +96,7 @@ describe('store', () => {
 	});
 
 	describe('setAuth', () => {
-		it('aggiorna authenticated e emette auth:change', async () => {
+		it('updates authenticated and emits auth:change', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const listener = vi.fn();
 			store.on('auth:change', listener);
@@ -107,7 +107,7 @@ describe('store', () => {
 	});
 
 	describe('setTab', () => {
-		it('aggiorna tab e emette tab:change', async () => {
+		it('updates tab and emits tab:change', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const listener = vi.fn();
 			store.on('tab:change', listener);
@@ -116,7 +116,7 @@ describe('store', () => {
 			expect(listener).toHaveBeenCalledWith('events');
 		});
 
-		it('azzera selectedEvent se era selezionato e emette events:select null', async () => {
+		it('clears selectedEvent when it was selected and emits events:select null', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const selectListener = vi.fn();
 			store.on('events:select', selectListener);
@@ -127,7 +127,7 @@ describe('store', () => {
 			expect(selectListener).toHaveBeenLastCalledWith(null);
 		});
 
-		it('non emette events:select se selectedEvent era già null', async () => {
+		it('does not emit events:select when selectedEvent was already null', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const selectListener = vi.fn();
 			store.on('events:select', selectListener);
@@ -137,7 +137,7 @@ describe('store', () => {
 	});
 
 	describe('setTimeRange', () => {
-		it('aggiorna timeRange e emette timeRange:change', async () => {
+		it('updates timeRange and emits timeRange:change', async () => {
 			const { store, presetToRange } = await import('../../src/dashboard/state');
 			const listener = vi.fn();
 			store.on('timeRange:change', listener);
@@ -147,14 +147,14 @@ describe('store', () => {
 			expect(listener).toHaveBeenCalledWith(range);
 		});
 
-		it('azzera selectedEvent', async () => {
+		it('clears selectedEvent', async () => {
 			const { store, presetToRange } = await import('../../src/dashboard/state');
 			store.selectEvent(makeEvent());
 			store.setTimeRange({ preset: '1h' as const, ...presetToRange('1h') });
 			expect(store.get().selectedEvent).toBeNull();
 		});
 
-		it('riesegue il filtro sugli eventi esistenti', async () => {
+		it('re-applies the filter on existing events', async () => {
 			const { store, presetToRange } = await import('../../src/dashboard/state');
 			const now = new Date();
 			const old = new Date(now.getTime() - 90 * 60_000).toISOString();
@@ -167,7 +167,7 @@ describe('store', () => {
 	});
 
 	describe('setChartType', () => {
-		it('aggiorna chartType e emette chartType:change', async () => {
+		it('updates chartType and emits chartType:change', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const listener = vi.fn();
 			store.on('chartType:change', listener);
@@ -178,7 +178,7 @@ describe('store', () => {
 	});
 
 	describe('setMetrics', () => {
-		it('aggiorna metrics, stats, metricsLoading=false, metricsError=null e emette metrics:update', async () => {
+		it('updates metrics, stats, metricsLoading=false, metricsError=null and emits metrics:update', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const listener = vi.fn();
 			store.on('metrics:update', listener);
@@ -195,7 +195,7 @@ describe('store', () => {
 	});
 
 	describe('setMetricsLoading', () => {
-		it('aggiorna metricsLoading e emette metrics:loading', async () => {
+		it('updates metricsLoading and emits metrics:loading', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const listener = vi.fn();
 			store.on('metrics:loading', listener);
@@ -206,7 +206,7 @@ describe('store', () => {
 	});
 
 	describe('setMetricsError', () => {
-		it('imposta metricsError, metricsLoading=false, e emette metrics:error', async () => {
+		it('sets metricsError, metricsLoading=false, and emits metrics:error', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const listener = vi.fn();
 			store.on('metrics:error', listener);
@@ -219,7 +219,7 @@ describe('store', () => {
 	});
 
 	describe('setEvents', () => {
-		it('aggiorna gli eventi e applica il filtro corrente', async () => {
+		it('updates events and applies the current filter', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const listener = vi.fn();
 			store.on('events:update', listener);
@@ -232,7 +232,7 @@ describe('store', () => {
 	});
 
 	describe('setEventsFilter', () => {
-		it('aggiorna eventsFilter e riesegue il filtro', async () => {
+		it('updates eventsFilter and re-applies the filter', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const filterListener = vi.fn();
 			const updateListener = vi.fn();
@@ -244,7 +244,7 @@ describe('store', () => {
 			expect(updateListener).toHaveBeenCalled();
 		});
 
-		it('azzera selectedEvent', async () => {
+		it('clears selectedEvent', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			store.selectEvent(makeEvent());
 			store.setEventsFilter({});
@@ -253,7 +253,7 @@ describe('store', () => {
 	});
 
 	describe('setEventsLoading', () => {
-		it('aggiorna eventsLoading e emette events:loading', async () => {
+		it('updates eventsLoading and emits events:loading', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const listener = vi.fn();
 			store.on('events:loading', listener);
@@ -264,7 +264,7 @@ describe('store', () => {
 	});
 
 	describe('setEventsError', () => {
-		it('imposta eventsError, eventsLoading=false, e emette events:error', async () => {
+		it('sets eventsError, eventsLoading=false, and emits events:error', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const listener = vi.fn();
 			store.on('events:error', listener);
@@ -277,7 +277,7 @@ describe('store', () => {
 	});
 
 	describe('selectEvent', () => {
-		it('imposta selectedEvent e emette events:select', async () => {
+		it('sets selectedEvent and emits events:select', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const listener = vi.fn();
 			store.on('events:select', listener);
@@ -287,7 +287,7 @@ describe('store', () => {
 			expect(listener).toHaveBeenCalledWith(event);
 		});
 
-		it('accetta null per deselezionare', async () => {
+		it('accepts null to deselect', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const event = makeEvent();
 			store.selectEvent(event);
@@ -297,7 +297,7 @@ describe('store', () => {
 	});
 
 	describe('resetSelectEvent', () => {
-		it('azzera selectedEvent e emette events:select null', async () => {
+		it('clears selectedEvent and emits events:select null', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const listener = vi.fn();
 			store.on('events:select', listener);
@@ -307,7 +307,7 @@ describe('store', () => {
 			expect(listener).toHaveBeenLastCalledWith(null);
 		});
 
-		it('è no-op se selectedEvent è già null', async () => {
+		it('is a no-op when selectedEvent is already null', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const listener = vi.fn();
 			store.on('events:select', listener);
@@ -317,7 +317,7 @@ describe('store', () => {
 	});
 
 	describe('setBackendStatus', () => {
-		it('aggiorna backendOnline e emette backend:status', async () => {
+		it('updates backendOnline and emits backend:status', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const listener = vi.fn();
 			store.on('backend:status', listener);
@@ -328,7 +328,7 @@ describe('store', () => {
 	});
 
 	describe('clearListeners', () => {
-		it('rimuove tutti i listener registrati', async () => {
+		it('removes all registered listeners', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			const listener = vi.fn();
 			store.on('auth:change', listener);
@@ -339,7 +339,7 @@ describe('store', () => {
 	});
 
 	describe('getUniqueUserIds', () => {
-		it('restituisce gli userId univoci ordinati', async () => {
+		it('returns the unique sorted userIds', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			store.setEvents([
 				makeEvent({ userId: 'charlie' }),
@@ -350,14 +350,14 @@ describe('store', () => {
 			expect(store.getUniqueUserIds()).toEqual(['alice', 'bob', 'charlie']);
 		});
 
-		it('restituisce array vuoto se non ci sono eventi', async () => {
+		it('returns an empty array when there are no events', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			expect(store.getUniqueUserIds()).toEqual([]);
 		});
 	});
 
 	describe('applyFilter', () => {
-		it('filtra per type', async () => {
+		it('filters by type', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			store.setTimeRange(makePermissiveRange());
 			store.setEvents([
@@ -369,7 +369,7 @@ describe('store', () => {
 			expect(store.get().events[0].type).toBe('click');
 		});
 
-		it('filtra per level (array)', async () => {
+		it('filters by level (array)', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			store.setTimeRange(makePermissiveRange());
 			store.setEvents([
@@ -381,7 +381,7 @@ describe('store', () => {
 			expect(store.get().events[0].level).toBe('error');
 		});
 
-		it('filtra per userId (case-insensitive substring)', async () => {
+		it('filters by userId (case-insensitive substring)', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			store.setTimeRange(makePermissiveRange());
 			store.setEvents([
@@ -393,7 +393,7 @@ describe('store', () => {
 			expect(store.get().events[0].userId).toBe('Alice');
 		});
 
-		it('filtra per search con operatore "contains" (default)', async () => {
+		it('filter by search with "contains" operator (default)', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			store.setTimeRange(makePermissiveRange());
 			store.setEvents([
@@ -404,7 +404,7 @@ describe('store', () => {
 			expect(store.get().events).toHaveLength(1);
 		});
 
-		it('filtra per search con operatore "not-contains"', async () => {
+		it('filter by search with the "not-contains" operator', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			store.setTimeRange(makePermissiveRange());
 			store.setEvents([
@@ -416,7 +416,7 @@ describe('store', () => {
 			expect(store.get().events[0].payload).toMatchObject({ message: 'ReferenceError: bar' });
 		});
 
-		it('filtra per search con operatore "equals"', async () => {
+		it('filter by search with the "equals" operator', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			store.setTimeRange(makePermissiveRange());
 			store.setEvents([
@@ -428,7 +428,7 @@ describe('store', () => {
 			expect(store.get().events).toHaveLength(1);
 		});
 
-		it('filtra per search con operatore "starts-with"', async () => {
+		it('filter by search with "starts-with" operator', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			store.setTimeRange(makePermissiveRange());
 			store.setEvents([
@@ -439,7 +439,7 @@ describe('store', () => {
 			expect(store.get().events).toHaveLength(1);
 		});
 
-		it('filtra per search con operatore "ends-with"', async () => {
+		it('filter by search with "ends-with" operator', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			store.setTimeRange(makePermissiveRange());
 			store.setEvents([
@@ -450,7 +450,7 @@ describe('store', () => {
 			expect(store.get().events).toHaveLength(1);
 		});
 
-		it('filtra per search con operatore "regex"', async () => {
+		it('filter by search with "regex" operator', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			store.setTimeRange(makePermissiveRange());
 			store.setEvents([
@@ -461,7 +461,7 @@ describe('store', () => {
 			expect(store.get().events).toHaveLength(1);
 		});
 
-		it('regex non valida: fallback a "contains"', async () => {
+		it('invalid regex: fallback to "contains"', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			store.setTimeRange(makePermissiveRange());
 			store.setEvents([
@@ -473,7 +473,7 @@ describe('store', () => {
 			expect(store.get().events).toHaveLength(0);
 		});
 
-		it('filtra per route', async () => {
+		it('filters by route', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			store.setTimeRange(makePermissiveRange());
 			store.setEvents([
@@ -485,7 +485,7 @@ describe('store', () => {
 			expect(store.get().events[0].meta.route).toBe('/home');
 		});
 
-		it('aggiorna eventsTotal dopo il filtro', async () => {
+		it('updates eventsTotal after filtering', async () => {
 			const { store } = await import('../../src/dashboard/state');
 			store.setTimeRange(makePermissiveRange());
 			store.setEvents([makeEvent({ type: 'click' }), makeEvent({ type: 'http' })], 2);

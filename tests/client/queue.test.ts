@@ -123,12 +123,12 @@ describe('EventQueue', () => {
 
 	describe('constructor', () => {
 
-		it('non crea una connessione WebSocket se wsEndpoint è vuoto', () => {
+		it('does not create a WebSocket connection when wsEndpoint is empty', () => {
 			new EventQueue(makeOpts({ wsEndpoint: '' }));
 			expect(MockWebSocket.instances).toHaveLength(0);
 		});
 
-		it('crea una connessione WebSocket se wsEndpoint è configurato', () => {
+		it('creates a WebSocket connection when wsEndpoint is configured', () => {
 			new EventQueue(makeOpts({ wsEndpoint: 'ws://localhost:4242/_tracker/ws' }));
 			expect(MockWebSocket.instances).toHaveLength(1);
 			expect(MockWebSocket.instances[0].url).toBe('ws://localhost:4242/_tracker/ws');
@@ -137,7 +137,7 @@ describe('EventQueue', () => {
 
 	describe('connectWs()', () => {
 
-		it('imposta wsReady = true all\'evento open', () => {
+		it('sets wsReady = true on the open event', () => {
 			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			expect((queue as any).wsReady).toBe(false);
 
@@ -146,7 +146,7 @@ describe('EventQueue', () => {
 			expect((queue as any).wsReady).toBe(true);
 		});
 
-		it('svuota wsPending all\'apertura se ci sono eventi bufferizzati', () => {
+		it('flush wsPending on open if there are buffered events', () => {
 			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			const evt = makeEvent();
 			(queue as any).wsPending.push(evt);
@@ -160,13 +160,13 @@ describe('EventQueue', () => {
 			expect((queue as any).wsPending).toHaveLength(0);
 		});
 
-		it('non chiama send all\'apertura se wsPending è vuoto', () => {
+		it('does not call send on open when wsPending is empty', () => {
 			new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			MockWebSocket.latest().simulateOpen();
 			expect(MockWebSocket.latest().send).not.toHaveBeenCalled();
 		});
 
-		it('imposta wsReady = false e ws = null all\'evento close', () => {
+		it('sets wsReady = false and ws = null on the close event', () => {
 			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			MockWebSocket.latest().simulateOpen();
 
@@ -176,7 +176,7 @@ describe('EventQueue', () => {
 			expect((queue as any).ws).toBeNull();
 		});
 
-		it('tenta la riconnessione dopo 3s all\'evento close', () => {
+		it('Attempt to reconnect after 3s at the close event', () => {
 			new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			MockWebSocket.latest().simulateOpen();
 			MockWebSocket.latest().simulateClose();
@@ -188,7 +188,7 @@ describe('EventQueue', () => {
 			expect(MockWebSocket.instances).toHaveLength(2);
 		})
 
-		it('non ricrea il socket se wsEndpoint viene svuotato prima del reconnect', () => {
+		it('does not recreate the socket when wsEndpoint is cleared before reconnect', () => {
 			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			MockWebSocket.latest().simulateOpen();
 			MockWebSocket.latest().simulateClose();
@@ -199,7 +199,7 @@ describe('EventQueue', () => {
 			expect(MockWebSocket.instances).toHaveLength(1);
 		});
 
-		it('imposta wsReady = false all\'evento error', () => {
+		it('sets wsReady = false on the error event', () => {
 			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			MockWebSocket.latest().simulateOpen();
 			expect((queue as any).wsReady).toBe(true);
@@ -212,7 +212,7 @@ describe('EventQueue', () => {
 
 	describe('sendViaWs()', () => {
 
-		it('bufferizza in wsPending se ws non è pronto', () => {
+		it('buffers in wsPending when ws is not ready', () => {
 			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			const evt = makeEvent();
 
@@ -222,7 +222,7 @@ describe('EventQueue', () => {
 			expect(MockWebSocket.latest().send).not.toHaveBeenCalled();
 		});
 
-		it('bufferizza in wsPending se ws è null', () => {
+		it('buffers in wsPending when ws is null', () => {
 			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			(queue as any).ws = null;
 			(queue as any).wsReady = false;
@@ -233,7 +233,7 @@ describe('EventQueue', () => {
 			expect((queue as any).wsPending).toContain(evt);
 		});
 
-		it('invia via ws.send se il socket è pronto', () => {
+		it('sends via ws.send when the socket is ready', () => {
 			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			MockWebSocket.latest().simulateOpen();
 			const evt = makeEvent();
@@ -245,7 +245,7 @@ describe('EventQueue', () => {
 			expect(payload.events[0]).toMatchObject({ payload: evt.payload });
 		});
 
-		it('rimette gli eventi in coda se ws.send lancia un\'eccezione', () => {
+		it('Requeue events if ws.send throws an exception', () => {
 			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			MockWebSocket.latest().simulateOpen();
 			MockWebSocket.latest().send.mockImplementation(() => {
@@ -261,7 +261,7 @@ describe('EventQueue', () => {
 
 	describe('init()', () => {
 
-		it('schedula il primo flush dopo flushInterval ms', () => {
+		it('schedules the first flush after flushInterval ms', () => {
 			const queue = new EventQueue(makeOpts());
 			queue.enqueue(makeEvent());
 			queue.init();
@@ -276,21 +276,21 @@ describe('EventQueue', () => {
 
 	describe('enqueue()', () => {
 
-		it('aggiunge l\'evento alla coda interna', () => {
+		it('adds the event to the internal queue', () => {
 			const queue = new EventQueue(makeOpts({ batchSize: 10 }));
 			const evt = makeEvent();
 			queue.enqueue(evt);
 			expect((queue as any).queue).toContain(evt);
 		});
 
-		it('non triggera flush se non si raggiunge batchSize', () => {
+		it('does not trigger flush when batchSize is not reached', () => {
 			const queue = new EventQueue(makeOpts({ batchSize: 3 }));
 			queue.enqueue(makeEvent());
 			queue.enqueue(makeEvent());
 			expect(fetchMock).not.toHaveBeenCalled();
 		});
 
-		it('triggera flush immediatamente al raggiungimento di batchSize', async () => {
+		it('triggers flush immediately when batchSize is reached', async () => {
 			const queue = new EventQueue(makeOpts({ batchSize: 2 }));
 			fetchMock.mockResolvedValue(new Response());
 
@@ -302,21 +302,21 @@ describe('EventQueue', () => {
 		});
 	});
 
-	describe('flush() — guardie iniziali', () => {
+	describe('flush() — initial guards', () => {
 
-		it('non chiama fetch se la coda è vuota', () => {
+		it('does not call fetch when the queue is empty', () => {
 			const queue = new EventQueue(makeOpts());
 			queue.flush();
 			expect(fetchMock).not.toHaveBeenCalled();
 		});
 
-		it('schedula il prossimo flush anche se la coda è vuota', () => {
+		it('schedules the next flush even when the queue is empty', () => {
 			const queue = new EventQueue(makeOpts());
 			queue.flush();
 			expect((queue as any).timer).not.toBeNull();
 		});
 
-		it('non chiama fetch se un invio è già in corso (sending = true)', () => {
+		it('does not call fetch when a send is already in progress (sending = true)', () => {
 			const queue = new EventQueue(makeOpts());
 			queue.enqueue(makeEvent());
 			(queue as any).sending = true;
@@ -326,7 +326,7 @@ describe('EventQueue', () => {
 			expect(fetchMock).not.toHaveBeenCalled();
 		});
 
-		it('cancella il timer pendente all\'inizio di flush()', () => {
+		it('clears the pending timer at the beginning of flush()', () => {
 			const queue = new EventQueue(makeOpts());
 			queue.init();
 			const timerBefore = (queue as any).timer;
@@ -339,9 +339,9 @@ describe('EventQueue', () => {
 		});
 	});
 
-	describe('flush() — modalità WebSocket', () => {
+	describe('flush() — WebSocket mode', () => {
 
-		it('invia via WebSocket e non chiama fetch', async () => {
+		it('sends via WebSocket and does not call fetch', async () => {
 			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			MockWebSocket.latest().simulateOpen();
 			queue.enqueue(makeEvent());
@@ -353,7 +353,7 @@ describe('EventQueue', () => {
 			expect(MockWebSocket.latest().send).toHaveBeenCalledOnce();
 		});
 
-		it('il payload inviato via WS contiene gli eventi corretti', () => {
+		it('the payload sent via WS contains the correct events', () => {
 			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			MockWebSocket.latest().simulateOpen();
 			const evt = makeEvent();
@@ -366,7 +366,7 @@ describe('EventQueue', () => {
 			expect(parsed.events[0].payload).toEqual(evt.payload);
 		});
 
-		it('resetta sending = false dopo l\'invio WS', () => {
+		it('reset sending = false after sending WS', () => {
 			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			MockWebSocket.latest().simulateOpen();
 			queue.enqueue(makeEvent());
@@ -376,7 +376,7 @@ describe('EventQueue', () => {
 			expect((queue as any).sending).toBe(false);
 		});
 
-		it('schedula il prossimo flush dopo l\'invio WS', () => {
+		it('schedules the next flush after sending WS', () => {
 			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			MockWebSocket.latest().simulateOpen();
 			queue.enqueue(makeEvent());
@@ -387,7 +387,7 @@ describe('EventQueue', () => {
 		});
 	});
 
-	describe('flush() — modalità sendBeacon (pagina nascosta)', () => {
+	describe('flush() — sendBeacon mode (page hidden)', () => {
 
 		let sendBeaconMock: ReturnType<typeof vi.fn>;
 
@@ -410,7 +410,7 @@ describe('EventQueue', () => {
 			});
 		});
 
-		it('usa sendBeacon invece di fetch quando la pagina è nascosta', () => {
+		it('uses sendBeacon instead of fetch when the page is hidden', () => {
 			const queue = new EventQueue(makeOpts());
 			queue.enqueue(makeEvent());
 
@@ -420,7 +420,7 @@ describe('EventQueue', () => {
 			expect(fetchMock).not.toHaveBeenCalled();
 		});
 
-		it('invia batch + eventi rimanenti in un unico beacon', () => {
+		it('sends batch + remaining events in a single beacon', () => {
 			let capturedBody = '';
 			const OriginalBlob = globalThis.Blob;
 			vi.stubGlobal('Blob', class extends OriginalBlob {
@@ -442,7 +442,7 @@ describe('EventQueue', () => {
 			expect(body.events).toHaveLength(3);
 		});
 
-		it('rimette gli eventi in coda se sendBeacon restituisce false', () => {
+		it('re-queues events when sendBeacon returns false', () => {
 			sendBeaconMock.mockReturnValue(false);
 			const queue = new EventQueue(makeOpts());
 			const evt = makeEvent();
@@ -453,7 +453,7 @@ describe('EventQueue', () => {
 			expect((queue as any).queue).toContain(evt);
 		});
 
-		it('la coda è vuota dopo un sendBeacon andato a buon fine', () => {
+		it('the queue is empty after a successful sendBeacon', () => {
 			const queue = new EventQueue(makeOpts());
 			queue.enqueue(makeEvent());
 
@@ -462,7 +462,7 @@ describe('EventQueue', () => {
 			expect((queue as any).queue).toHaveLength(0);
 		});
 
-		it('schedula il prossimo flush anche dopo sendBeacon', () => {
+		it('schedules the next flush also after sendBeacon', () => {
 			const queue = new EventQueue(makeOpts());
 			queue.enqueue(makeEvent());
 
@@ -472,9 +472,9 @@ describe('EventQueue', () => {
 		});
 	});
 
-	describe('flush() — modalità fetch', () => {
+	describe('flush() — fetch mode', () => {
 
-		it('chiama fetch con il writeEndpoint corretto', async () => {
+		it('calls fetch with the correct writeEndpoint', async () => {
 			const queue = new EventQueue(makeOpts({ writeEndpoint: '/api/track' }));
 			queue.enqueue(makeEvent());
 
@@ -487,7 +487,7 @@ describe('EventQueue', () => {
 			);
 		});
 
-		it('il body è un JSON con la struttura { events: [...] }', async () => {
+		it('the body is a JSON with the structure { events: [...] }', async () => {
 			const queue = new EventQueue(makeOpts());
 			const evt = makeEvent();
 			queue.enqueue(evt);
@@ -501,7 +501,7 @@ describe('EventQueue', () => {
 			expect(body.events[0].payload).toEqual(evt.payload);
 		});
 
-		it('include Content-Type: application/json negli header', async () => {
+		it('includes Content-Type: application/json in the headers', async () => {
 			const queue = new EventQueue(makeOpts());
 			queue.enqueue(makeEvent());
 
@@ -512,7 +512,7 @@ describe('EventQueue', () => {
 			expect(init.headers['Content-Type']).toBe('application/json');
 		});
 
-		it('include X-Tracker-Key se apiKey è configurato', async () => {
+		it('includes X-Tracker-Key when apiKey is configured', async () => {
 			const queue = new EventQueue(makeOpts({ apiKey: 'secret-key' }));
 			queue.enqueue(makeEvent());
 
@@ -523,7 +523,7 @@ describe('EventQueue', () => {
 			expect(init.headers['X-Tracker-Key']).toBe('secret-key');
 		});
 
-		it('non include X-Tracker-Key se apiKey è vuoto', async () => {
+		it('does not include X-Tracker-Key when apiKey is empty', async () => {
 			const queue = new EventQueue(makeOpts({ apiKey: '' }));
 			queue.enqueue(makeEvent());
 
@@ -534,7 +534,7 @@ describe('EventQueue', () => {
 			expect(init.headers).not.toHaveProperty('X-Tracker-Key');
 		});
 
-		it('invia keepalive: true', async () => {
+		it('sends keepalive: true', async () => {
 			const queue = new EventQueue(makeOpts());
 			queue.enqueue(makeEvent());
 
@@ -545,7 +545,7 @@ describe('EventQueue', () => {
 			expect(init.keepalive).toBe(true);
 		});
 
-		it('imposta sending = false nel finally dopo il successo', async () => {
+		it('sets sending = false in finally after success', async () => {
 			const queue = new EventQueue(makeOpts());
 			queue.enqueue(makeEvent());
 
@@ -556,7 +556,7 @@ describe('EventQueue', () => {
 			expect((queue as any).sending).toBe(false);
 		});
 
-		it('schedula il prossimo flush nel finally', async () => {
+		it('schedules the next flush in finally', async () => {
 			const queue = new EventQueue(makeOpts());
 			queue.enqueue(makeEvent());
 
@@ -566,7 +566,7 @@ describe('EventQueue', () => {
 			expect((queue as any).timer).not.toBeNull();
 		});
 
-		it('rimette gli eventi in coda (unshift) se fetch rigetta', async () => {
+		it('re-queues events (unshift) when fetch rejects', async () => {
 			fetchMock.mockRejectedValue(new Error('Network error'));
 			const queue = new EventQueue(makeOpts());
 			const evt = makeEvent();
@@ -578,7 +578,7 @@ describe('EventQueue', () => {
 			expect((queue as any).queue).toContain(evt);
 		});
 
-		it('imposta sending = false nel finally anche dopo un errore fetch', async () => {
+		it('sets sending = false in finally also after a fetch error', async () => {
 			fetchMock.mockRejectedValue(new Error('Network error'));
 			const queue = new EventQueue(makeOpts());
 			queue.enqueue(makeEvent());
@@ -589,7 +589,7 @@ describe('EventQueue', () => {
 			expect((queue as any).sending).toBe(false);
 		});
 
-		it('non supera batchSize eventi per singola chiamata fetch', async () => {
+		it('does not exceed batchSize events per single fetch call', async () => {
 			const queue = new EventQueue(makeOpts({ batchSize: 2 }));
 			(queue as any).queue.push(makeEvent(), makeEvent(), makeEvent(), makeEvent());
 
@@ -605,7 +605,7 @@ describe('EventQueue', () => {
 
 	describe('scheduleFlush()', () => {
 
-		it('non crea un secondo timer se ne esiste già uno', () => {
+		it('does not create a second timer when one already exists', () => {
 			const queue = new EventQueue(makeOpts());
 			queue.init();
 			const firstTimer = (queue as any).timer;
@@ -616,7 +616,7 @@ describe('EventQueue', () => {
 			expect(secondTimer).toBe(firstTimer);
 		});
 
-		it('il timer chiama flush() allo scadere di flushInterval', async () => {
+		it('the timer calls flush() when flushInterval expires', async () => {
 			const queue = new EventQueue(makeOpts({ flushInterval: 3000 }));
 			queue.enqueue(makeEvent());
 			queue.init();
@@ -630,7 +630,7 @@ describe('EventQueue', () => {
 			expect(fetchMock).toHaveBeenCalledOnce();
 		});
 
-		it('azzera il riferimento al timer prima di eseguire flush()', async () => {
+		it('clears the timer reference before executing flush()', async () => {
 			const queue = new EventQueue(makeOpts());
 			queue.enqueue(makeEvent());
 			queue.init();

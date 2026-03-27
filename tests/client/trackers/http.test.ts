@@ -35,7 +35,7 @@ describe('patchFetch', () => {
 		window.fetch = originalFetch;
 	});
 
-	it('intercetta le chiamate fetch e emette il payload corretto', async () => {
+	it('intercepts fetch calls and emits the correct payload', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = setupHttpTracker([], true, onEvent);
@@ -53,7 +53,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('URL in ignoreUrls bypassano il tracker e chiamano fetch originale', async () => {
+	it('URLs in ignoreUrls bypass the tracker and call the original fetch', async () => {
 		const { onEvent, events } = makeOnEvent();
 		const mockFetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
 		vi.stubGlobal('fetch', mockFetch);
@@ -66,7 +66,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('status 2xx → level "info"', async () => {
+	it('status 2xx -> level "info"', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 201 })));
 		teardown = setupHttpTracker([], true, onEvent);
@@ -76,7 +76,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('status 4xx → level "warn"', async () => {
+	it('status 4xx -> level "warn"', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
 		teardown = setupHttpTracker([], true, onEvent);
@@ -87,7 +87,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('status 5xx → level "error"', async () => {
+	it('status 5xx -> level "error"', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 503 })));
 		teardown = setupHttpTracker([], true, onEvent);
@@ -98,7 +98,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('fetch che rigetta → emette payload di errore e rilancia', async () => {
+	it('fetch that rejects -> emits error payload and rethrows', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network error')));
 		teardown = setupHttpTracker([], true, onEvent);
@@ -112,7 +112,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('captureRequestHeaders: true → headers sanitizzati inclusi nel payload', async () => {
+	it('captureRequestHeaders: true -> sanitized headers included in payload', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = setupHttpTracker([], {
@@ -129,7 +129,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('header sensibili (authorization, cookie, x-api-key...) vengono esclusi', async () => {
+	it('sensitive headers (authorization, cookie, x-api-key...) are excluded', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = setupHttpTracker([], {
@@ -155,7 +155,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('captureRequestBody: true → body incluso nel payload', async () => {
+	it('captureRequestBody: true -> body included in payload', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = setupHttpTracker([], {
@@ -172,7 +172,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('captureResponseBody: true → body della risposta clonato', async () => {
+	it('captureResponseBody: true -> response body cloned', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
 			new Response(JSON.stringify({ result: 'ok' }), {
@@ -191,7 +191,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('body JSON con chiavi sensibili (password, token, card...) viene redatto', async () => {
+	it('JSON body with sensitive keys (password, token, card...) is redacted', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = setupHttpTracker([], {
@@ -211,7 +211,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('body JSON con null, undefined e array viene redatto correttamente (redactBody ricorsione)', async () => {
+	it('JSON body with null, undefined and arrays is redacted correctly (redactBody recursion)', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = setupHttpTracker([], { captureRequestBody: true }, onEvent);
@@ -232,7 +232,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('captureRequestBody: true con body null non include requestBody nel payload', async () => {
+	it('captureRequestBody: true with null body does not include requestBody in payload', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = setupHttpTracker([], { captureRequestBody: true }, onEvent);
@@ -244,7 +244,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('body JSON valido oltre maxBodySize viene troncato dopo la serializzazione', async () => {
+	it('valid JSON body beyond maxBodySize is truncated after serialization', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = setupHttpTracker([], {
@@ -264,7 +264,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('captureResponseHeaders: true → response headers sanitizzati inclusi nel payload', async () => {
+	it('captureResponseHeaders: true -> sanitized response headers included in payload', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
 			new Response(null, {
@@ -289,7 +289,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('captureResponseBody: response non leggibile → responseBody "[unreadable]"', async () => {
+	it('captureResponseBody: response non leggibile -> responseBody "[unreadable]"', async () => {
 		const { onEvent, events } = makeOnEvent();
 
 		const brokenResponse = new Response('data', { status: 200 });
@@ -308,7 +308,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('body oltre maxBodySize viene troncato', async () => {
+	it('body beyond maxBodySize is truncated', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = setupHttpTracker([], {
@@ -325,7 +325,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('body ReadableStream → "[ReadableStream - not captured]"', async () => {
+	it('body ReadableStream -> "[ReadableStream - not captured]"', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = setupHttpTracker([], {
@@ -340,7 +340,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('teardown ripristina window.fetch originale', async () => {
+	it('teardown restores the original window.fetch', async () => {
 		const originalFetchBeforePatch = window.fetch;
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		const savedStubbed = window.fetch;
@@ -357,7 +357,7 @@ describe('patchFetch', () => {
 		expect(window.fetch).toBe(originalFetchBeforePatch);
 	});
 
-	it('accetta un URL object come input', async () => {
+	it('accepts a URL object as input', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = setupHttpTracker([], true, onEvent);
@@ -369,7 +369,7 @@ describe('patchFetch', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('accetta un Request object come input e ne legge method e url', async () => {
+	it('accepts a Request object as input and reads its method and url', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = setupHttpTracker([], true, onEvent);
@@ -392,7 +392,7 @@ describe('headersToRecord', () => {
 		return setupHttpTracker([], { captureRequestHeaders: true }, onEvent);
 	}
 
-	it('headers assenti (undefined) → requestHeaders è oggetto vuoto sanitizzato', async () => {
+	it('absent headers (undefined) -> requestHeaders is a sanitized empty object', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = makeTracker(onEvent);
@@ -404,7 +404,7 @@ describe('headersToRecord', () => {
 		expect(events[0].payload.requestHeaders).toEqual({});
 	});
 
-	it('Headers instance → record corretto', async () => {
+	it('Headers instance -> correct record', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = makeTracker(onEvent);
@@ -416,7 +416,7 @@ describe('headersToRecord', () => {
 		expect(events[0].payload.requestHeaders!['accept']).toBe('application/json');
 	});
 
-	it('array di tuple → record corretto', async () => {
+	it('array of tuples -> correct record', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = makeTracker(onEvent);
@@ -427,7 +427,7 @@ describe('headersToRecord', () => {
 		expect(events[0].payload.requestHeaders!['x-custom']).toBe('tuple-value');
 	});
 
-	it('plain object → record corretto', async () => {
+	it('plain object -> correct record', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = makeTracker(onEvent);
@@ -438,7 +438,7 @@ describe('headersToRecord', () => {
 		expect(events[0].payload.requestHeaders!['x-plain']).toBe('plain-value');
 	});
 
-	it('duck-type (oggetto con forEach+get) → record corretto', async () => {
+	it('duck-type (object with forEach+get) -> correct record', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = makeTracker(onEvent);
@@ -467,7 +467,7 @@ describe('cloneBody', () => {
 		return setupHttpTracker([], { captureRequestBody: true, maxBodySize: 0 }, onEvent);
 	}
 
-	it('body null/assente con captureRequestBody: true → requestBody undefined', async () => {
+	it('null/absent body with captureRequestBody: true -> requestBody undefined', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = makeTracker(onEvent);
@@ -478,7 +478,7 @@ describe('cloneBody', () => {
 		expect(events[0].payload.requestBody).toBeUndefined();
 	});
 
-	it('stringa → restituita as-is (dopo parseBody)', async () => {
+	it('string -> returned as-is (after parseBody)', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = makeTracker(onEvent);
@@ -489,7 +489,7 @@ describe('cloneBody', () => {
 		expect(events[0].payload.requestBody).toBe('plain text');
 	});
 
-	it('URLSearchParams → toString()', async () => {
+	it('URLSearchParams -> toString()', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = makeTracker(onEvent);
@@ -501,7 +501,7 @@ describe('cloneBody', () => {
 		expect(events[0].payload.requestBody).toBe('foo=bar&baz=1');
 	});
 
-	it('FormData → "[FormData]"', async () => {
+	it('FormData -> "[FormData]"', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = makeTracker(onEvent);
@@ -514,7 +514,7 @@ describe('cloneBody', () => {
 		expect(events[0].payload.requestBody).toBe('[FormData]');
 	});
 
-	it('Blob → "[Blob NB]"', async () => {
+	it('Blob -> "[Blob NB]"', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = makeTracker(onEvent);
@@ -526,7 +526,7 @@ describe('cloneBody', () => {
 		expect(events[0].payload.requestBody).toMatch(/^\[Blob \d+B\]$/);
 	});
 
-	it('ArrayBuffer → "[Binary NB]"', async () => {
+	it('ArrayBuffer -> "[Binary NB]"', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = makeTracker(onEvent);
@@ -538,7 +538,7 @@ describe('cloneBody', () => {
 		expect(events[0].payload.requestBody).toMatch(/^\[Binary \d+B\]$/);
 	});
 
-	it('body di tipo non supportato → cloneBody restituisce "" e parseBody lo lascia undefined', async () => {
+	it('body di tipo non supportato -> cloneBody restituisce "" e parseBody lo lascia undefined', async () => {
 		const { onEvent, events } = makeOnEvent();
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		teardown = setupHttpTracker([], { captureRequestBody: true, maxBodySize: 0 }, onEvent);
@@ -557,7 +557,7 @@ describe('cloneBody', () => {
 });
 
 describe('patchXHR', () => {
-	it('intercetta open() e send() e emette il payload corretto su loadend', () => {
+	it('intercepts open() and send() and emits the correct payload on loadend', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupHttpTracker([], true, onEvent);
 
@@ -571,7 +571,7 @@ describe('patchXHR', () => {
 		expect(typeof events[0].payload.duration).toBe('number');
 	});
 
-	it('URL in ignoreUrls bypassano il tracker XHR', () => {
+	it('URLs in ignoreUrls bypass the XHR tracker', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupHttpTracker(['/_tracker'], true, onEvent);
 
@@ -582,7 +582,7 @@ describe('patchXHR', () => {
 		expect(events).toHaveLength(0);
 	});
 
-	it('loadend emette payload con status e duration', () => {
+	it('loadend emits payload with status and duration', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupHttpTracker([], true, onEvent);
 
@@ -594,7 +594,7 @@ describe('patchXHR', () => {
 		expect(typeof events[0].payload.duration).toBe('number');
 	});
 
-	it('captureRequestHeaders via setRequestHeader', () => {
+	it('captureRequestHeaders by setRequestHeader', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupHttpTracker([], { captureRequestHeaders: true }, onEvent);
 
@@ -609,7 +609,7 @@ describe('patchXHR', () => {
 		expect(headers['authorization']).toBeUndefined();
 	});
 
-	it('response headers da getAllResponseHeaders()', () => {
+	it('response headers from getAllResponseHeaders()', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupHttpTracker([], { captureResponseHeaders: true }, onEvent);
 
@@ -627,7 +627,7 @@ describe('patchXHR', () => {
 		expect(headers['x-request-id']).toBe('req-42');
 	});
 
-	it('response body da responseText', () => {
+	it('response body from responseText', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupHttpTracker([], { captureResponseBody: true }, onEvent);
 
@@ -644,7 +644,7 @@ describe('patchXHR', () => {
 		expect(events[0].payload.responseBody).toEqual({ result: 'ok' });
 	});
 
-	it('evento "error" sull\'XHR emette payload di errore', () => {
+	it('"error" event on XHR emits error payload', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupHttpTracker([], true, onEvent);
 
@@ -658,7 +658,7 @@ describe('patchXHR', () => {
 		expect(events[0].payload.url).toBe('/api/down');
 	});
 
-	it('evento "error" con captureRequestHeaders: true include gli header nel payload', () => {
+	it('"error" event with captureRequestHeaders: true includes headers in the payload', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupHttpTracker([], { captureRequestHeaders: true }, onEvent);
 
@@ -671,7 +671,7 @@ describe('patchXHR', () => {
 		expect(events[0].payload.requestHeaders!['x-trace']).toBe('trace-id-123');
 	});
 
-	it('evento "error" su URL ignorata non emette', () => {
+	it('"error" event on ignored URL does not emit', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupHttpTracker(['/_tracker'], true, onEvent);
 
@@ -682,7 +682,7 @@ describe('patchXHR', () => {
 		expect(events).toHaveLength(0);
 	});
 
-	it('send() su URL ignorata bypassa il tracker e non registra startTime', () => {
+	it('send() on ignored URL bypasses the tracker and does not register startTime', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupHttpTracker(['/_tracker'], true, onEvent);
 
@@ -696,7 +696,7 @@ describe('patchXHR', () => {
 		expect(events).toHaveLength(0);
 	});
 
-	it('teardown ripristina i prototype originali', () => {
+	it('teardown restores the original prototypes', () => {
 		const originalOpen = XMLHttpRequest.prototype.open;
 		const originalSend = XMLHttpRequest.prototype.send;
 		const originalSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
@@ -715,7 +715,7 @@ describe('patchXHR', () => {
 		expect(XMLHttpRequest.prototype.setRequestHeader).toBe(originalSetRequestHeader);
 	});
 
-	it('captureRequestBody: true → body incluso nel payload XHR', () => {
+	it('captureRequestBody: true -> body included in XHR payload', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupHttpTracker([], { captureRequestBody: true }, onEvent);
 
@@ -727,7 +727,7 @@ describe('patchXHR', () => {
 		expect(events[0].payload.requestBody).toEqual({ hello: 'world' });
 	});
 
-	it('body XHR con chiavi sensibili viene redatto', () => {
+	it('XHR body with sensitive keys is redacted', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupHttpTracker([], { captureRequestBody: true }, onEvent);
 

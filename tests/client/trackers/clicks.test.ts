@@ -36,7 +36,7 @@ afterEach(() => {
 
 describe('setupClickTracker', () => {
 	describe('SSR', () => {
-		it('restituisce una funzione no-op se window è undefined', () => {
+		it('returns a no-op function when window is undefined', () => {
 			vi.stubGlobal('window', undefined);
 			const onEvent = vi.fn();
 			const teardown = setupClickTracker(onEvent);
@@ -47,15 +47,15 @@ describe('setupClickTracker', () => {
 		});
 	});
 
-	describe('payload base', () => {
-		it('emette il tag in lowercase', () => {
+	describe('base payload', () => {
+		it('emits the tag in lowercase', () => {
 			const btn = document.createElement('button');
 			document.body.appendChild(btn);
 			const payload = click(btn);
 			expect(payload.tag).toBe('button');
 		});
 
-		it('emette il testo trimmed dell\'elemento', () => {
+		it('outputs the trimmed text of the element', () => {
 			const btn = document.createElement('button');
 			btn.textContent = '  Salva  ';
 			document.body.appendChild(btn);
@@ -63,14 +63,14 @@ describe('setupClickTracker', () => {
 			expect(payload.text).toBe('Salva');
 		});
 
-		it('emette le coordinate clientX/clientY del click', () => {
+		it('emits the clientX/clientY coordinates of the click', () => {
 			const btn = document.createElement('button');
 			document.body.appendChild(btn);
 			const payload = click(btn, { clientX: 42, clientY: 77 });
 			expect(payload.coordinates).toEqual({ x: 42, y: 77 });
 		});
 
-		it('emette id se presente', () => {
+		it('emits id when present', () => {
 			const div = document.createElement('div');
 			div.id = 'my-div';
 			document.body.appendChild(div);
@@ -78,14 +78,14 @@ describe('setupClickTracker', () => {
 			expect(payload.id).toBe('my-div');
 		});
 
-		it('id è undefined se l\'elemento non ha un id', () => {
+		it('id is undefined when the element has no id', () => {
 			const div = document.createElement('div');
 			document.body.appendChild(div);
 			const payload = click(div);
 			expect(payload.id).toBeUndefined();
 		});
 
-		it('emette classes se presenti', () => {
+		it('emits classes when present', () => {
 			const div = document.createElement('div');
 			div.className = 'btn primary';
 			document.body.appendChild(div);
@@ -93,14 +93,14 @@ describe('setupClickTracker', () => {
 			expect(payload.classes).toBe('btn primary');
 		});
 
-		it('classes è undefined se l\'elemento non ha classi', () => {
+		it('classes is undefined when the element has no classes', () => {
 			const div = document.createElement('div');
 			document.body.appendChild(div);
 			const payload = click(div);
 			expect(payload.classes).toBeUndefined();
 		});
 
-		it('emette xpath dell\'elemento', () => {
+		it('outputs xpath of the element', () => {
 			const div = document.createElement('div');
 			document.body.appendChild(div);
 			const payload = click(div);
@@ -109,8 +109,8 @@ describe('setupClickTracker', () => {
 		});
 	});
 
-	describe('troncamento del testo', () => {
-		it('testo esattamente lungo 100 caratteri non viene troncato', () => {
+	describe('text truncation', () => {
+		it('text exactly 100 characters long is not truncated', () => {
 			const div = document.createElement('div');
 			div.textContent = 'x'.repeat(100);
 			document.body.appendChild(div);
@@ -118,7 +118,7 @@ describe('setupClickTracker', () => {
 			expect(payload.text).toHaveLength(100);
 		});
 
-		it('testo più lungo di 100 caratteri viene troncato a 100', () => {
+		it('text longer than 100 characters is truncated to 100', () => {
 			const div = document.createElement('div');
 			div.textContent = 'x'.repeat(101);
 			document.body.appendChild(div);
@@ -126,7 +126,7 @@ describe('setupClickTracker', () => {
 			expect(payload.text).toHaveLength(100);
 		});
 
-		it('testo vuoto produce una stringa vuota', () => {
+		it('empty text produces an empty string', () => {
 			const div = document.createElement('div');
 			div.textContent = '';
 			document.body.appendChild(div);
@@ -136,7 +136,7 @@ describe('setupClickTracker', () => {
 	});
 
 	describe('className SVGAnimatedString', () => {
-		it('gestisce className come SVGAnimatedString usando baseVal', () => {
+		it('handles className as SVGAnimatedString using baseVal', () => {
 			const div = document.createElement('div');
 			document.body.appendChild(div);
 
@@ -153,7 +153,7 @@ describe('setupClickTracker', () => {
 			expect(onEvent.mock.calls[0][0].classes).toBe('svg-class');
 		});
 
-		it('classes è undefined se baseVal è stringa vuota', () => {
+		it('classes is undefined when baseVal is an empty string', () => {
 			const div = document.createElement('div');
 			document.body.appendChild(div);
 
@@ -172,7 +172,7 @@ describe('setupClickTracker', () => {
 	});
 
 	describe('ignorePaths', () => {
-		it('click su path ignorata non emette l\'evento', () => {
+		it('click on path ignored does not emit event', () => {
 			const onEvent = vi.fn();
 			const teardown = setupClickTracker(onEvent, ['/']);
 			const div = document.createElement('div');
@@ -182,7 +182,7 @@ describe('setupClickTracker', () => {
 			expect(onEvent).not.toHaveBeenCalled();
 		});
 
-		it('click su path non ignorata emette l\'evento', () => {
+		it('click on path not ignored emits event', () => {
 			const onEvent = vi.fn();
 			const teardown = setupClickTracker(onEvent, ['/dashboard']);
 			const div = document.createElement('div');
@@ -192,7 +192,7 @@ describe('setupClickTracker', () => {
 			expect(onEvent).toHaveBeenCalledOnce();
 		});
 
-		it('usa startsWith: prefisso corrispondente sopprime il click', () => {
+		it('uses startsWith: matching prefix suppresses the click', () => {
 			const onEvent = vi.fn();
 			const teardown = setupClickTracker(onEvent, ['/']);
 			const btn = document.createElement('button');
@@ -202,7 +202,7 @@ describe('setupClickTracker', () => {
 			expect(onEvent).not.toHaveBeenCalled();
 		});
 
-		it('stringa vuota in ignorePaths non sopprime il click', () => {
+		it('empty string in ignorePaths does not suppress the click', () => {
 			const onEvent = vi.fn();
 			const teardown = setupClickTracker(onEvent, ['']);
 			const div = document.createElement('div');
@@ -212,7 +212,7 @@ describe('setupClickTracker', () => {
 			expect(onEvent).toHaveBeenCalledOnce();
 		});
 
-		it('ignorePaths vuoto non sopprime nessun click', () => {
+		it('empty ignorePaths does not suppress any click', () => {
 			const onEvent = vi.fn();
 			const teardown = setupClickTracker(onEvent);
 			const div = document.createElement('div');
@@ -223,8 +223,8 @@ describe('setupClickTracker', () => {
 		});
 	});
 
-	describe('target senza tagName', () => {
-		it('click su target senza tagName non emette l\'evento', () => {
+	describe('target without tagName', () => {
+		it('Click on target without tagName does not emit the event', () => {
 			const onEvent = vi.fn();
 			const teardown = setupClickTracker(onEvent);
 
@@ -239,7 +239,7 @@ describe('setupClickTracker', () => {
 			expect(onEvent).not.toHaveBeenCalled();
 		});
 
-		it('click con target null non emette l\'evento', () => {
+		it('click with null target does not emit the event', () => {
 			const onEvent = vi.fn();
 			const teardown = setupClickTracker(onEvent);
 
@@ -256,7 +256,7 @@ describe('setupClickTracker', () => {
 	});
 
 	describe('teardown', () => {
-		it('dopo teardown() i click non emettono più eventi', () => {
+		it('after teardown() clicks no longer emit events', () => {
 			const onEvent = vi.fn();
 			const teardown = setupClickTracker(onEvent);
 			const div = document.createElement('div');
@@ -267,13 +267,13 @@ describe('setupClickTracker', () => {
 			expect(onEvent).not.toHaveBeenCalled();
 		});
 
-		it('chiamare teardown() due volte non lancia errori', () => {
+		it('calling teardown() twice does not throw errors', () => {
 			const teardown = setupClickTracker(vi.fn());
 			teardown();
 			expect(() => teardown()).not.toThrow();
 		});
 
-		it('più tracker indipendenti: il teardown di uno non disattiva l\'altro', () => {
+		it('multiple independent trackers: the teardown of one does not deactivate the other', () => {
 			const onEvent1 = vi.fn();
 			const onEvent2 = vi.fn();
 			const teardown1 = setupClickTracker(onEvent1);
@@ -292,14 +292,14 @@ describe('setupClickTracker', () => {
 	});
 
 	describe('getXPath', () => {
-		it('elemento diretto in body → xpath semplice senza indice', () => {
+		it('direct element in body -> simple xpath without index', () => {
 			const div = document.createElement('div');
 			document.body.appendChild(div);
 			const payload = click(div);
 			expect(payload.xpath).not.toContain('[');
 		});
 
-		it('aggiunge [N] solo ai fratelli con lo stesso tag', () => {
+		it('adds [N] only to siblings with the same tag', () => {
 			const container = document.createElement('div');
 			document.body.appendChild(container);
 			const s1 = document.createElement('span');
@@ -318,7 +318,7 @@ describe('setupClickTracker', () => {
 			expect(p3.xpath).toContain('span[3]');
 		});
 
-		it('fratelli con tag diversi non ricevono indice', () => {
+		it('siblings with different tags do not receive an index', () => {
 			const container = document.createElement('div');
 			document.body.appendChild(container);
 			const span = document.createElement('span');
@@ -333,21 +333,21 @@ describe('setupClickTracker', () => {
 			expect(pe.xpath).not.toContain('em[');
 		});
 
-		it('rispetta maxDepth=8: catena più profonda viene troncata', () => {
+		it('respects maxDepth=8: deeper chain is truncated', () => {
 			const deepest = buildChain(12);
 			const payload = click(deepest);
 			const segments = payload.xpath!.split('/').filter(Boolean);
 			expect(segments.length).toBeLessThanOrEqual(8);
 		});
 
-		it('catena di esattamente 8 livelli produce 8 segmenti', () => {
+		it('chain of exactly 8 levels produces 8 segments', () => {
 			const deepest = buildChain(8);
 			const payload = click(deepest);
 			const segments = payload.xpath!.split('/').filter(Boolean);
 			expect(segments.length).toBe(8);
 		});
 
-		it('xpath dell\'elemento root include solo il suo tag', () => {
+		it('xpath of the root element includes only its tag', () => {
 			const floating = document.createElement('section');
 
 			const onEvent = vi.fn();
@@ -366,7 +366,7 @@ describe('setupClickTracker', () => {
 			expect(xpath).toBe('/section');
 		});
 
-		it('percorso completo corretto per struttura annidata semplice', () => {
+		it('correct full path for simple nested structure', () => {
 			const div = document.createElement('div');
 			const btn = document.createElement('button');
 			document.body.appendChild(div);

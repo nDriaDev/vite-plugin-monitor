@@ -1,26 +1,9 @@
-// tests/plugin/standalone-server-init.test.ts
-//
-// Test per createStandaloneServer() — linee 230-281
-//
-// Problema risolto: vi.mock viene hoistato prima delle dichiarazioni
-// di variabili nel modulo, quindi mockServer/mockWss sarebbero in TDZ
-// quando i factory di vi.mock vengono eseguiti.
-// Soluzione: vi.hoisted() crea gli oggetti mock prima di qualsiasi
-// vi.mock factory, rendendoli disponibili nel momento giusto.
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ResolvedTrackerOptions, TrackerEvent } from '../../src/types';
 import { resolveOptions } from '../../src/plugin/config';
 import { createServer } from 'node:http';
+import { createStandaloneServer } from '../../src/plugin/standalone-server';
 
-// ----------------------------------------------------------------
-// Step 1: creare i mock objects tramite vi.hoisted.
-// Questo callback viene eseguito prima di qualsiasi vi.mock factory,
-// garantendo che mockServer e mockWss siano definiti quando servono.
-//
-// Si usano plain objects con un mini event-emitter manuale anziché
-// EventEmitter di node:events (che non è ancora importabile qui).
-// ----------------------------------------------------------------
 const { mockServer, mockWss } = vi.hoisted(() => {
 	function makeEmitter() {
 		const store: Record<string, ((...a: any[]) => void)[]> = {};
@@ -42,15 +25,6 @@ const { mockServer, mockWss } = vi.hoisted(() => {
 	return { mockServer: makeEmitter(), mockWss: makeEmitter() };
 });
 
-// ----------------------------------------------------------------
-// Step 2: mock di node:http e ws.
-// I factory girano dopo vi.hoisted, quindi mockServer/mockWss
-// sono già definiti e accessibili nelle closure.
-//
-// Per WebSocketServer si usa una class anziché vi.fn(() => mockWss)
-// perché vi.fn() in alcuni ambienti ESM non è costruibile con `new`.
-// Una class restituisce sempre un oggetto dall'interno del costruttore.
-// ----------------------------------------------------------------
 vi.mock('node:http', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('node:http')>();
 	return { ...actual, createServer: vi.fn(() => mockServer) };
@@ -62,12 +36,6 @@ vi.mock('ws', () => ({
 	},
 }));
 
-// Import DOPO i mock (l'hoisting di vi.mock garantisce che siano già attivi)
-import { createStandaloneServer } from '../../src/plugin/standalone-server';
-
-// ----------------------------------------------------------------
-// Helpers (stessa convenzione del file di test principale)
-// ----------------------------------------------------------------
 
 function makeOpts(overrides: Partial<Parameters<typeof resolveOptions>[0]> = {}): ResolvedTrackerOptions {
 	const opts = resolveOptions({ appId: 'test-app', ...overrides });
@@ -92,8 +60,6 @@ function makeEvent(overrides: Partial<TrackerEvent> = {}): TrackerEvent {
 	} as TrackerEvent;
 }
 
-// Crea un client WebSocket fake con close/send mockati e
-// un vero event emitter manuale per simulare ws.on('message', ...)
 function makeFakeWsClient() {
 	const store: Record<string, ((...a: any[]) => void)[]> = {};
 	return {
@@ -104,10 +70,6 @@ function makeFakeWsClient() {
 	};
 }
 
-// ----------------------------------------------------------------
-// Suite
-// ----------------------------------------------------------------
-
 describe('createStandaloneServer()', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -115,12 +77,8 @@ describe('createStandaloneServer()', () => {
 		mockWss.removeAllListeners();
 	});
 
-	// ------------------------------------------------------------
-	// start()
-	// ------------------------------------------------------------
-
 	describe('start()', () => {
-		it('chiama server.listen sulla porta configurata', () => {
+		it('calls server.listen on the configured port', () => {
 			const opts = makeOpts();
 			opts.storage.port = 3456;
 			const { start } = createStandaloneServer(opts, makeLogger());
@@ -128,7 +86,7 @@ describe('createStandaloneServer()', () => {
 			expect(mockServer.listen).toHaveBeenCalledWith(3456, expect.any(Function));
 		});
 
-		it('logga i messaggi di avvio al completamento di listen', () => {
+		it('logs startup messages on listen completion', () => {
 			const logger = makeLogger();
 			mockServer.listen.mockImplementation((_port: number, cb: () => void) => cb?.());
 			const opts = makeOpts();
@@ -139,7 +97,7 @@ describe('createStandaloneServer()', () => {
 			expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('/_tracker/ws'));
 		});
 
-		it('logga un avviso per errore EADDRINUSE', () => {
+		it('logs a warning for EADDRINUSE error', () => {
 			const logger = makeLogger();
 			const opts = makeOpts();
 			opts.storage.port = 3456;
@@ -152,7 +110,7 @@ describe('createStandaloneServer()', () => {
 			expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('already in use'));
 		});
 
-		it('logga un errore generico del server', () => {
+		it('logs a generic server error', () => {
 			const logger = makeLogger();
 			const { start } = createStandaloneServer(makeOpts(), logger);
 			start();
@@ -163,12 +121,8 @@ describe('createStandaloneServer()', () => {
 		});
 	});
 
-	// ------------------------------------------------------------
-	// stop()
-	// ------------------------------------------------------------
-
 	describe('stop()', () => {
-		it('chiude sia il server HTTP sia il WebSocketServer', () => {
+		it('closes both the HTTP server and the WebSocketServer', () => {
 			const logger = makeLogger();
 			const { stop } = createStandaloneServer(makeOpts(), logger);
 			stop();
@@ -176,7 +130,7 @@ describe('createStandaloneServer()', () => {
 			expect(mockWss.close).toHaveBeenCalledOnce();
 		});
 
-		it('logga il messaggio di chiusura', () => {
+		it('logs the shutdown message', () => {
 			const logger = makeLogger();
 			const { stop } = createStandaloneServer(makeOpts(), logger);
 			stop();
@@ -184,13 +138,8 @@ describe('createStandaloneServer()', () => {
 		});
 	});
 
-	// ------------------------------------------------------------
-	// Handler HTTP interno — fallback 404 per rotte non gestite
-	// ------------------------------------------------------------
-
-	describe('handler HTTP interno', () => {
-		it('risponde 404 per rotte non gestite da /_tracker', async () => {
-			// Cattura il request handler passato a createServer
+	describe('internal HTTP handler', () => {
+		it('responds 404 for routes not handled by /_tracker', async () => {
 			let capturedHandler: ((req: any, res: any) => Promise<void>) | undefined;
 			vi.mocked(createServer).mockImplementationOnce((h: any) => {
 				capturedHandler = h;
@@ -200,7 +149,6 @@ describe('createStandaloneServer()', () => {
 			createStandaloneServer(makeOpts(), makeLogger());
 			expect(capturedHandler).toBeDefined();
 
-			// Simula una richiesta su un percorso sconosciuto
 			const fakeReq = Object.assign(
 				{ method: 'GET', url: '/unknown-path', headers: {} },
 				{
@@ -224,12 +172,8 @@ describe('createStandaloneServer()', () => {
 		});
 	});
 
-	// ------------------------------------------------------------
-	// WebSocket — handler di connessione
-	// ------------------------------------------------------------
-
 	describe('WebSocket connection handler', () => {
-		it('chiude la connessione con 1008 se apiKey non corrisponde', () => {
+		it('closes the connection with 1008 when apiKey does not match', () => {
 			const opts = makeOpts();
 			opts.storage.apiKey = 'secret';
 			createStandaloneServer(opts, makeLogger());
@@ -240,7 +184,7 @@ describe('createStandaloneServer()', () => {
 			expect(client.close).toHaveBeenCalledWith(1008, 'Unauthorized');
 		});
 
-		it('non chiude la connessione se apiKey corrisponde', () => {
+		it('does not close the connection when apiKey matches', () => {
 			const opts = makeOpts();
 			opts.storage.apiKey = 'secret';
 			createStandaloneServer(opts, makeLogger());
@@ -251,7 +195,7 @@ describe('createStandaloneServer()', () => {
 			expect(client.close).not.toHaveBeenCalled();
 		});
 
-		it('non chiude la connessione se apiKey non è configurata', () => {
+		it('does not close the connection when apiKey is not configured', () => {
 			const opts = makeOpts();
 			opts.storage.apiKey = '';
 			createStandaloneServer(opts, makeLogger());
@@ -262,7 +206,7 @@ describe('createStandaloneServer()', () => {
 			expect(client.close).not.toHaveBeenCalled();
 		});
 
-		it('registra il listener "message" sul client alla connessione', () => {
+		it('registers the "message" listener on the client upon connection', () => {
 			createStandaloneServer(makeOpts(), makeLogger());
 
 			const client = makeFakeWsClient();
@@ -273,10 +217,6 @@ describe('createStandaloneServer()', () => {
 		});
 	});
 
-	// ------------------------------------------------------------
-	// WebSocket — handler di messaggio
-	// ------------------------------------------------------------
-
 	describe('WebSocket message handler', () => {
 		function connectClient(opts = makeOpts(), logger = makeLogger()) {
 			createStandaloneServer(opts, logger);
@@ -285,7 +225,7 @@ describe('createStandaloneServer()', () => {
 			return { client, logger };
 		}
 
-		it('ingestisce eventi validi e risponde con ack', () => {
+		it('ingests valid events and responds with ack', () => {
 			const { client, logger } = connectClient();
 			const event = makeEvent();
 
@@ -296,7 +236,7 @@ describe('createStandaloneServer()', () => {
 			expect(JSON.parse(client.send.mock.calls[0][0])).toMatchObject({ type: 'ack', saved: 1 });
 		});
 
-		it('non chiama writeEvent se events è array vuoto', () => {
+		it('does not call writeEvent when events is an empty array', () => {
 			const { client, logger } = connectClient();
 
 			client.emit('message', Buffer.from(JSON.stringify({ events: [] })));
@@ -304,7 +244,7 @@ describe('createStandaloneServer()', () => {
 			expect(logger.writeEvent).not.toHaveBeenCalled();
 		});
 
-		it('risponde con errore per messaggi JSON non validi', () => {
+		it('responds with error for invalid JSON messages', () => {
 			const { client } = connectClient();
 
 			client.emit('message', Buffer.from('{not valid json'));

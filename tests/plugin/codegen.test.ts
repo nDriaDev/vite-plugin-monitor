@@ -3,149 +3,131 @@ import { generateAutoInitScript, generateConfigScript, generateSetupScript } fro
 import { resolveOptions } from '../../src/plugin/config'
 import type { ResolvedTrackerOptions } from '../../src/types'
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function makeOpts(overrides: Partial<Parameters<typeof resolveOptions>[0]> = {}): ResolvedTrackerOptions {
-	return resolveOptions({ appId: 'test-app', ...overrides })
+	return resolveOptions({ appId: 'test-app', ...overrides });
 }
-
-// ---------------------------------------------------------------------------
-// generateAutoInitScript()
-// ---------------------------------------------------------------------------
 
 describe('generateAutoInitScript()', () => {
 
-	it('contiene un import da client/index.js', () => {
-		const script = generateAutoInitScript(makeOpts())
-		expect(script).toContain("import { tracker } from '")
-		expect(script).toContain('client/index.js')
-	})
+	it('contains an import from client/index.js', () => {
+		const script = generateAutoInitScript(makeOpts());
+		expect(script).toContain("import { tracker } from '");
+		expect(script).toContain('client/index.js');
+	});
 
-	it('contiene la chiamata tracker.init()', () => {
-		const script = generateAutoInitScript(makeOpts())
-		expect(script).toContain('tracker.init(')
-	})
+	it('contains the tracker.init() call', () => {
+		const script = generateAutoInitScript(makeOpts());
+		expect(script).toContain('tracker.init(');
+	});
 
 	it('serializza la userId fn di default () => null', () => {
-		const script = generateAutoInitScript(makeOpts())
-		expect(script).toContain('() => null')
-	})
+		const script = generateAutoInitScript(makeOpts());
+		expect(script).toContain('() => null');
+	});
 
-	it('serializza una userId fn custom tramite .toString()', () => {
-		const customFn = () => 'user-abc'
+	it('serializes a custom userId fn via .toString()', () => {
+		const customFn = () => 'user-abc';
 		const script = generateAutoInitScript(
 			makeOpts({ track: { userId: customFn } as any })
-		)
-		expect(script).toContain(customFn.toString())
-	})
-})
-
-// ---------------------------------------------------------------------------
-// generateConfigScript()
-// ---------------------------------------------------------------------------
+		);
+		expect(script).toContain(customFn.toString());
+	});
+});
 
 describe('generateConfigScript()', () => {
 
-	it('contiene Object.defineProperty su window.__TRACKER_CONFIG__', () => {
-		const script = generateConfigScript(makeOpts())
-		expect(script).toContain("Object.defineProperty(window, '__TRACKER_CONFIG__'")
-	})
+	it('contains Object.defineProperty on window.__TRACKER_CONFIG__', () => {
+		const script = generateConfigScript(makeOpts());
+		expect(script).toContain("Object.defineProperty(window, '__TRACKER_CONFIG__'");
+	});
 
-	it('contiene Object.freeze del config', () => {
-		const script = generateConfigScript(makeOpts())
-		expect(script).toContain('Object.freeze(')
-	})
+	it('contains Object.freeze of the config', () => {
+		const script = generateConfigScript(makeOpts());
+		expect(script).toContain('Object.freeze(');
+	});
 
-	it('contiene writable: false', () => {
-		const script = generateConfigScript(makeOpts())
-		expect(script).toContain('writable:     false')
-	})
+	it('contains writable: false', () => {
+		const script = generateConfigScript(makeOpts());
+		expect(script).toContain('writable:     false');
+	});
 
-	it('contiene configurable: false', () => {
-		const script = generateConfigScript(makeOpts())
-		expect(script).toContain('configurable: false')
-	})
+	it('contains configurable: false', () => {
+		const script = generateConfigScript(makeOpts());
+		expect(script).toContain('configurable: false');
+	});
 
-	it('include appId nel JSON serializzato', () => {
-		const script = generateConfigScript(makeOpts())
-		expect(script).toContain('"appId": "test-app"')
-	})
+	it('includes appId in the serialized JSON', () => {
+		const script = generateConfigScript(makeOpts());
+		expect(script).toContain('"appId": "test-app"');
+	});
 
-	it('per mode middleware include writeEndpoint e readEndpoint', () => {
-		// mode auto in un non-build context → sarà serializzato come "auto"
-		// Il JSON del config deve contenere writeEndpoint e readEndpoint
-		const opts = makeOpts()
-		const script = generateConfigScript(opts)
-		expect(script).toContain('"writeEndpoint"')
-		expect(script).toContain('"readEndpoint"')
-	})
+	it('for middleware mode includes writeEndpoint and readEndpoint', () => {
+		const opts = makeOpts();
+		const script = generateConfigScript(opts);
+		expect(script).toContain('"writeEndpoint"');
+		expect(script).toContain('"readEndpoint"');
+	});
 
-	it('per mode websocket include wsEndpoint nel JSON', () => {
+	it('for websocket mode includes wsEndpoint in the JSON', () => {
 		const opts = makeOpts({
 			storage: { mode: 'websocket', wsEndpoint: 'ws://remote:9000' } as any
-		})
-		const script = generateConfigScript(opts)
-		expect(script).toContain('"wsEndpoint": "ws://remote:9000"')
-	})
+		});
+		const script = generateConfigScript(opts);
+		expect(script).toContain('"wsEndpoint": "ws://remote:9000"');
+	});
 
-	it('include le opzioni overlay nel JSON', () => {
-		const opts = makeOpts({ overlay: { enabled: true, position: 'top-left' } })
-		const script = generateConfigScript(opts)
-		expect(script).toContain('"enabled": true')
-		expect(script).toContain('"position": "top-left"')
-	})
-})
-
-// ---------------------------------------------------------------------------
-// generateSetupScript()
-// ---------------------------------------------------------------------------
+	it('includes overlay options in the JSON', () => {
+		const opts = makeOpts({ overlay: { enabled: true, position: 'top-left' } });
+		const script = generateConfigScript(opts);
+		expect(script).toContain('"enabled": true');
+		expect(script).toContain('"position": "top-left"');
+	});
+});
 
 describe('generateSetupScript()', () => {
 
-	it('contiene import di setupTrackers da client/index.js', () => {
-		const script = generateSetupScript(makeOpts())
-		expect(script).toContain("import { setupTrackers } from '")
-		expect(script).toContain('client/index.js')
-	})
+	it('contains import of setupTrackers from client/index.js', () => {
+		const script = generateSetupScript(makeOpts());
+		expect(script).toContain("import { setupTrackers } from '");
+		expect(script).toContain('client/index.js');
+	});
 
-	it('contiene Object.defineProperty su window.__TRACKER_CONFIG__', () => {
-		const script = generateSetupScript(makeOpts())
-		expect(script).toContain("Object.defineProperty(window, '__TRACKER_CONFIG__'")
-	})
+	it('contains Object.defineProperty on window.__TRACKER_CONFIG__', () => {
+		const script = generateSetupScript(makeOpts());
+		expect(script).toContain("Object.defineProperty(window, '__TRACKER_CONFIG__'");
+	});
 
-	it('contiene la chiamata setupTrackers()', () => {
-		const script = generateSetupScript(makeOpts())
-		expect(script).toContain('setupTrackers(')
-	})
+	it('contains the setupTrackers() call', () => {
+		const script = generateSetupScript(makeOpts());
+		expect(script).toContain('setupTrackers(');
+	});
 
-	it('serializza la userId fn di default () => null', () => {
-		const script = generateSetupScript(makeOpts())
-		expect(script).toContain('() => null')
-	})
+	it('serializes the default userId fn () => null', () => {
+		const script = generateSetupScript(makeOpts());
+		expect(script).toContain('() => null');
+	});
 
-	it('serializza una userId fn custom tramite .toString()', () => {
-		const customFn = () => 'user-xyz'
+	it('serializes a custom userId fn via .toString()', () => {
+		const customFn = () => 'user-xyz';
 		const script = generateSetupScript(
 			makeOpts({ track: { userId: customFn } as any })
-		)
-		expect(script).toContain(customFn.toString())
-	})
+		);
+		expect(script).toContain(customFn.toString());
+	});
 
-	it('include appId nel JSON serializzato', () => {
-		const script = generateSetupScript(makeOpts())
-		expect(script).toContain('"appId": "test-app"')
-	})
+	it('includes appId in the serialized JSON', () => {
+		const script = generateSetupScript(makeOpts());
+		expect(script).toContain('"appId": "test-app"');
+	});
 
-	it('contiene Object.freeze del config', () => {
-		const script = generateSetupScript(makeOpts())
-		expect(script).toContain('Object.freeze(')
-	})
+	it('contains Object.freeze of the config', () => {
+		const script = generateSetupScript(makeOpts());
+		expect(script).toContain('Object.freeze(');
+	});
 
-	it('contiene writable: false e configurable: false', () => {
-		const script = generateSetupScript(makeOpts())
-		expect(script).toContain('writable:     false')
-		expect(script).toContain('configurable: false')
-	})
-})
+	it('contains writable: false and configurable: false', () => {
+		const script = generateSetupScript(makeOpts());
+		expect(script).toContain('writable:     false');
+		expect(script).toContain('configurable: false');
+	});
+});

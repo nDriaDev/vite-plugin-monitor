@@ -10,7 +10,7 @@ describe('createPoller', () => {
 		vi.useRealTimers();
 	});
 
-	it('esegue onTick immediatamente alla creazione', async () => {
+	it('executes onTick immediately on creation', async () => {
 		const onTick = vi.fn().mockResolvedValue(null);
 		const poller = createPoller({ intervalMs: 1000, onTick });
 		await Promise.resolve();
@@ -27,7 +27,7 @@ describe('createPoller', () => {
 		poller.stop();
 	});
 
-	it('esegue onTick di nuovo dopo l\'intervallo', async () => {
+	it('run onTick again after the interval', async () => {
 		const onTick = vi.fn().mockResolvedValue(null);
 		const poller = createPoller({ intervalMs: 1000, onTick });
 		await Promise.resolve();
@@ -37,7 +37,7 @@ describe('createPoller', () => {
 		poller.stop();
 	});
 
-	it('stop() interrompe i tick futuri', async () => {
+	it('stop() stops future ticks', async () => {
 		const onTick = vi.fn().mockResolvedValue(null);
 		const poller = createPoller({ intervalMs: 500, onTick });
 		await Promise.resolve();
@@ -47,7 +47,7 @@ describe('createPoller', () => {
 		expect(onTick).toHaveBeenCalledOnce();
 	});
 
-	it('non esegue tick sovrapposti se il precedente è ancora in volo (inFlight)', async () => {
+	it('does not execute overlapping ticks when the previous is still in flight (inFlight)', async () => {
 		let resolve!: (value: void | PromiseLike<void>) => void;
 		const slowTick = vi.fn().mockImplementation(() => new Promise<void>(r => { resolve = r; }));
 		const poller = createPoller({ intervalMs: 100, onTick: slowTick });
@@ -60,7 +60,7 @@ describe('createPoller', () => {
 		poller.stop();
 	});
 
-	it('chiama onError se onTick lancia un errore', async () => {
+	it('calls onError when onTick throws an error', async () => {
 		const onError = vi.fn();
 		const onTick = vi.fn().mockRejectedValue(new Error('fail'));
 		const poller = createPoller({ intervalMs: 1000, onTick, onError });
@@ -70,7 +70,7 @@ describe('createPoller', () => {
 		poller.stop();
 	});
 
-	it('aggiorna il cursor se onTick restituisce una stringa non vuota', async () => {
+	it('updates the cursor when onTick returns a non-empty string', async () => {
 		const onTick = vi.fn()
 			.mockResolvedValueOnce('cursor-1')
 			.mockResolvedValue(null);
@@ -83,7 +83,7 @@ describe('createPoller', () => {
 		poller.stop();
 	});
 
-	it('resetCursor() azzera il cursore al prossimo tick', async () => {
+	it('resetCursor() resets the cursor on the next tick', async () => {
 		const onTick = vi.fn()
 			.mockResolvedValueOnce('cursor-abc')
 			.mockResolvedValue(null);
@@ -97,7 +97,7 @@ describe('createPoller', () => {
 		poller.stop();
 	});
 
-	it('refresh() cancella il timer pendente e avvia subito un nuovo tick', async () => {
+	it('refresh() cancels the pending timer and immediately starts a new tick', async () => {
 		const onTick = vi.fn().mockResolvedValue(null);
 		const poller = createPoller({ intervalMs: 5000, onTick });
 		await Promise.resolve();

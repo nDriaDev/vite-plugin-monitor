@@ -45,7 +45,7 @@ describe('setupErrorTracker', () => {
 	});
 
 	describe('window.onerror — ErrorEvent', () => {
-		it('emette il payload corretto con tutti i campi valorizzati', () => {
+		it('emits the correct payload with all fields populated', () => {
 			const err = new TypeError('something went wrong');
 			teardown = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0]);
 
@@ -67,7 +67,7 @@ describe('setupErrorTracker', () => {
 			expect(payload.errorType).toBe('TypeError');
 		});
 
-		it('usa e.error.name come errorType', () => {
+		it('uses e.error.name as errorType', () => {
 			class CustomError extends Error {
 				override name = 'CustomError';
 			}
@@ -80,7 +80,7 @@ describe('setupErrorTracker', () => {
 			expect(payload.errorType).toBe('CustomError');
 		});
 
-		it('fallback errorType a "Error" se e.error non ha name', () => {
+		it('fallback errorType to "Error" if e.error has no name', () => {
 			const err = new Error('generic');
 			teardown = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0]);
 
@@ -90,7 +90,7 @@ describe('setupErrorTracker', () => {
 			expect(payload.errorType).toBe('Error');
 		});
 
-		it('fallback message a "Unknown error" se e.message è stringa vuota', () => {
+		it('fallback message to "Unknown error" when e.message is an empty string', () => {
 			teardown = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0]);
 
 			window.dispatchEvent(makeErrorEvent({ message: '', error: new Error('') }));
@@ -99,7 +99,7 @@ describe('setupErrorTracker', () => {
 			expect(payload.message).toBe('Unknown error');
 		});
 
-		it('stack è undefined se e.error è null', () => {
+		it('stack is undefined when e.error is null', () => {
 			teardown = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0]);
 
 			window.dispatchEvent(makeErrorEvent({ message: 'no error obj', error: null }));
@@ -108,7 +108,7 @@ describe('setupErrorTracker', () => {
 			expect(payload.stack).toBeUndefined();
 		});
 
-		it('errorType fallback a "Error" se e.error è null', () => {
+		it('errorType fallback to "Error" when e.error is null', () => {
 			teardown = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0]);
 
 			window.dispatchEvent(makeErrorEvent({ message: 'no error obj', error: null }));
@@ -119,7 +119,7 @@ describe('setupErrorTracker', () => {
 	});
 
 	describe('unhandledrejection — PromiseRejectionEvent', () => {
-		it('reject con un Error → message e stack dall\'Error', () => {
+		it('reject con un Error -> message e stack dall\'Error', () => {
 			const err = new RangeError('out of range');
 			teardown = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0]);
 
@@ -132,7 +132,7 @@ describe('setupErrorTracker', () => {
 			expect(payload.errorType).toBe('RangeError');
 		});
 
-		it('reject con una stringa → message come String(reason)', () => {
+		it('reject with a string -> message as String(reason)', () => {
 			teardown = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0]);
 
 			window.dispatchEvent(makeRejectionEvent('something bad happened'));
@@ -143,7 +143,7 @@ describe('setupErrorTracker', () => {
 			expect(payload.errorType).toBe('UnhandledRejection');
 		});
 
-		it('reject con un numero → message come String(reason)', () => {
+		it('reject with a number -> message as String(reason)', () => {
 			teardown = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0]);
 
 			window.dispatchEvent(makeRejectionEvent(404));
@@ -152,7 +152,7 @@ describe('setupErrorTracker', () => {
 			expect(payload.message).toBe('404');
 		});
 
-		it('reject con undefined → message di fallback "Unhandled promise rejection"', () => {
+		it('reject con undefined -> message di fallback "Unhandled promise rejection"', () => {
 			teardown = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0]);
 
 			window.dispatchEvent(makeRejectionEvent(undefined));
@@ -163,7 +163,7 @@ describe('setupErrorTracker', () => {
 			expect(payload.errorType).toBe('UnhandledRejection');
 		});
 
-		it('reject con null → message come String(null) → "null"', () => {
+		it('reject con null -> message come String(null) -> "null"', () => {
 			teardown = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0]);
 
 			window.dispatchEvent(makeRejectionEvent(null));
@@ -175,7 +175,7 @@ describe('setupErrorTracker', () => {
 
 	describe('teardown', () => {
 
-		it('dopo teardown(), il listener "error" non emette più', () => {
+		it('after teardown(), the "error" listener no longer emits', () => {
 			const td = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0]);
 			teardown = () => { };
 			td();
@@ -183,7 +183,7 @@ describe('setupErrorTracker', () => {
 			expect(onEvent).not.toHaveBeenCalled();
 		});
 
-		it('dopo teardown(), il listener "unhandledrejection" non emette più', () => {
+		it('after teardown(), the "unhandledrejection" listener no longer emits', () => {
 			const td = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0]);
 			teardown = () => { };
 			td();
@@ -191,7 +191,7 @@ describe('setupErrorTracker', () => {
 			expect(onEvent).not.toHaveBeenCalled();
 		});
 
-		it('teardown è idempotente — chiamarlo due volte non lancia', () => {
+		it('teardown is idempotent — calling it twice does not throw', () => {
 			const td = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0]);
 			teardown = () => { };
 			expect(() => { td(); td(); }).not.toThrow();

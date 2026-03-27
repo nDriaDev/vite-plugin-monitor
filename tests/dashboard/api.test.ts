@@ -15,35 +15,35 @@ describe('fetchPing', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('restituisce true se pingEndpoint è vuoto', async () => {
+	it('returns true when pingEndpoint is empty', async () => {
 		installTrackerConfig(makeConfig({ pingEndpoint: '' }));
 		const { fetchPing } = await importApi();
 		const result = await fetchPing();
 		expect(result).toBe(true);
 	});
 
-	it('restituisce true se la risposta è ok', async () => {
+	it('returns true when the response is ok', async () => {
 		installTrackerConfig(makeConfig({ pingEndpoint: '/ping' }));
 		vi.mocked(fetch).mockResolvedValue({ ok: true } as Response);
 		const { fetchPing } = await importApi();
 		expect(await fetchPing()).toBe(true);
 	});
 
-	it('restituisce false se la risposta non è ok', async () => {
+	it('returns false when the response is not ok', async () => {
 		installTrackerConfig(makeConfig({ pingEndpoint: '/ping' }));
 		vi.mocked(fetch).mockResolvedValue({ ok: false } as Response);
 		const { fetchPing } = await importApi();
 		expect(await fetchPing()).toBe(false);
 	});
 
-	it('restituisce false se fetch lancia un errore', async () => {
+	it('returns false when fetch throws an error', async () => {
 		installTrackerConfig(makeConfig({ pingEndpoint: '/ping' }));
 		vi.mocked(fetch).mockRejectedValue(new Error('network error'));
 		const { fetchPing } = await importApi();
 		expect(await fetchPing()).toBe(false);
 	});
 
-	it('invia X-Tracker-Key se apiKey è configurata', async () => {
+	it('sends X-Tracker-Key when apiKey is configured', async () => {
 		installTrackerConfig(makeConfig({ pingEndpoint: '/ping', apiKey: 'secret-key' }));
 		vi.mocked(fetch).mockResolvedValue({ ok: true } as Response);
 		const { fetchPing } = await importApi();
@@ -64,7 +64,7 @@ describe('fetchAllEvents (HTTP)', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('restituisce gli eventi ricevuti dall\'API', async () => {
+	it('Returns events received from the API', async () => {
 		installTrackerConfig(makeConfig({ wsEndpoint: '', readEndpoint: 'http://localhost/_tracker' }));
 		const events = [{ id: '1', type: 'click' }];
 		vi.mocked(fetch).mockResolvedValue({
@@ -76,7 +76,7 @@ describe('fetchAllEvents (HTTP)', () => {
 		expect(result).toEqual(events);
 	});
 
-	it('include i parametri since e until nell\'URL', async () => {
+	it('Include the since and until parameters in the URL', async () => {
 		installTrackerConfig(makeConfig({ wsEndpoint: '', readEndpoint: 'http://localhost/_tracker' }));
 		vi.mocked(fetch).mockResolvedValue({
 			ok: true,
@@ -89,7 +89,7 @@ describe('fetchAllEvents (HTTP)', () => {
 		expect(url).toContain('until=');
 	});
 
-	it('lancia errore se la risposta non è ok', async () => {
+	it('throws an error when the response is not ok', async () => {
 		installTrackerConfig(makeConfig({ wsEndpoint: '', readEndpoint: 'http://localhost/_tracker' }));
 		vi.mocked(fetch).mockResolvedValue({
 			ok: false,
@@ -100,7 +100,7 @@ describe('fetchAllEvents (HTTP)', () => {
 		await expect(fetchAllEvents('from', 'to')).rejects.toThrow('500');
 	});
 
-	it('invia X-Tracker-Key se apiKey è configurata', async () => {
+	it('sends X-Tracker-Key when apiKey is configured', async () => {
 		installTrackerConfig(makeConfig({ wsEndpoint: '', readEndpoint: 'http://localhost/_tracker', apiKey: 'key-123' }));
 		vi.mocked(fetch).mockResolvedValue({
 			ok: true,
@@ -112,7 +112,7 @@ describe('fetchAllEvents (HTTP)', () => {
 		expect((opts.headers as Record<string, string>)['X-Tracker-Key']).toBe('key-123');
 	});
 
-	it('restituisce [] se la risposta non contiene events', async () => {
+	it('returns [] when the response does not contain events', async () => {
 		installTrackerConfig(makeConfig({ wsEndpoint: '', readEndpoint: 'http://localhost/_tracker' }));
 		vi.mocked(fetch).mockResolvedValue({
 			ok: true,
@@ -122,7 +122,7 @@ describe('fetchAllEvents (HTTP)', () => {
 		expect(await fetchAllEvents('from', 'to')).toEqual([]);
 	});
 
-	it('lancia errore se __TRACKER_CONFIG__ non è presente', async () => {
+	it('throws an error when __TRACKER_CONFIG__ is not present', async () => {
 		Reflect.deleteProperty(window, '__TRACKER_CONFIG__');
 		const { fetchAllEvents } = await importApi();
 		await expect(fetchAllEvents('from', 'to')).rejects.toThrow('__TRACKER_CONFIG__');
@@ -181,7 +181,7 @@ describe('ensureWsConnected + fetchAllEvents (WebSocket)', () => {
 	});
 
 	describe('ensureWsConnected', () => {
-		it('apre una nuova connessione WebSocket e risolve all\'open', async () => {
+		it('opens a new WebSocket connection and resolves to open', async () => {
 			installTrackerConfig(makeConfig({ wsEndpoint: 'ws://localhost/_tracker' }));
 			const { fetchAllEvents } = await importApi();
 
@@ -202,12 +202,12 @@ describe('ensureWsConnected + fetchAllEvents (WebSocket)', () => {
 			expect(vi.mocked(WebSocket)).toHaveBeenCalledWith('ws://localhost/_tracker');
 		});
 
-		it('rigetta se wsEndpoint non è configurato', async () => {
+		it('rejects when wsEndpoint is not configured', async () => {
 			installTrackerConfig(makeConfig({ wsEndpoint: '' }));
 			const { fetchAllEvents } = await importApi();
 		});
 
-		it('rigetta e azzera wsInstance se WebSocket emette error', async () => {
+		it('rejects and clears wsInstance when WebSocket emits error', async () => {
 			installTrackerConfig(makeConfig({ wsEndpoint: 'ws://localhost/_tracker' }));
 			const { fetchAllEvents } = await importApi();
 
@@ -218,7 +218,7 @@ describe('ensureWsConnected + fetchAllEvents (WebSocket)', () => {
 			await expect(promise).rejects.toThrow('WebSocket connection failed');
 		});
 
-		it('rigetta se wsEndpoint è vuoto al momento della connessione', async () => {
+		it('rejects when wsEndpoint is empty at connection time', async () => {
 			vi.useFakeTimers();
 			installTrackerConfig(makeConfig({ wsEndpoint: 'ws://localhost/_tracker' }));
 			const { fetchAllEvents } = await importApi();
@@ -241,7 +241,7 @@ describe('ensureWsConnected + fetchAllEvents (WebSocket)', () => {
 			vi.useRealTimers();
 		});
 
-		it('riusa la connessione esistente se già OPEN', async () => {
+		it('reuses the existing connection when already OPEN', async () => {
 			installTrackerConfig(makeConfig({ wsEndpoint: 'ws://localhost/_tracker' }));
 			const { fetchAllEvents } = await importApi();
 
@@ -269,7 +269,7 @@ describe('ensureWsConnected + fetchAllEvents (WebSocket)', () => {
 			expect(vi.mocked(WebSocket)).toHaveBeenCalledTimes(1);
 		});
 
-		it('tenta riconnessione dopo close', async () => {
+		it('attempts reconnection after close', async () => {
 			vi.useFakeTimers();
 			installTrackerConfig(makeConfig({ wsEndpoint: 'ws://localhost/_tracker' }));
 			const { fetchAllEvents } = await importApi();
@@ -298,7 +298,7 @@ describe('ensureWsConnected + fetchAllEvents (WebSocket)', () => {
 	});
 
 	describe('fetchAllEvents (WebSocket)', () => {
-		it('invia la query e risolve con gli eventi ricevuti', async () => {
+		it('sends the query and resolves with the received events', async () => {
 			installTrackerConfig(makeConfig({ wsEndpoint: 'ws://localhost/_tracker' }));
 			const { fetchAllEvents } = await importApi();
 			const events = [{ id: '1', type: 'click' }];
@@ -319,7 +319,7 @@ describe('ensureWsConnected + fetchAllEvents (WebSocket)', () => {
 			expect(await promise).toEqual(events);
 		});
 
-		it('ignora messaggi con reqId diverso', async () => {
+		it('ignores messages with a different reqId', async () => {
 			installTrackerConfig(makeConfig({ wsEndpoint: 'ws://localhost/_tracker' }));
 			const { fetchAllEvents } = await importApi();
 
@@ -341,7 +341,7 @@ describe('ensureWsConnected + fetchAllEvents (WebSocket)', () => {
 			expect(await promise).toEqual([]);
 		});
 
-		it('va in timeout dopo 5s se nessuna risposta arriva', async () => {
+		it('times out after 5s when no response arrives', async () => {
 			vi.useFakeTimers();
 			installTrackerConfig(makeConfig({ wsEndpoint: 'ws://localhost/_tracker' }));
 			const { fetchAllEvents } = await importApi();
@@ -357,7 +357,7 @@ describe('ensureWsConnected + fetchAllEvents (WebSocket)', () => {
 			vi.useRealTimers();
 		});
 
-		it('restituisce [] se response.events è assente', async () => {
+		it('returns [] when response.events is absent', async () => {
 			installTrackerConfig(makeConfig({ wsEndpoint: 'ws://localhost/_tracker' }));
 			const { fetchAllEvents } = await importApi();
 
@@ -374,7 +374,7 @@ describe('ensureWsConnected + fetchAllEvents (WebSocket)', () => {
 			expect(await promise).toEqual([]);
 		});
 
-		it('ignora messaggi JSON malformati senza lanciare', async () => {
+		it('ignores malformed JSON messages without throwing', async () => {
 			installTrackerConfig(makeConfig({ wsEndpoint: 'ws://localhost/_tracker' }));
 			const { fetchAllEvents } = await importApi();
 

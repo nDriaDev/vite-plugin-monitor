@@ -24,7 +24,7 @@ afterEach(() => {
 
 describe('setupConsoleTracker', () => {
 	describe('SSR', () => {
-		it('restituisce una funzione no-op se window è undefined', () => {
+		it('returns a no-op function when window is undefined', () => {
 			vi.stubGlobal('window', undefined);
 			const onEvent = vi.fn();
 			const teardown = setupConsoleTracker(true, onEvent);
@@ -38,7 +38,7 @@ describe('setupConsoleTracker', () => {
 	});
 
 	describe('wrapping', () => {
-		it('chiama il metodo originale prima di emettere l\'evento', () => {
+		it('Call the original method before emitting the event', () => {
 			const callOrder: string[] = [];
 			vi.spyOn(console, 'log').mockImplementation(() => callOrder.push('original'));
 
@@ -51,7 +51,7 @@ describe('setupConsoleTracker', () => {
 			expect(callOrder).toEqual(['original', 'event']);
 		});
 
-		it('dopo teardown(), il metodo originale è ripristinato', () => {
+		it('after teardown(), the original method is restored', () => {
 			const originalLog = console.log;
 			const teardown = setupConsoleTracker({ methods: ['log'] }, vi.fn());
 
@@ -61,7 +61,7 @@ describe('setupConsoleTracker', () => {
 			expect(console.log).toBe(originalLog);
 		});
 
-		it('teardown ripristina tutti i metodi specificati in methods', () => {
+		it('teardown restores all methods specified in methods', () => {
 			const origLog = console.log;
 			const origWarn = console.warn;
 			const origError = console.error;
@@ -74,7 +74,7 @@ describe('setupConsoleTracker', () => {
 			expect(console.error).toBe(origError);
 		});
 
-		it('solo i metodi specificati in opts.methods vengono wrappati', () => {
+		it('only the methods specified in opts.methods are wrapped', () => {
 			const onEvent = vi.fn();
 			const teardown = setupConsoleTracker({ methods: ['log'] }, onEvent);
 
@@ -85,7 +85,7 @@ describe('setupConsoleTracker', () => {
 			expect(onEvent.mock.calls[0][0].method).toBe('log');
 		});
 
-		it('se console[method] non è una funzione il metodo viene saltato senza errori (riga 219)', () => {
+		it('when console[method] is not a function the method is skipped without errors', () => {
 			const originalTable = console.table;
 			Object.defineProperty(console, 'table', { configurable: true, writable: true, value: undefined });
 
@@ -102,7 +102,7 @@ describe('setupConsoleTracker', () => {
 			Object.defineProperty(console, 'table', { configurable: true, writable: true, value: originalTable });
 		});
 
-		it('il teardown non tenta di ripristinare metodi non-funzione (non entrano in originals)', () => {
+		it('teardown does not attempt to restore non-function methods (they do not enter originals)', () => {
 			const originalTable = console.table;
 			Object.defineProperty(console, 'table', { configurable: true, writable: true, value: undefined });
 
@@ -114,43 +114,43 @@ describe('setupConsoleTracker', () => {
 		});
 	});
 
-	describe('filtraggio per pattern', () => {
-		it('messaggi che contengono [vite] non emettono evento', () => {
+	describe('pattern filtering', () => {
+		it('messages containing [vite] do not emit event', () => {
 			const events = capture({ methods: ['log'] }, () =>
 				console.log('[vite] HMR update')
 			);
 			expect(events).toHaveLength(0);
 		});
 
-		it('messaggi che contengono [HMR] non emettono evento', () => {
+		it('messages containing [HMR] do not emit event', () => {
 			const events = capture({ methods: ['log'] }, () =>
 				console.log('[HMR] connected')
 			);
 			expect(events).toHaveLength(0);
 		});
 
-		it('messaggi che contengono [tracker] non emettono evento', () => {
+		it('messages containing [tracker] do not emit event', () => {
 			const events = capture({ methods: ['log'] }, () =>
 				console.log('[tracker] init ok')
 			);
 			expect(events).toHaveLength(0);
 		});
 
-		it('messaggi che contengono [vue] non emettono evento', () => {
+		it('messages containing [vue] do not emit event', () => {
 			const events = capture({ methods: ['warn'] }, () =>
 				console.warn('[vue] something')
 			);
 			expect(events).toHaveLength(0);
 		});
 
-		it('messaggi senza pattern predefiniti emettono normalmente', () => {
+		it('messages without predefined patterns emit normally', () => {
 			const events = capture({ methods: ['log'] }, () =>
 				console.log('hello world')
 			);
 			expect(events).toHaveLength(1);
 		});
 
-		it('pattern custom via ignorePatterns sopprimono il messaggio', () => {
+		it('custom patterns via ignorePatterns suppress the message', () => {
 			const events = capture(
 				{ methods: ['log'], ignorePatterns: ['SUPPRESSED'] },
 				() => console.log('SUPPRESSED message')
@@ -158,7 +158,7 @@ describe('setupConsoleTracker', () => {
 			expect(events).toHaveLength(0);
 		});
 
-		it('pattern custom vengono aggiunti ai predefiniti — entrambi funzionano', () => {
+		it('custom patterns are added to the predefined ones — both work', () => {
 			const cfg: ConsoleTrackOptions = { methods: ['log'], ignorePatterns: ['CUSTOM'] };
 
 			const e1 = capture(cfg, () => console.log('[vite] built-in pattern'));
@@ -170,21 +170,21 @@ describe('setupConsoleTracker', () => {
 			expect(e3).toHaveLength(1);
 		});
 
-		it('il filtraggio converte il primo arg con String() — null non corrisponde ad alcun pattern', () => {
+		it('filtering converts the first arg with String() — null does not match any pattern', () => {
 			const events = capture({ methods: ['log'] }, () => console.log(null));
 			expect(events).toHaveLength(1);
 		});
 	});
 
 	describe('console.assert', () => {
-		it('assertion vera (args[0] truthy): non emette nulla', () => {
+		it('true assertion (args[0] truthy): emits nothing', () => {
 			const events = capture({ methods: ['assert'] }, () =>
 				console.assert(true, 'questo non deve essere emesso')
 			);
 			expect(events).toHaveLength(0);
 		});
 
-		it('assertion falsa (args[0] falsy): emette evento con argomenti da [1] in poi', () => {
+		it('false assertion (args[0] falsy): emits event with arguments from [1] onwards', () => {
 			const { payload } = captureOne({ methods: ['assert'] }, () =>
 				console.assert(false, 'assertion message', 'detail')
 			);
@@ -195,7 +195,7 @@ describe('setupConsoleTracker', () => {
 			expect(payload.args[1]).toEqual({ type: 'string', value: 'detail' });
 		});
 
-		it('assertion falsa senza messaggi aggiuntivi: emette con args vuoto e message ""', () => {
+		it('false assertion with no additional messages: emits with empty args and message ""', () => {
 			const { payload } = captureOne({ methods: ['assert'] }, () =>
 				console.assert(false)
 			);
@@ -203,7 +203,7 @@ describe('setupConsoleTracker', () => {
 			expect(payload.message).toBe('');
 		});
 
-		it('assertion falsa: il boolean false (args[0]) è escluso dagli effectiveArgs serializzati', () => {
+		it('false assertion: the boolean false (args[0]) is excluded from the serialized effectiveArgs', () => {
 			const { payload } = captureOne({ methods: ['assert'] }, () =>
 				console.assert(false, 'msg')
 			);
@@ -213,21 +213,21 @@ describe('setupConsoleTracker', () => {
 	});
 
 	describe('groupDepth', () => {
-		it('evento group porta groupDepth=0 (il depth si incrementa DOPO onEvent)', () => {
+		it('group event carries groupDepth=0 (depth is incremented AFTER onEvent)', () => {
 			const { payload } = captureOne({ methods: ['group'] }, () =>
 				console.group('g1')
 			);
 			expect(payload.groupDepth).toBe(0);
 		});
 
-		it('evento groupCollapsed porta groupDepth=0 (incremento avviene dopo)', () => {
+		it('groupCollapsed event carries groupDepth=0 (increment happens after)', () => {
 			const { payload } = captureOne({ methods: ['groupCollapsed'] }, () =>
 				console.groupCollapsed('gc1')
 			);
 			expect(payload.groupDepth).toBe(0);
 		});
 
-		it('eventi log all\'interno di un group portano groupDepth=1', () => {
+		it('Log events within a group have groupDepth=1', () => {
 			const events = capture({ methods: ['group', 'log'] }, () => {
 				console.group('outer')
 				console.log('inside')
@@ -242,7 +242,7 @@ describe('setupConsoleTracker', () => {
 			expect(logEvents.at(-1)!.payload.groupDepth).toBe(1);
 		});
 
-		it('groupEnd decrementa groupDepth prima di emettere l\'evento', () => {
+		it('groupEnd decrements groupDepth before emitting the event', () => {
 			const events = capture({ methods: ['group', 'groupEnd'] }, () => {
 				console.group('g')
 				console.groupEnd()
@@ -251,14 +251,14 @@ describe('setupConsoleTracker', () => {
 			expect(events[1].payload.groupDepth).toBe(0);
 		});
 
-		it('groupEnd su depth già 0 non scende sotto 0 (clamp a 0)', () => {
+		it('groupEnd at depth 0 does not go below 0 (clamp to 0)', () => {
 			const { payload } = captureOne({ methods: ['groupEnd'] }, () =>
 				console.groupEnd()
 			);
 			expect(payload.groupDepth).toBe(0);
 		});
 
-		it('nesting a due livelli: tutti gli eventi portano il groupDepth corretto', () => {
+		it('two-level nesting: all events carry the correct groupDepth', () => {
 			const events = capture(
 				{ methods: ['group', 'groupCollapsed', 'groupEnd', 'log'] },
 				() => {
@@ -289,7 +289,7 @@ describe('setupConsoleTracker', () => {
 			expect(groupEnds[1].payload.groupDepth).toBe(0);
 		});
 
-		it('teardown azzera il groupDepth — un secondo tracker parte da 0', () => {
+		it('teardown resets groupDepth — a second tracker starts from 0', () => {
 			capture({ methods: ['group'] }, () => console.group('open'));
 
 			const { payload } = captureOne({ methods: ['log'] }, () => console.log('test'));
@@ -298,7 +298,7 @@ describe('setupConsoleTracker', () => {
 	});
 
 	describe('stack trace', () => {
-		it('console.trace include sempre lo stack', () => {
+		it('console.trace always includes the stack', () => {
 			const { payload } = captureOne({ methods: ['trace'] }, () =>
 				console.trace('trace msg')
 			);
@@ -307,7 +307,7 @@ describe('setupConsoleTracker', () => {
 			expect(payload.stack!.length).toBeGreaterThan(0);
 		});
 
-		it('console.error senza captureStackOnError non include lo stack', () => {
+		it('console.error without captureStackOnError does not include the stack', () => {
 			const { payload } = captureOne(
 				{ methods: ['error'], captureStackOnError: false },
 				() => console.error('boom')
@@ -315,7 +315,7 @@ describe('setupConsoleTracker', () => {
 			expect(payload.stack).toBeUndefined();
 		});
 
-		it('console.error con captureStackOnError: true include lo stack', () => {
+		it('console.error with captureStackOnError: true includes the stack', () => {
 			const { payload } = captureOne(
 				{ methods: ['error'], captureStackOnError: true },
 				() => console.error('boom')
@@ -325,7 +325,7 @@ describe('setupConsoleTracker', () => {
 			expect(payload.stack!.length).toBeGreaterThan(0);
 		});
 
-		it('console.log non include mai lo stack, nemmeno con captureStackOnError: true', () => {
+		it('console.log never includes the stack, even with captureStackOnError: true', () => {
 			const { payload } = captureOne(
 				{ methods: ['log'], captureStackOnError: true },
 				() => console.log('hello')
@@ -335,7 +335,7 @@ describe('setupConsoleTracker', () => {
 	});
 
 	describe('maxArgs', () => {
-		it('tutti gli argomenti entro maxArgs vengono serializzati senza sentinel', () => {
+		it('all arguments within maxArgs are serialized without sentinel', () => {
 			const { payload } = captureOne(
 				{ methods: ['log'], maxArgs: 3 },
 				() => console.log('a', 'b', 'c')
@@ -344,7 +344,7 @@ describe('setupConsoleTracker', () => {
 			expect(payload.args.every(a => a.type === 'string')).toBe(true);
 		});
 
-		it('argomenti oltre maxArgs: aggiunge un sentinel { type: "truncated" }', () => {
+		it('arguments beyond maxArgs: adds a sentinel { type: "truncated" }', () => {
 			const { payload } = captureOne(
 				{ methods: ['log'], maxArgs: 2 },
 				() => console.log('a', 'b', 'c', 'd')
@@ -354,7 +354,7 @@ describe('setupConsoleTracker', () => {
 			expect(payload.args[2].value).toBe('[2 more args]');
 		});
 
-		it('maxArgs=1: un solo argomento e sentinel per i restanti', () => {
+		it('maxArgs=1: only one argument and sentinel for the rest', () => {
 			const { payload } = captureOne(
 				{ methods: ['log'], maxArgs: 1 },
 				() => console.log('first', 'second', 'third')
@@ -374,68 +374,68 @@ describe('setupConsoleTracker', () => {
 			return captureOne(cfg, () => console.log(val)).payload.args[0];
 		}
 
-		it('null → { type: "null", value: null }', () => {
+		it('null -> { type: "null", value: null }', () => {
 			expect(logArg(null)).toEqual({ type: 'null', value: null });
 		});
 
-		it('undefined → { type: "undefined", value: "undefined" }', () => {
+		it('undefined -> { type: "undefined", value: "undefined" }', () => {
 			expect(logArg(undefined)).toEqual({ type: 'undefined', value: 'undefined' });
 		});
 
-		it('boolean true → { type: "boolean", value: true }', () => {
+		it('boolean true -> { type: "boolean", value: true }', () => {
 			expect(logArg(true)).toEqual({ type: 'boolean', value: true });
 		});
 
-		it('boolean false → { type: "boolean", value: false }', () => {
+		it('boolean false -> { type: "boolean", value: false }', () => {
 			expect(logArg(false)).toEqual({ type: 'boolean', value: false });
 		});
 
-		it('number finito → { type: "number", value: 42 }', () => {
+		it('number finito -> { type: "number", value: 42 }', () => {
 			expect(logArg(42)).toEqual({ type: 'number', value: 42 });
 		});
 
-		it('Infinity → { type: "number", value: "Infinity" } (non finito → String)', () => {
+		it('Infinity -> { type: "number", value: "Infinity" } (non finito -> String)', () => {
 			expect(logArg(Infinity)).toEqual({ type: 'number', value: 'Infinity' });
 		});
 
-		it('NaN → { type: "number", value: "NaN" } (non finito → String)', () => {
+		it('NaN -> { type: "number", value: "NaN" } (non finito -> String)', () => {
 			expect(logArg(NaN)).toEqual({ type: 'number', value: 'NaN' });
 		});
 
-		it('bigint → { type: "bigint", value: "12345n" }', () => {
+		it('bigint -> { type: "bigint", value: "12345n" }', () => {
 			expect(logArg(12345n)).toEqual({ type: 'bigint', value: '12345n' });
 		});
 
-		it('symbol → { type: "symbol", value: "Symbol(test)" }', () => {
+		it('symbol -> { type: "symbol", value: "Symbol(test)" }', () => {
 			expect(logArg(Symbol('test'))).toEqual({ type: 'symbol', value: 'Symbol(test)' });
 		});
 
-		it('string corta (≤ maxArgLength) → restituita as-is', () => {
+		it('short string (≤ maxArgLength) -> returned as-is', () => {
 			expect(logArg('hello')).toEqual({ type: 'string', value: 'hello' });
 		});
 
-		it('string lunga (> maxArgLength) → troncata con indicatore dei caratteri omessi', () => {
+		it('long string (> maxArgLength) -> truncated with indicator of omitted characters', () => {
 			const arg = logArg('x'.repeat(15), cfgShort);
 			expect(arg.type).toBe('string');
 			expect(arg.value).toBe('x'.repeat(10) + '…[+5]');
 		});
 
-		it('string di esattamente maxArgLength → non troncata', () => {
+		it('string of exactly maxArgLength -> not truncated', () => {
 			const arg = logArg('x'.repeat(10), cfgShort);
 			expect(arg.type).toBe('string');
 			expect(arg.value).toBe('x'.repeat(10));
 		});
 
-		it('function con nome → { type: "function", value: "[Function: myFn]" }', () => {
+		it('function con nome -> { type: "function", value: "[Function: myFn]" }', () => {
 			function myFn() { }
 			expect(logArg(myFn)).toEqual({ type: 'function', value: '[Function: myFn]' });
 		});
 
-		it('arrow function senza nome → { type: "function", value: "[Function: (anonymous)]" }', () => {
+		it('arrow function senza nome -> { type: "function", value: "[Function: (anonymous)]" }', () => {
 			expect(logArg(() => { })).toEqual({ type: 'function', value: '[Function: (anonymous)]' });
 		});
 
-		it('Element con id e classi → { type: "Element", value: "[tag#id.cls1.cls2]" }', () => {
+		it('Element con id e classi -> { type: "Element", value: "[tag#id.cls1.cls2]" }', () => {
 			const el = document.createElement('button');
 			el.id = 'submit-btn';
 			el.className = 'primary large';
@@ -444,35 +444,35 @@ describe('setupConsoleTracker', () => {
 			expect(arg.value).toBe('[button#submit-btn.primary.large]');
 		});
 
-		it('Element senza id né classi → { type: "Element", value: "[tag]" }', () => {
+		it('Element without id or classes -> { type: "Element", value: "[tag]" }', () => {
 			const el = document.createElement('div');
 			const arg = logArg(el);
 			expect(arg.type).toBe('Element');
 			expect(arg.value).toBe('[div]');
 		});
 
-		it('Element con solo id (nessuna classe) → "[tag#id]"', () => {
+		it('Element con solo id (nessuna classe) -> "[tag#id]"', () => {
 			const el = document.createElement('span');
 			el.id = 'my-span';
 			const arg = logArg(el);
 			expect(arg.value).toBe('[span#my-span]');
 		});
 
-		it('TextNode (Node ma non Element) → { type: "Node", value: "[Text]" } (riga 84)', () => {
+		it('TextNode (Node ma non Element) -> { type: "Node", value: "[Text]" } (riga 84)', () => {
 			const textNode = document.createTextNode('hello');
 			const arg = logArg(textNode);
 			expect(arg.type).toBe('Node');
 			expect(arg.value).toBe('[Text]');
 		});
 
-		it('Comment (Node ma non Element) → { type: "Node", value: "[Comment]" } (riga 84)', () => {
+		it('Comment (Node ma non Element) -> { type: "Node", value: "[Comment]" } (riga 84)', () => {
 			const comment = document.createComment('nota');
 			const arg = logArg(comment);
 			expect(arg.type).toBe('Node');
 			expect(arg.value).toBe('[Comment]');
 		});
 
-		it('Error → { type: "Error", value: { name, message, stack } }', () => {
+		it('Error -> { type: "Error", value: { name, message, stack } }', () => {
 			const err = new TypeError('something went wrong');
 			const arg = logArg(err);
 			expect(arg.type).toBe('Error');
@@ -483,48 +483,48 @@ describe('setupConsoleTracker', () => {
 			expect(v).toHaveProperty('message');
 		});
 
-		it('oggetto normale → { type: "object", value: <parsed JSON dell\'oggetto> }', () => {
+		it('oggetto normale -> { type: "object", value: <parsed JSON dell\'oggetto> }', () => {
 			const obj = { x: 1, y: 'hello' };
 			const arg = logArg(obj);
 			expect(arg.type).toBe('object');
 			expect(arg.value).toEqual({ x: 1, y: 'hello' });
 		});
 
-		it('array → { type: "array", value: <array clonato> }', () => {
+		it('array -> { type: "array", value: <array clonato> }', () => {
 			const arr = [1, 'two', true];
 			const arg = logArg(arr);
 			expect(arg.type).toBe('array');
 			expect(arg.value).toEqual([1, 'two', true]);
 		});
 
-		it('oggetto il cui JSON supera maxArgLength → troncato e re-parsato (riga 102)', () => {
+		it('object whose JSON exceeds maxArgLength -> truncated and re-parsed', () => {
 			const cfg: ConsoleTrackOptions = { methods: ['log'], maxArgLength: 30 };
 			const arg = logArg({ key: 'x'.repeat(100) }, cfg);
 			expect(arg.type).toBe('object');
 			expect(arg.value).toBeDefined();
 		});
 
-		it('array il cui JSON supera maxArgLength → JSON.parse del truncated lancia, cade nel catch (riga 102)', () => {
+		it('array whose JSON exceeds maxArgLength -> JSON.parse of truncated throws, falls into catch', () => {
 			const cfg: ConsoleTrackOptions = { methods: ['log'], maxArgLength: 20 };
 			const arg = logArg(Array.from({ length: 50 }, (_, i) => i), cfg);
 			expect(arg.type).toBe('array');
 			expect(arg.value).toBe('[\n  0,\n  1,\n  2,\n  3\n…[+272 chars]');
 		});
 
-		it('oggetto con proprietà BigInt → la proprietà bigint è convertita a "Xn" dal replacer (riga 128)', () => {
+		it('object with BigInt property -> the bigint property is converted to "Xn" by the replacer', () => {
 			const arg = logArg({ n: 42n });
 			expect(arg.type).toBe('object');
 			expect((arg.value as Record<string, unknown>).n).toBe('42n');
 		});
 
-		it('oggetto con proprietà funzione → convertita a "[Function: name]" dal replacer (riga 131)', () => {
+		it('object with function property -> converted to "[Function: name]" by the replacer', () => {
 			function myHandler() { }
 			const arg = logArg({ handler: myHandler });
 			expect(arg.type).toBe('object');
 			expect((arg.value as Record<string, unknown>).handler).toBe('[Function: myHandler]');
 		});
 
-		it('oggetto con funzione anonima → il replacer usa "anonymous" come fallback (riga 131)', () => {
+		it('oggetto con funzione anonima -> il replacer usa "anonymous" come fallback (riga 131)', () => {
 			const anonFn = function named() { }
 			Object.defineProperty(anonFn, 'name', { value: '', configurable: true });
 			const arg = logArg({ cb: anonFn });
@@ -532,7 +532,7 @@ describe('setupConsoleTracker', () => {
 			expect((arg.value as Record<string, unknown>).cb).toBe('[Function: anonymous]');
 		});
 
-		it('oggetto con proprietà Element → convertita a "[tagname]" dal replacer (riga 135)', () => {
+		it('object with Element property -> converted to "[tagname]" by the replacer', () => {
 			const el = document.createElement('button');
 			const obj: Record<string, unknown> = { node: el };
 			obj.self = obj;
@@ -542,7 +542,7 @@ describe('setupConsoleTracker', () => {
 			expect((arg.value as Record<string, unknown>).self).toBe('[Circular]');
 		});
 
-		it('oggetto con riferimento circolare → il valore circolare diventa "[Circular]"', () => {
+		it('oggetto con riferimento circolare -> il valore circolare diventa "[Circular]"', () => {
 			const circular: Record<string, unknown> = { a: 1 }
 			circular.self = circular;
 
@@ -552,7 +552,7 @@ describe('setupConsoleTracker', () => {
 			expect((arg.value as Record<string, unknown>).self).toBe('[Circular]');
 		});
 
-		it('oggetto non serializzabile → { type: "object", value: "[unserializable object]" }', () => {
+		it('oggetto non serializzabile -> { type: "object", value: "[unserializable object]" }', () => {
 			const unserializable = {
 				toJSON() { throw new Error('cannot serialize') },
 			}
@@ -570,105 +570,105 @@ describe('setupConsoleTracker', () => {
 			).payload.message;
 		}
 
-		it('nessun argomento → stringa vuota', () => {
+		it('no arguments -> empty string', () => {
 			const { payload } = captureOne(cfg, () => console.log());
 			expect(payload.message).toBe('');
 		});
 
-		it('primo arg Error → "ErrorName: message"', () => {
+		it('primo arg Error -> "ErrorName: message"', () => {
 			expect(logMsg(new TypeError('type error'))).toBe('TypeError: type error');
 		});
 
-		it('primo arg null → "null"', () => {
+		it('primo arg null -> "null"', () => {
 			expect(logMsg(null)).toBe('null');
 		});
 
-		it('primo arg undefined → "undefined"', () => {
+		it('primo arg undefined -> "undefined"', () => {
 			expect(logMsg(undefined)).toBe('undefined');
 		});
 
-		it('primo arg array → "[Array]"', () => {
+		it('primo arg array -> "[Array]"', () => {
 			expect(logMsg([1, 2, 3])).toBe('[Array]');
 		});
 
-		it('primo arg oggetto → "[Object]"', () => {
+		it('primo arg oggetto -> "[Object]"', () => {
 			expect(logMsg({ a: 1 })).toBe('[Object]');
 		});
 
-		it('primo arg number → String(number)', () => {
+		it('first arg number -> String(number)', () => {
 			expect(logMsg(42)).toBe('42');
 		});
 
-		it('format %s → sostituisce con String(arg)', () => {
+		it('format %s -> replace with String(arg)', () => {
 			expect(logMsg('hello %s!', 'world')).toBe('hello world!');
 		});
 
-		it('format %d → sostituisce con String(number)', () => {
+		it('format %d -> replace with String(number)', () => {
 			expect(logMsg('count: %d items', 5)).toBe('count: 5 items');
 		});
 
-		it('format %o → sostituisce con JSON.stringify(arg)', () => {
+		it('format %o -> replace with JSON.stringify(arg)', () => {
 			expect(logMsg('data: %o', { x: 1 })).toBe('data: {"x":1}');
 		});
 
-		it('format %o con argomento circolare → fallback String(sub) (riga 185)', () => {
+		it('format %o with circular argument -> fallback String(sub)', () => {
 			const circular: Record<string, unknown> = { x: 1 }
 			circular.self = circular;
 			expect(logMsg('result: %o', circular)).toBe('result: [object Object]');
 		});
 
-		it('format %O con argomento non serializzabile → fallback String(sub) (riga 185)', () => {
+		it('format %O with non-serializable argument -> fallback String(sub)', () => {
 			const nonSerializable = {
 				toJSON() { throw new Error('cannot serialize') }
 			}
 			expect(logMsg('val: %O', nonSerializable)).toBe('val: [object Object]');
 		});
 
-		it('format %c → sostituito con stringa vuota (direttiva CSS, scartata)', () => {
+		it('format %c -> replaced with empty string (CSS directive, discarded)', () => {
 			expect(logMsg('%cbold text', 'color: red')).toBe('bold text');
 		});
 
-		it('più placeholder che argomenti → token non sostituito rimane nel messaggio', () => {
+		it('more placeholders than arguments -> unsubstituted token remains in the message', () => {
 			expect(logMsg('a=%s b=%s', 'value')).toBe('a=value b=%s');
 		});
 
-		it('nessun placeholder con argomenti aggiuntivi → stringa invariata', () => {
+		it('no placeholder with additional arguments -> string unchanged', () => {
 			expect(logMsg('hello world', 'extra1', 'extra2')).toBe('hello world');
 		});
 	});
 
 	describe('livelli degli eventi (METHOD_LEVEL)', () => {
-		it('console.log → level "info"', () => {
+		it('console.log -> level "info"', () => {
 			const { level } = captureOne({ methods: ['log'] }, () => console.log('test'));
 			expect(level).toBe('info');
 		});
 
-		it('console.info → level "info"', () => {
+		it('console.info -> level "info"', () => {
 			const { level } = captureOne({ methods: ['info'] }, () => console.info('test'));
 			expect(level).toBe('info');
 		});
 
-		it('console.warn → level "warn"', () => {
+		it('console.warn -> level "warn"', () => {
 			const { level } = captureOne({ methods: ['warn'] }, () => console.warn('test'));
 			expect(level).toBe('warn');
 		});
 
-		it('console.error → level "error"', () => {
+		it('console.error -> level "error"', () => {
 			const { level } = captureOne({ methods: ['error'] }, () => console.error('test'));
 			expect(level).toBe('error');
 		});
 
-		it('console.debug → level "debug"', () => {
+		it('console.debug -> level "debug"', () => {
 			const { level } = captureOne({ methods: ['debug'] }, () => console.debug('test'));
 			expect(level).toBe('debug');
 		});
 
-		it('console.trace → level "debug"', () => {
+		it('console.trace -> level "debug"', () => {
 			const { level } = captureOne({ methods: ['trace'] }, () => console.trace('test'));
 			expect(level).toBe('debug');
 		});
 
-		it('console.assert (false) → level "warn"', () => {
+		it('console.assert (false) -> level "warn"', () => {
 			const { level } = captureOne({ methods: ['assert'] }, () =>
 				console.assert(false, 'msg')
 			);
@@ -677,18 +677,18 @@ describe('setupConsoleTracker', () => {
 	});
 
 	describe('config boolean true', () => {
-		it('true come config usa tutti i metodi predefiniti', () => {
+		it('true come config uses all default methods', () => {
 			const events = capture(true, () => console.log('hello'));
 			expect(events).toHaveLength(1);
 			expect(events[0].payload.method).toBe('log');
 		});
 
-		it('true come config: i pattern predefiniti sono attivi', () => {
+		it('true come config: default patterns are active', () => {
 			const events = capture(true, () => console.log('[vite] something'));
 			expect(events).toHaveLength(0);
 		});
 
-		it('true come config: maxArgs default è 10', () => {
+		it('true as config: maxArgs default is 10', () => {
 			const args = Array.from({ length: 10 }, (_, i) => `arg${i}`);
 			const { payload } = captureOne(true, () => console.log(...(args as [string, ...string[]])));
 			expect(payload.args).toHaveLength(10);

@@ -2,37 +2,37 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { formatDateTime, formatTime, formatShortTime, formatRelative, formatBucket, formatCount, formatPercent, formatPct, formatDuration, formatBytes, truncate, capitalize, formatJson, getEventDetail } from '../../../src/dashboard/utils/format';
 
 describe('formatDateTime', () => {
-	it('restituisce una stringa non vuota per un ISO valido', () => {
+	it('returns a non-empty string for a valid ISO', () => {
 		const result = formatDateTime('2026-03-11T14:32:01.000Z');
 		expect(typeof result).toBe('string');
 		expect(result.length).toBeGreaterThan(0);
 	});
 
-	it('restituisce la stringa originale per un ISO non valido', () => {
+	it('returns the original string for an invalid ISO', () => {
 		expect(formatDateTime('not-a-date')).toBe('not-a-date');
 	});
 });
 
 describe('formatTime', () => {
-	it('restituisce una stringa non vuota per un ISO valido', () => {
+	it('returns a non-empty string for a valid ISO', () => {
 		const result = formatTime('2026-03-11T14:32:01.000Z');
 		expect(typeof result).toBe('string');
 		expect(result.length).toBeGreaterThan(0);
 	});
 
-	it('restituisce la stringa originale per un ISO non valido', () => {
+	it('returns the original string for an invalid ISO', () => {
 		expect(formatTime('bad')).toBe('bad');
 	});
 });
 
 describe('formatShortTime', () => {
-	it('restituisce una stringa non vuota per un ISO valido', () => {
+	it('returns a non-empty string for a valid ISO', () => {
 		const result = formatShortTime('2026-03-11T14:32:01.000Z');
 		expect(typeof result).toBe('string');
 		expect(result.length).toBeGreaterThan(0);
 	});
 
-	it('restituisce la stringa originale per un ISO non valido', () => {
+	it('returns the original string for an invalid ISO', () => {
 		expect(formatShortTime('bad')).toBe('bad');
 	});
 });
@@ -47,159 +47,159 @@ describe('formatRelative', () => {
 		vi.useRealTimers();
 	});
 
-	it('restituisce "just now" per data nel futuro', () => {
+	it('returns "just now" by date in the future', () => {
 		expect(formatRelative('2026-03-11T14:32:05.000Z')).toBe('just now');
 	});
 
-	it('restituisce "just now" per meno di 5 secondi fa', () => {
+	it('returns "just now" for less than 5 seconds ago', () => {
 		expect(formatRelative('2026-03-11T14:31:57.000Z')).toBe('just now');
 	});
 
-	it('restituisce "Xs ago" per meno di 30 secondi', () => {
+	it('returns "Xs ago" for less than 30 seconds', () => {
 		expect(formatRelative('2026-03-11T14:31:41.000Z')).toBe('20s ago');
 	});
 
-	it('restituisce "Xs ago" per meno di 60 secondi', () => {
+	it('returns "Xs ago" for less than 60 seconds', () => {
 		expect(formatRelative('2026-03-11T14:31:01.000Z')).toBe('1m ago');
 	});
 
-	it('restituisce "Xm ago" per meno di 1 ora', () => {
+	it('returns "Xm ago" for less than 1 hour', () => {
 		expect(formatRelative('2026-03-11T14:02:01.000Z')).toBe('30m ago');
 	});
 
-	it('restituisce "Xh ago" per meno di 24 ore', () => {
+	it('returns "Xh ago" for less than 24 hours', () => {
 		expect(formatRelative('2026-03-11T12:32:01.000Z')).toBe('2h ago');
 	});
 
-	it('restituisce "Xd ago" per meno di 7 giorni', () => {
+	it('returns "Xd ago" for less than 7 days', () => {
 		expect(formatRelative('2026-03-09T14:32:01.000Z')).toBe('2d ago');
 	});
 
-	it('restituisce formatDateTime per date più vecchie di 7 giorni', () => {
+	it('returns formatDateTime for dates older than 7 days', () => {
 		const old = '2026-03-01T14:32:01.000Z';
 		const result = formatRelative(old);
 		expect(result).toBe(formatDateTime(old));
 	});
 
-	it('restituisce la stringa originale per un ISO non valido', () => {
+	it('returns the original string for an invalid ISO', () => {
 		expect(formatRelative('not-a-date')).toBe('not-a-date');
 	});
 });
 
 describe('formatBucket', () => {
-	it('restituisce HH:MM per bucket orario (contiene T)', () => {
+	it('returns HH:MM for hourly bucket (contains T)', () => {
 		expect(formatBucket('2026-03-11T14:00')).toBe('14:00');
 	});
 
-	it('restituisce "Mar 11" per bucket giornaliero', () => {
+	it('returns "Mar 11" for daily bucket', () => {
 		const result = formatBucket('2026-03-11');
 		expect(result).toContain('11');
 	});
 
-	it('restituisce il bucket originale se la data non è valida', () => {
+	it('returns the original bucket when the date is not valid', () => {
 		expect(formatBucket('bad-date')).toBe('bad-date');
 	});
 });
 
 describe('formatCount', () => {
-	it('formatta numeri interi', () => {
+	it('formats integer numbers', () => {
 		expect(formatCount(1234)).toBe('1,234');
 	});
 
-	it('restituisce "-" per valori non finiti', () => {
+	it('returns "-" for non-finite values', () => {
 		expect(formatCount(NaN)).toBe('-');
 		expect(formatCount(Infinity)).toBe('-');
 	});
 
-	it('arrotonda i valori decimali', () => {
+	it('rounds decimal values', () => {
 		expect(formatCount(1.6)).toBe('2');
 	});
 });
 
 describe('formatPercent', () => {
-	it('converte ratio a percentuale con 1 decimale di default', () => {
+	it('converts ratio to percentage with 1 decimal by default', () => {
 		expect(formatPercent(0.1234)).toBe('12.3%');
 	});
 
-	it('rispetta il parametro decimals', () => {
+	it('respects the decimals parameter', () => {
 		expect(formatPercent(0.1234, 2)).toBe('12.34%');
 	});
 
-	it('restituisce "-" per valori non finiti', () => {
+	it('returns "-" for non-finite values', () => {
 		expect(formatPercent(NaN)).toBe('-');
 	});
 });
 
 describe('formatPct', () => {
-	it('formatta valore già in percentuale', () => {
+	it('formats value already as percentage', () => {
 		expect(formatPct(12.345)).toBe('12.3%');
 	});
 
-	it('rispetta il parametro decimals', () => {
+	it('respects the decimals parameter', () => {
 		expect(formatPct(12.345, 2)).toBe('12.35%');
 	});
 
-	it('restituisce "-" per valori non finiti', () => {
+	it('returns "-" for non-finite values', () => {
 		expect(formatPct(Infinity)).toBe('-');
 	});
 });
 
 describe('formatDuration', () => {
-	it('restituisce "-" per valori negativi', () => {
+	it('returns "-" for negatives values', () => {
 		expect(formatDuration(-1)).toBe('-');
 	});
 
-	it('restituisce "-" per NaN', () => {
+	it('returns "-" for NaN', () => {
 		expect(formatDuration(NaN)).toBe('-');
 	});
 
-	it('meno di 1s -> "Xms"', () => {
+	it('less than 1s -> "Xms"', () => {
 		expect(formatDuration(42)).toBe('42ms');
 	});
 
-	it('meno di 60s -> "X.Xs"', () => {
+	it('less than 60s -> "X.Xs"', () => {
 		expect(formatDuration(1500)).toBe('1.5s');
 	});
 
-	it('meno di 1h con secondi -> "Xm Ys"', () => {
+	it('less than 1h with seconds -> "Xm Ys"', () => {
 		expect(formatDuration(62000)).toBe('1m 2s');
 	});
 
-	it('meno di 1h senza secondi -> "Xm"', () => {
+	it('less than 1h without seconds -> "Xm"', () => {
 		expect(formatDuration(60000)).toBe('1m');
 	});
 
-	it('meno di 1h esatto un minuto -> "1m"', () => {
+	it('less than 1h exactly a minute -> "1m"', () => {
 		expect(formatDuration(60000)).toBe('1m');
 	});
 
-	it('>=1h con minuti -> "Xh Ym"', () => {
+	it('>=1h with minutes -> "Xh Ym"', () => {
 		expect(formatDuration(3661000)).toBe('1h 1m');
 	});
 
-	it('>=1h senza minuti -> "Xh"', () => {
+	it('>=1h without minutes -> "Xh"', () => {
 		expect(formatDuration(3600000)).toBe('1h');
 	});
 });
 
 describe('formatBytes', () => {
-	it('restituisce "-" per valori negativi', () => {
+	it('returns "-" for negatives values', () => {
 		expect(formatBytes(-1)).toBe('-');
 	});
 
-	it('restituisce "-" per NaN', () => {
+	it('returns "-" for NaN', () => {
 		expect(formatBytes(NaN)).toBe('-');
 	});
 
-	it('meno di 1KB -> "X B"', () => {
+	it('less than 1KB -> "X B"', () => {
 		expect(formatBytes(500)).toBe('500 B');
 	});
 
-	it('meno di 1MB -> "X.X KB"', () => {
+	it('less than 1MB -> "X.X KB"', () => {
 		expect(formatBytes(1536)).toBe('1.5 KB');
 	});
 
-	it('meno di 1GB -> "X.X MB"', () => {
+	it('less than 1GB -> "X.X MB"', () => {
 		expect(formatBytes(2097152)).toBe('2.0 MB');
 	});
 
@@ -209,31 +209,31 @@ describe('formatBytes', () => {
 });
 
 describe('truncate', () => {
-	it('non tronca se la stringa è corta abbastanza', () => {
+	it('does not truncate when the string is short enough', () => {
 		expect(truncate('hello', 10)).toBe('hello');
 	});
 
-	it('tronca e aggiunge ellipsis se supera maxLen', () => {
+	it('truncates and adds ellipsis when maxLen is exceeded', () => {
 		expect(truncate('hello world', 6)).toBe('hello…');
 	});
 
-	it('non tronca se la lunghezza è esattamente maxLen', () => {
+	it('does not truncate when the length is exactly maxLen', () => {
 		expect(truncate('hello', 5)).toBe('hello');
 	});
 });
 
 describe('capitalize', () => {
-	it('mette in maiuscolo la prima lettera', () => {
+	it('capitalizes the first letter', () => {
 		expect(capitalize('hello')).toBe('Hello');
 	});
 
-	it('restituisce la stringa vuota invariata', () => {
+	it('returns the empty string unchanged', () => {
 		expect(capitalize('')).toBe('');
 	});
 });
 
 describe('formatJson', () => {
-	it('produce HTML con span per chiavi e valori', () => {
+	it('produces HTML with span for keys and values', () => {
 		const result = formatJson({ key: 'value', count: 1, flag: true, empty: null });
 		expect(result).toContain('json-key');
 		expect(result).toContain('json-str');
@@ -242,7 +242,7 @@ describe('formatJson', () => {
 		expect(result).toContain('json-null');
 	});
 
-	it('effettua l\'escape dei caratteri HTML', () => {
+	it('escapes HTML characters', () => {
 		const result = formatJson({ a: '<b>' });
 		expect(result).toContain('&lt;');
 		expect(result).toContain('&gt;');
@@ -250,65 +250,65 @@ describe('formatJson', () => {
 });
 
 describe('getEventDetail', () => {
-	it('click: restituisce "TAG#ID TESTO"', () => {
+	it('click: returns "TAG#ID TEXT"', () => {
 		const event = { type: 'click', payload: { tag: 'BUTTON', id: 'submit', text: 'Submit' } };
 		expect(getEventDetail(event as any)).toBe('BUTTON#submit Submit');
 	});
 
-	it('click senza id: non aggiunge il #', () => {
+	it('click without id: does not add the #', () => {
 		const event = { type: 'click', payload: { tag: 'DIV', id: '', text: 'Click' } };
 		expect(getEventDetail(event as any)).toBe('DIV Click');
 	});
 
-	it('http: restituisce "METHOD URL STATUS"', () => {
+	it('http: returns "METHOD URL STATUS"', () => {
 		const event = { type: 'http', payload: { method: 'GET', url: '/api/users', status: 200 } };
 		expect(getEventDetail(event as any)).toBe('GET /api/users 200');
 	});
 
-	it('error: restituisce il messaggio', () => {
+	it('error: returns the message', () => {
 		const event = { type: 'error', payload: { message: 'TypeError: foo' } };
 		expect(getEventDetail(event as any)).toBe('TypeError: foo');
 	});
 
-	it('navigation: restituisce "from -> to"', () => {
+	it('navigation: returns "from -> to"', () => {
 		const event = { type: 'navigation', payload: { from: '/home', to: '/about' } };
 		expect(getEventDetail(event as any)).toBe('/home -> /about');
 	});
 
-	it('console: restituisce "[method] messaggio" con indent per groupDepth', () => {
+	it('console: returns "[method] message" with indent for groupDepth', () => {
 		const event = { type: 'console', payload: { method: 'log', message: 'hello', groupDepth: 1 } };
 		expect(getEventDetail(event as any)).toBe('  [log] hello');
 	});
 
-	it('custom: restituisce "name" senza duration', () => {
+	it('custom: Returns "name" without duration', () => {
 		const event = { type: 'custom', payload: { name: 'my-event' } };
 		expect(getEventDetail(event as any)).toBe('my-event');
 	});
 
-	it('custom: restituisce "name - duration" con duration', () => {
+	it('custom: return "name - duration" with duration', () => {
 		const event = { type: 'custom', payload: { name: 'my-event', duration: 1500 } };
 		expect(getEventDetail(event as any)).toBe('my-event - 1.5s');
 	});
 
-	it('session con previousUserId: mostra la transizione', () => {
+	it('session with previousUserId: shows the transition', () => {
 		const event = { type: 'session', payload: { action: 'identify', trigger: 'manual', previousUserId: 'old', newUserId: 'new' } };
 		const result = getEventDetail(event as any);
 		expect(result).toContain('identify');
 		expect(result).toContain('old -> new');
 	});
 
-	it('session senza previousUserId: non mostra la transizione', () => {
+	it('session without previousUserId: does not show the transition', () => {
 		const event = { type: 'session', payload: { action: 'start', trigger: 'auto', previousUserId: null, newUserId: 'user1' } };
 		const result = getEventDetail(event as any);
 		expect(result).toBe('start · auto');
 	});
 
-	it('tipo sconosciuto: restituisce stringa vuota', () => {
+	it('unknown type: returns empty string', () => {
 		const event = { type: 'unknown', payload: {} };
 		expect(getEventDetail(event as any)).toBe('');
 	});
 
-	it('truncateValue=true: tronca i valori lunghi', () => {
+	it('truncateValue=true: truncates long values', () => {
 		const longText = 'A'.repeat(100);
 		const event = { type: 'error', payload: { message: longText } };
 		const truncated = getEventDetail(event as any, true);

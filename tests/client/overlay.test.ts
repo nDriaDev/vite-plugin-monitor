@@ -38,22 +38,22 @@ function restoreClipboard() {
 }
 
 describe('DebugOverlay', () => {
-	describe('costruttore', () => {
-		it('aggiunge un elemento host a document.body', () => {
+	describe('constructor', () => {
+		it('appends a host element to document.body', () => {
 			overlay = makeOverlay();
 			const host = document.body.querySelector('[data-tracker-overlay]');
 			expect(host).not.toBeNull();
 			overlay.destroy();
 		});
 
-		it('usa "dark" come tema di default se localStorage non ha il tema', () => {
+		it('Use "dark" as default theme if localStorage doesn\'t have the theme', () => {
 			overlay = makeOverlay();
 			expect((overlay as any).theme).toBe('dark');
 			expect((overlay as any).host.classList.contains('light')).toBe(false);
 			overlay.destroy();
 		});
 
-		it('recupera il tema "light" da localStorage se salvato', () => {
+		it('retrieves the "light" theme from localStorage if saved', () => {
 			localStorage.setItem(THEME_STORAGE_KEY, 'light');
 			overlay = makeOverlay();
 			expect((overlay as any).theme).toBe('light');
@@ -62,7 +62,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('usa "dark" se localStorage contiene un valore non riconosciuto', () => {
+		it('use "dark" if localStorage contains an unrecognized value', () => {
 			localStorage.setItem(THEME_STORAGE_KEY, 'unknown-value');
 			overlay = makeOverlay();
 			expect((overlay as any).theme).toBe('dark');
@@ -70,7 +70,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('se document.body non esiste, onDOMContentLoaded appende l\'host quando invocato', () => {
+		it('If document.body does not exist, onDOMContentLoaded appends the host when invoked', () => {
 			const realBody = document.body;
 			document.documentElement.removeChild(realBody);
 
@@ -89,7 +89,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('il shadow DOM contiene il fab (#fab) e il panel (#panel)', () => {
+		it('the shadow DOM contains the fab (#fab) and the panel (#panel)', () => {
 			overlay = makeOverlay();
 			const shadow = getShadow(overlay);
 			expect(shadow.querySelector('#fab')).not.toBeNull();
@@ -97,7 +97,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('renderizza lo userId della sessione nel display', () => {
+		it('renders the session userId in the display', () => {
 			overlay = makeOverlay();
 			const shadow = getShadow(overlay);
 			expect(shadow.querySelector('#userid-display')!.textContent).toBe(session.userId);
@@ -105,8 +105,8 @@ describe('DebugOverlay', () => {
 		});
 	});
 
-	describe('posizione', () => {
-		it('bottom-right: fab ha bottom e right a 20px, top e left vuoti', () => {
+	describe('position', () => {
+		it('bottom-right: fab has bottom and right at 20px, top and left empty', () => {
 			overlay = makeOverlay('bottom-right');
 			const fab = (overlay as any).fab as HTMLElement;
 			expect(fab.style.getPropertyValue('bottom')).toBe('20px');
@@ -116,7 +116,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('bottom-left: fab ha bottom e left a 20px, top e right vuoti', () => {
+		it('bottom-left: fab has bottom and left at 20px, top and right empty', () => {
 			overlay = makeOverlay('bottom-left');
 			const fab = (overlay as any).fab as HTMLElement;
 			expect(fab.style.getPropertyValue('bottom')).toBe('20px');
@@ -126,7 +126,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('top-right: fab ha top e right a 20px, bottom e left vuoti', () => {
+		it('top-right: fab has top and right at 20px, bottom and left empty', () => {
 			overlay = makeOverlay('top-right');
 			const fab = (overlay as any).fab as HTMLElement;
 			expect(fab.style.getPropertyValue('top')).toBe('20px');
@@ -136,7 +136,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('top-left: fab ha top e left a 20px, bottom e right vuoti', () => {
+		it('top-left: fab has top and left at 20px, bottom and right empty', () => {
 			overlay = makeOverlay('top-left');
 			const fab = (overlay as any).fab as HTMLElement;
 			expect(fab.style.getPropertyValue('top')).toBe('20px');
@@ -148,7 +148,7 @@ describe('DebugOverlay', () => {
 	});
 
 	describe('toggle()', () => {
-		it('apre il panel aggiungendo la classe "open"', () => {
+		it('Open the panel by adding the "open" class', () => {
 			overlay = makeOverlay();
 			const panel = getShadow(overlay).querySelector('#panel')!;
 			expect(panel.classList.contains('open')).toBe(false);
@@ -157,7 +157,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('chiude il panel rimuovendo la classe "open"', () => {
+		it('closes the panel by removing the "open" class', () => {
 			overlay = makeOverlay();
 			const panel = getShadow(overlay).querySelector('#panel')!;
 			overlay.toggle();
@@ -166,7 +166,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('all\'apertura aggiorna il campo Route', () => {
+		it('when opening, update the Route field', () => {
 			overlay = makeOverlay();
 			overlay.toggle();
 			const routeEl = getShadow(overlay).querySelector<HTMLElement>('[data-field="Route"]')!;
@@ -174,7 +174,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('all\'apertura aggiorna il campo Viewport', () => {
+		it('when opening, update the Viewport field', () => {
 			overlay = makeOverlay();
 			overlay.toggle();
 			const viewportEl = getShadow(overlay).querySelector<HTMLElement>('[data-field="Viewport"]')!;
@@ -182,7 +182,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('all\'apertura aggiorna il campo Connection ("-" in jsdom, navigator.connection assente)', () => {
+		it('when opening, update the Connection field ("-" in jsdom, navigator.connection missing)', () => {
 			overlay = makeOverlay();
 			overlay.toggle();
 			const connEl = getShadow(overlay).querySelector<HTMLElement>('[data-field="Connection"]')!;
@@ -190,7 +190,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('alla chiusura i campi dinamici NON vengono aggiornati', () => {
+		it('on close the dynamic fields are NOT updated', () => {
 			overlay = makeOverlay();
 			const shadow = getShadow(overlay);
 			overlay.toggle();
@@ -203,7 +203,7 @@ describe('DebugOverlay', () => {
 	});
 
 	describe('close()', () => {
-		it('rimuove la classe "open" dal panel', () => {
+		it('removes the "open" class from the panel', () => {
 			overlay = makeOverlay();
 			const panel = getShadow(overlay).querySelector('#panel')!;
 			overlay.toggle();
@@ -212,7 +212,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('è idempotente se il panel era già chiuso', () => {
+		it('is idempotent when the panel was already closed', () => {
 			overlay = makeOverlay();
 			const panel = getShadow(overlay).querySelector('#panel')!;
 			overlay.close();
@@ -222,7 +222,7 @@ describe('DebugOverlay', () => {
 	});
 
 	describe('destroy()', () => {
-		it('rimuove l\'host da document.body', () => {
+		it('removes the host from document.body', () => {
 			overlay = makeOverlay();
 			expect(document.body.querySelector('[data-tracker-overlay]')).not.toBeNull();
 			overlay.destroy();
@@ -230,7 +230,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('rimuove il listener keydown da document (Alt+T non apre più il panel)', () => {
+		it('removes the keydown listener from document (Alt+T no longer opens the panel)', () => {
 			overlay = makeOverlay();
 			const panel = getShadow(overlay).querySelector('#panel')!;
 			overlay.destroy();
@@ -239,7 +239,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('rimuove il listener mousemove da document (il panel non viene spostato)', () => {
+		it('removes the mousemove listener from document (the panel is no longer moved)', () => {
 			overlay = makeOverlay();
 			overlay.toggle();
 			(overlay as any).dragging = true;
@@ -250,7 +250,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('rimuove il listener mouseup da document (dragging non viene resettato)', () => {
+		it('removes the mouseup listener from document (dragging is no longer reset)', () => {
 			overlay = makeOverlay();
 			(overlay as any).dragging = true;
 			overlay.destroy();
@@ -261,7 +261,7 @@ describe('DebugOverlay', () => {
 	});
 
 	describe('refreshUserId()', () => {
-		it('aggiorna il testo di #userid-display con il nuovo userId', () => {
+		it('updates the text of #userid-display with the new userId', () => {
 			overlay = makeOverlay();
 			const shadow = getShadow(overlay);
 			(overlay as any).session.userId = session.userId;
@@ -273,7 +273,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('aggiorna il data-val del pulsante #userid-copy con il nuovo userId', () => {
+		it('updates the data-val of the #userid-copy button with the new userId', () => {
 			overlay = makeOverlay();
 			const shadow = getShadow(overlay);
 			(overlay as any).session.userId = session.userId;
@@ -284,7 +284,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('aggiorna il valore di #userid-input con il nuovo userId', () => {
+		it('updates the value of #userid-input with the new userId', () => {
 			overlay = makeOverlay();
 			const shadow = getShadow(overlay);
 			(overlay as any).session.userId = session.userId;
@@ -297,15 +297,15 @@ describe('DebugOverlay', () => {
 	});
 
 	describe('pushEvent()', () => {
-		it('è chiamabile senza errori (no-op intenzionale)', () => {
+		it('is callable without errors (intentional no-op)', () => {
 			overlay = makeOverlay();
 			expect(() => overlay.pushEvent({ type: 'custom' } as any)).not.toThrow();
 			overlay.destroy();
 		});
 	});
 
-	describe('shortcut Alt+T', () => {
-		it('Alt+T apre il panel se è chiuso', () => {
+	describe('Alt+T shortcut', () => {
+		it('Alt+T opens the panel when it is closed', () => {
 			overlay = makeOverlay();
 			const panel = getShadow(overlay).querySelector('#panel')!;
 			document.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, altKey: true, key: 't' }));
@@ -313,7 +313,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('Alt+T chiude il panel se era aperto', () => {
+		it('Alt+T closes the panel when it was open', () => {
 			overlay = makeOverlay();
 			const panel = getShadow(overlay).querySelector('#panel')!;
 			overlay.toggle();
@@ -322,7 +322,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('Alt+X non apre il panel', () => {
+		it('Alt+X does not open the panel', () => {
 			overlay = makeOverlay();
 			const panel = getShadow(overlay).querySelector('#panel')!;
 			document.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, altKey: true, key: 'x' }));
@@ -330,7 +330,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('Ctrl+T (senza altKey) non apre il panel', () => {
+		it('Ctrl+T (without altKey) does not open the panel', () => {
 			overlay = makeOverlay();
 			const panel = getShadow(overlay).querySelector('#panel')!;
 			document.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ctrlKey: true, key: 't' }));
@@ -339,8 +339,8 @@ describe('DebugOverlay', () => {
 		});
 	});
 
-	describe('pulsante FAB', () => {
-		it('click sul FAB apre il panel', () => {
+	describe('FAB button', () => {
+		it('click on FAB opens the panel', () => {
 			overlay = makeOverlay();
 			const panel = getShadow(overlay).querySelector('#panel')!;
 			(overlay as any).fab.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -348,7 +348,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('click doppio sul FAB chiude il panel', () => {
+		it('double click on FAB closes the panel', () => {
 			overlay = makeOverlay();
 			const panel = getShadow(overlay).querySelector('#panel')!;
 			const fab = (overlay as any).fab as HTMLElement;
@@ -359,8 +359,8 @@ describe('DebugOverlay', () => {
 		});
 	});
 
-	describe('pulsante #close', () => {
-		it('click su #close chiude il panel', () => {
+	describe('#close button', () => {
+		it('click on #close closes the panel', () => {
 			overlay = makeOverlay();
 			const shadow = getShadow(overlay);
 			const panel = shadow.querySelector('#panel')!;
@@ -371,8 +371,8 @@ describe('DebugOverlay', () => {
 		});
 	});
 
-	describe('tema', () => {
-		it('click su #theme-toggle passa da dark a light', () => {
+	describe('theme', () => {
+		it('click on #theme-toggle switches from dark to light', () => {
 			overlay = makeOverlay();
 			getShadow(overlay).querySelector('#theme-toggle')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 			expect((overlay as any).theme).toBe('light');
@@ -380,7 +380,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('click su #theme-toggle passa da light a dark', () => {
+		it('click on #theme-toggle switches from light to dark', () => {
 			localStorage.setItem(THEME_STORAGE_KEY, 'light');
 			overlay = makeOverlay();
 			getShadow(overlay).querySelector('#theme-toggle')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -389,14 +389,14 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('il toggle salva il tema in localStorage', () => {
+		it('the toggle saves the theme in localStorage', () => {
 			overlay = makeOverlay();
 			getShadow(overlay).querySelector('#theme-toggle')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 			expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('light');
 			overlay.destroy();
 		});
 
-		it('il toggle aggiorna il testo del pulsante (☀ ↔ ☾)', () => {
+		it('the toggle updates the button text (☀ ↔ ☾)', () => {
 			overlay = makeOverlay();
 			const btn = getShadow(overlay).querySelector<HTMLButtonElement>('#theme-toggle')!;
 			expect(btn.textContent).toBe('☾');
@@ -406,8 +406,8 @@ describe('DebugOverlay', () => {
 		});
 	});
 
-	describe('modifica userId', () => {
-		it('click su #userid-edit mostra il form di modifica', () => {
+	describe('userId edit', () => {
+		it('click on #userid-edit shows the edit form', () => {
 			overlay = makeOverlay();
 			const shadow = getShadow(overlay);
 			shadow.querySelector('#userid-edit')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -415,7 +415,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('click su #userid-cancel nasconde il form senza chiamare onUserIdChange', () => {
+		it('click on #userid-cancel hides the form without calling onUserIdChange', () => {
 			const onUserIdChange = vi.fn();
 			overlay = makeOverlay('bottom-right', onUserIdChange);
 			const shadow = getShadow(overlay);
@@ -426,7 +426,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('click su #userid-confirm chiama onUserIdChange con il nuovo ID', () => {
+		it('click on #userid-confirm calls onUserIdChange with the new ID', () => {
 			const onUserIdChange = vi.fn();
 			overlay = makeOverlay('bottom-right', onUserIdChange);
 			const shadow = getShadow(overlay);
@@ -437,7 +437,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('confirm con input vuoto (solo spazi) chiama onUserIdChange con null', () => {
+		it('confirm with empty input (spaces only) calls onUserIdChange with null', () => {
 			const onUserIdChange = vi.fn();
 			overlay = makeOverlay('bottom-right', onUserIdChange);
 			const shadow = getShadow(overlay);
@@ -448,7 +448,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('Enter sull\'input conferma la modifica e chiama onUserIdChange', () => {
+		it('Enter on the input confirms the change and calls onUserIdChange', () => {
 			const onUserIdChange = vi.fn();
 			overlay = makeOverlay('bottom-right', onUserIdChange);
 			const shadow = getShadow(overlay);
@@ -460,7 +460,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('Escape sull\'input annulla la modifica senza chiamare onUserIdChange', () => {
+		it('Escaping on input cancels the change without calling onUserIdChange', () => {
 			const onUserIdChange = vi.fn();
 			overlay = makeOverlay('bottom-right', onUserIdChange);
 			const shadow = getShadow(overlay);
@@ -473,7 +473,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('confirm chiama refreshUserId aggiornando il display con il nuovo valore', () => {
+		it('confirm calls refreshUserId updating the display with the new value', () => {
 			overlay = makeOverlay('bottom-right', (newId) => {
 				(overlay as any).session.userId = newId ?? 'anon_x';
 			});
@@ -487,7 +487,7 @@ describe('DebugOverlay', () => {
 	});
 
 	describe('copy button', () => {
-		it('click su un .copy-btn chiama navigator.clipboard.writeText con il valore corretto', () => {
+		it('click on a .copy-btn calls navigator.clipboard.writeText with the correct value', () => {
 			const writeText = vi.fn().mockResolvedValue(undefined);
 			stubClipboard(writeText);
 
@@ -502,7 +502,7 @@ describe('DebugOverlay', () => {
 			restoreClipboard();
 		});
 
-		it('il testo del pulsante diventa "copied" dopo il click e torna "copy" dopo 1500ms', async () => {
+		it('The button text changes to "copied" after a click and returns to "copy" after 1500ms.', async () => {
 			vi.useFakeTimers();
 			const writeText = vi.fn().mockResolvedValue(undefined);
 			stubClipboard(writeText);
@@ -525,7 +525,7 @@ describe('DebugOverlay', () => {
 			vi.useRealTimers();
 		});
 
-		it('click su un elemento che non è .copy-btn non chiama clipboard', () => {
+		it('click on an element that is not .copy-btn does not call clipboard', () => {
 			const writeText = vi.fn().mockResolvedValue(undefined);
 			stubClipboard(writeText);
 
@@ -540,7 +540,7 @@ describe('DebugOverlay', () => {
 	});
 
 	describe('drag', () => {
-		it('mousedown sull\'header con panel aperto imposta dragging = true', () => {
+		it('mousedown on header with panel open sets dragging = true', () => {
 			overlay = makeOverlay();
 			overlay.toggle();
 			const header = getShadow(overlay).querySelector('#header') as HTMLElement;
@@ -549,7 +549,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('mousedown sull\'header con panel chiuso non avvia il drag', () => {
+		it('Mousedown on header with panel closed does not start dragging', () => {
 			overlay = makeOverlay();
 			const header = getShadow(overlay).querySelector('#header') as HTMLElement;
 			header.dispatchEvent(new MouseEvent('mousedown', { clientX: 50, clientY: 50, bubbles: true }));
@@ -557,7 +557,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('mousemove su document sposta il panel durante il drag', () => {
+		it('mousemove on document moves the panel during drag', () => {
 			overlay = makeOverlay();
 			overlay.toggle();
 			const shadow = getShadow(overlay);
@@ -574,7 +574,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('mousemove non sposta il panel se dragging è false', () => {
+		it('mousemove does not move the panel when dragging is false', () => {
 			overlay = makeOverlay();
 			overlay.toggle();
 			const panel = (overlay as any).panel as HTMLElement;
@@ -583,7 +583,7 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 
-		it('mouseup su document termina il drag (dragging → false)', () => {
+		it('mouseup on document ends the drag (dragging -> false)', () => {
 			overlay = makeOverlay();
 			overlay.toggle();
 			const header = getShadow(overlay).querySelector('#header') as HTMLElement;

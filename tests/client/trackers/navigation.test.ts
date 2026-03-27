@@ -23,7 +23,7 @@ afterEach(() => {
 	sessionStorage.removeItem(MPA_FROM_KEY);
 });
 
-describe('load iniziale', () => {
+describe('initial load', () => {
 	it('emette una navigation con trigger "load" al setup', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
@@ -33,7 +33,7 @@ describe('load iniziale', () => {
 		expect(events[0].to).toBe(window.location.pathname + window.location.search);
 	});
 
-	it('from = consumePreviousRoute() se la chiave MPA è in sessionStorage', () => {
+	it('from = consumePreviousRoute() when the MPA key is in sessionStorage', () => {
 		sessionStorage.setItem(MPA_FROM_KEY, '/previous-page');
 
 		const { onEvent, events } = makeOnEvent();
@@ -44,7 +44,7 @@ describe('load iniziale', () => {
 		expect(sessionStorage.getItem(MPA_FROM_KEY)).toBeNull();
 	});
 
-	it('from = referrerPath() (stesso origine) se sessionStorage è vuoto', () => {
+	it('from = referrerPath() (same origin) when sessionStorage is empty', () => {
 		// Imposta document.referrer tramite Object.defineProperty
 		Object.defineProperty(document, 'referrer', {
 			configurable: true,
@@ -59,7 +59,7 @@ describe('load iniziale', () => {
 		Object.defineProperty(document, 'referrer', { configurable: true, get: () => '' });
 	});
 
-	it('from = referrerPath() mostra solo l\'origin per referrer cross-origin', () => {
+	it('from = referrerPath() show only the origin for cross-origin referrers', () => {
 		Object.defineProperty(document, 'referrer', {
 			configurable: true,
 			get: () => 'https://external.example.com/some/path',
@@ -73,7 +73,7 @@ describe('load iniziale', () => {
 		Object.defineProperty(document, 'referrer', { configurable: true, get: () => '' });
 	});
 
-	it('from = currentRoute se né sessionStorage né referrer sono disponibili', () => {
+	it('from = currentRoute when neither sessionStorage nor referrer are available', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -82,7 +82,7 @@ describe('load iniziale', () => {
 		expect(events[0].to).toBe(currentRoute);
 	});
 
-	it('consumePreviousRoute: errore in sessionStorage → savedFrom è stringa vuota', () => {
+	it('consumePreviousRoute: error in sessionStorage -> savedFrom is an empty string', () => {
 		const originalSessionStorage = globalThis.sessionStorage;
 
 		const fakeSessionStorage = {
@@ -110,7 +110,7 @@ describe('load iniziale', () => {
 		});
 	});
 
-	it('referrerPath: referrer non valido → ritorna document.referrer nel catch', () => {
+	it('referrerPath: invalid referrer -> returns document.referrer in catch', () => {
 		Object.defineProperty(document, 'referrer', {
 			configurable: true,
 			get: () => '::::not-a-valid-url::::',
@@ -127,7 +127,7 @@ describe('load iniziale', () => {
 });
 
 describe('pushState', () => {
-	it('history.pushState() emette navigation con trigger "pushState"', () => {
+	it('history.pushState() outputs navigation with "pushState" trigger', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 		const initialCount = events.length;
@@ -139,7 +139,7 @@ describe('pushState', () => {
 		expect(events[events.length - 1].to).toBe('/nuova-pagina');
 	});
 
-	it('pushState aggiorna "from" con la route precedente', () => {
+	it('pushState updates "from" with the previous route', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -151,7 +151,7 @@ describe('pushState', () => {
 		expect(nav.to).toBe('/destinazione');
 	});
 
-	it('pushState con stessa path è un no-op (non emette evento)', () => {
+	it('pushState with the same path is a no-op (does not emit event)', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -162,7 +162,7 @@ describe('pushState', () => {
 		expect(events.length).toBe(before);
 	});
 
-	it('duration è calcolato correttamente tra due pushState', () => {
+	it('duration is calculated correctly between two pushState calls', () => {
 		vi.useFakeTimers();
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
@@ -179,7 +179,7 @@ describe('pushState', () => {
 
 describe('replaceState', () => {
 
-	it('history.replaceState() emette navigation con trigger "replaceState"', () => {
+	it('history.replaceState() outputs navigation with "replaceState" trigger', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 		const initialCount = events.length;
@@ -191,7 +191,7 @@ describe('replaceState', () => {
 		expect(events[events.length - 1].to).toBe('/rimpiazzata');
 	});
 
-	it('replaceState con stessa path → no-op (non emette evento)', () => {
+	it('replaceState with the same path -> no-op (does not emit event)', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -216,7 +216,7 @@ describe('popstate / hashchange', () => {
 		});
 	});
 
-	it('PopStateEvent → navigation con trigger "popstate"', () => {
+	it('PopStateEvent -> navigation con trigger "popstate"', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 		const before = events.length;
@@ -229,7 +229,7 @@ describe('popstate / hashchange', () => {
 		expect(popNav).toBeDefined();
 	});
 
-	it('HashChangeEvent → navigation con trigger "hashchange"', () => {
+	it('HashChangeEvent -> navigation con trigger "hashchange"', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 		const before = events.length;
@@ -240,7 +240,7 @@ describe('popstate / hashchange', () => {
 		expect(events[events.length - 1].trigger).toBe('hashchange');
 	});
 
-	it('hashchange include il fragment (#hash) nel campo "to"', () => {
+	it('hashchange includes the fragment (#hash) in the "to" field', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -277,7 +277,7 @@ describe('popstate / hashchange', () => {
 
 describe('ignorePaths', () => {
 
-	it('navigazione verso path ignorata → soppressa', () => {
+	it('navigation to ignored path -> suppressed', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent, ['/_dashboard']);
 
@@ -288,7 +288,7 @@ describe('ignorePaths', () => {
 		expect(events.length).toBe(afterLoad);
 	});
 
-	it('navigazione da path ignorata → soppressa', () => {
+	it('navigation from ignored path -> suppressed', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent, ['/_dashboard']);
 
@@ -299,7 +299,7 @@ describe('ignorePaths', () => {
 		expect(events.length).toBe(afterDashboard);
 	});
 
-	it('navigazione tra path non ignorate con ignorePaths configurato → emessa', () => {
+	it('navigation between non-ignored paths with ignorePaths configured -> emitted', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent, ['/_dashboard']);
 
@@ -310,7 +310,7 @@ describe('ignorePaths', () => {
 		expect(events[events.length - 1].to).toBe('/pagina-normale');
 	});
 
-	it('ignorePaths vuoto → nessuna soppressione', () => {
+	it('empty ignorePaths -> no suppression', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent, []);
 
@@ -319,7 +319,7 @@ describe('ignorePaths', () => {
 		expect(events.length).toBe(before + 1);
 	});
 
-	it('ignorePaths con stringa vuota non sopprime nulla', () => {
+	it('ignorePaths with empty string suppresses nothing', () => {
 		const { onEvent, events } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent, ['']);
 
@@ -343,7 +343,7 @@ describe('MPA link interceptor', () => {
 		document.querySelectorAll('a[href]').forEach(a => a.remove());
 	});
 
-	it('click su <a href="/pagina"> salva la route corrente in sessionStorage', () => {
+	it('Click <a href="/pagina"> to save the current route to sessionStorage.', () => {
 		const { onEvent } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -355,7 +355,7 @@ describe('MPA link interceptor', () => {
 		);
 	});
 
-	it('click su <a target="_blank"> → non salva in sessionStorage', () => {
+	it('click su <a target="_blank"> -> non salva in sessionStorage', () => {
 		const { onEvent } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -365,7 +365,7 @@ describe('MPA link interceptor', () => {
 		expect(sessionStorage.getItem(MPA_FROM_KEY)).toBeNull();
 	});
 
-	it('click su <a target="_parent"> → non salva in sessionStorage', () => {
+	it('click su <a target="_parent"> -> non salva in sessionStorage', () => {
 		const { onEvent } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -375,7 +375,7 @@ describe('MPA link interceptor', () => {
 		expect(sessionStorage.getItem(MPA_FROM_KEY)).toBeNull();
 	});
 
-	it('click su <a href="http://..."> (link esterno) → non salva', () => {
+	it('click su <a href="http://..."> (link esterno) -> non salva', () => {
 		const { onEvent } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -385,7 +385,7 @@ describe('MPA link interceptor', () => {
 		expect(sessionStorage.getItem(MPA_FROM_KEY)).toBeNull();
 	});
 
-	it('click su <a href="//cdn.example.com/..."> → non salva', () => {
+	it('click su <a href="//cdn.example.com/..."> -> non salva', () => {
 		const { onEvent } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -397,7 +397,7 @@ describe('MPA link interceptor', () => {
 		expect(sessionStorage.getItem(MPA_FROM_KEY)).toBeNull();
 	});
 
-	it('click su <a href="mailto:..."> → non salva', () => {
+	it('click su <a href="mailto:..."> -> non salva', () => {
 		const { onEvent } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -407,7 +407,7 @@ describe('MPA link interceptor', () => {
 		expect(sessionStorage.getItem(MPA_FROM_KEY)).toBeNull();
 	});
 
-	it('click su <a href="tel:..."> → non salva', () => {
+	it('click su <a href="tel:..."> -> non salva', () => {
 		const { onEvent } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -417,7 +417,7 @@ describe('MPA link interceptor', () => {
 		expect(sessionStorage.getItem(MPA_FROM_KEY)).toBeNull();
 	});
 
-	it('click su <a href="#hash"> → non salva', () => {
+	it('click su <a href="#hash"> -> non salva', () => {
 		const { onEvent } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -427,7 +427,7 @@ describe('MPA link interceptor', () => {
 		expect(sessionStorage.getItem(MPA_FROM_KEY)).toBeNull();
 	});
 
-	it('click su <a href="javascript:..."> → non salva', () => {
+	it('click su <a href="javascript:..."> -> non salva', () => {
 		const { onEvent } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -439,7 +439,7 @@ describe('MPA link interceptor', () => {
 		expect(sessionStorage.getItem(MPA_FROM_KEY)).toBeNull();
 	});
 
-	it('click su elemento non-anchor non salva nulla', () => {
+	it('click on non-anchor element saves nothing', () => {
 		const { onEvent } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -451,7 +451,7 @@ describe('MPA link interceptor', () => {
 		btn.remove();
 	});
 
-	it('click su elemento figlio di <a> (delegazione) salva la route', () => {
+	it('click on child element of <a> (delegation) saves the route', () => {
 		const { onEvent } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -467,7 +467,7 @@ describe('MPA link interceptor', () => {
 		);
 	});
 
-	it('click su <a> senza href → non salva nulla in sessionStorage', () => {
+	it('click on <a> without href -> does not save anything in sessionStorage', () => {
 		const { onEvent } = makeOnEvent();
 		teardown = setupNavigationTracker(onEvent);
 
@@ -485,7 +485,7 @@ describe('MPA link interceptor', () => {
 
 describe('teardown', () => {
 
-	it('ripristina history.pushState originale', () => {
+	it('restores original history.pushState', () => {
 		const { onEvent } = makeOnEvent();
 		const td = setupNavigationTracker(onEvent);
 		const patchedPush = history.pushState;
@@ -496,7 +496,7 @@ describe('teardown', () => {
 		expect(history.pushState).toBe(originalPushState);
 	});
 
-	it('ripristina history.replaceState originale', () => {
+	it('restores original history.replaceState', () => {
 		const { onEvent } = makeOnEvent();
 		const td = setupNavigationTracker(onEvent);
 		const patchedReplace = history.replaceState;
@@ -507,7 +507,7 @@ describe('teardown', () => {
 		expect(history.replaceState).toBe(originalReplaceState);
 	});
 
-	it('dopo teardown, pushState non emette più eventi', () => {
+	it('after teardown, pushState no longer emits events', () => {
 		const { onEvent, events } = makeOnEvent();
 		const td = setupNavigationTracker(onEvent);
 		td();
@@ -517,7 +517,7 @@ describe('teardown', () => {
 		expect(events.length).toBe(before);
 	});
 
-	it('dopo teardown, popstate non emette più eventi', () => {
+	it('after teardown, popstate no longer emits events', () => {
 		const { onEvent, events } = makeOnEvent();
 		const td = setupNavigationTracker(onEvent);
 		td();
@@ -527,7 +527,7 @@ describe('teardown', () => {
 		expect(events.length).toBe(before);
 	});
 
-	it('dopo teardown, hashchange non emette più eventi', () => {
+	it('after teardown, hashchange no longer emits events', () => {
 		const { onEvent, events } = makeOnEvent();
 		const td = setupNavigationTracker(onEvent);
 		td();
@@ -537,7 +537,7 @@ describe('teardown', () => {
 		expect(events.length).toBe(before);
 	});
 
-	it('dopo teardown, click su <a> non salva più in sessionStorage', () => {
+	it('after teardown, click on <a> no longer saves in sessionStorage', () => {
 		const { onEvent } = makeOnEvent();
 		const td = setupNavigationTracker(onEvent);
 		td();

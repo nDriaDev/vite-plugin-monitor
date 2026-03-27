@@ -5,6 +5,8 @@ import type { ResolvedTrackerOptions, TrackerEvent } from '../../src/types';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { EventEmitter } from 'node:events';
 import { Connect } from 'vite';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { afterEach } from 'node:test';
 
 function makeOpts(overrides: Partial<Parameters<typeof resolveOptions>[0]> = {}): ResolvedTrackerOptions {
 	const opts = resolveOptions({ appId: 'test-app', ...overrides });
@@ -77,7 +79,7 @@ function makeReqRes(opts: { method?: string, url?: string, body?: unknown, heade
 
 describe('createRequestHandler()', () => {
 	describe('OPTIONS preflight', () => {
-		it('risponde 204 per qualsiasi richiesta OPTIONS', async () => {
+		it('responds 204 for any OPTIONS request', async () => {
 			const { req, res } = makeReqRes({ method: 'OPTIONS', url: '/_tracker/events' });
 			const handler = createRequestHandler(makeOpts(), { push: vi.fn(), query: vi.fn(), all: vi.fn(), size: vi.fn() } as any, makeLogger());
 			const handled = await handler(req, res);
@@ -87,7 +89,7 @@ describe('createRequestHandler()', () => {
 	});
 
 	describe('POST /_tracker/events', () => {
-		it('ingestisce eventi validi e risponde 200', async () => {
+		it('ingests valid events and responds 200', async () => {
 			const logger = makeLogger()
 			const buffer = { push: vi.fn(), query: vi.fn(), all: vi.fn(), size: vi.fn().mockReturnValue(1) } as any
 			const handler = createRequestHandler(makeOpts(), buffer, logger);
@@ -101,7 +103,7 @@ describe('createRequestHandler()', () => {
 			expect((res as any).getBody()).toMatchObject({ ok: true, saved: 1 });
 		});
 
-		it('risponde 400 se il body è JSON malformato', async () => {
+		it('responds 400 when the body is malformed JSON', async () => {
 			const handler = createRequestHandler(makeOpts(), { push: vi.fn(), query: vi.fn(), all: vi.fn(), size: vi.fn() } as any, makeLogger());
 			const req = new EventEmitter() as IncomingMessage;
 			req.method = 'POST';
@@ -123,7 +125,7 @@ describe('createRequestHandler()', () => {
 			expect((res as any).writeHead).toHaveBeenCalledWith(400, expect.any(Object));
 		});
 
-		it('non chiama push se events è array vuoto', async () => {
+		it('does not call push when events is an empty array', async () => {
 			const buffer = { push: vi.fn(), query: vi.fn(), all: vi.fn(), size: vi.fn().mockReturnValue(0) } as any;
 			const handler = createRequestHandler(makeOpts(), buffer, makeLogger());
 			const { req, res } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { events: [] } });
@@ -131,7 +133,7 @@ describe('createRequestHandler()', () => {
 			expect(buffer.push).not.toHaveBeenCalled();
 		});
 
-		it('risponde 200 anche con events: [] (nessun errore)', async () => {
+		it('responds 200 also with events: [] (no error)', async () => {
 			const handler = createRequestHandler(makeOpts(), { push: vi.fn(), query: vi.fn(), all: vi.fn(), size: vi.fn().mockReturnValue(0) } as any, makeLogger());
 			const { req, res } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { events: [] } });
 			await handler(req, res);
@@ -140,7 +142,7 @@ describe('createRequestHandler()', () => {
 	});
 
 	describe('GET /_tracker/events', () => {
-		it('risponde 200 con la lista degli eventi', async () => {
+		it('responds 200 with the event list', async () => {
 			const ev = makeEvent();
 			const buffer = {
 				push: vi.fn(),
@@ -156,7 +158,7 @@ describe('createRequestHandler()', () => {
 			expect(body.total).toBe(1);
 		});
 
-		it('passa i parametri since/until/after/limit/page alla query', async () => {
+		it('passes the since/until/after/limit/page parameters to the query', async () => {
 			const buffer = {
 				push: vi.fn(),
 				query: vi.fn().mockReturnValue({ events: [], total: 0 }),
@@ -174,7 +176,7 @@ describe('createRequestHandler()', () => {
 			);
 		});
 
-		it('nextCursor è il timestamp del primo evento restituito', async () => {
+		it('nextCursor is the timestamp of the first returned event', async () => {
 			const ev = makeEvent({ timestamp: '2024-06-01T00:00:00.000Z' });
 			const buffer = {
 				push: vi.fn(),
@@ -188,7 +190,7 @@ describe('createRequestHandler()', () => {
 			expect((res as any).getBody()).toMatchObject({ nextCursor: ev.timestamp });
 		});
 
-		it('nextCursor è undefined se nessun evento restituito', async () => {
+		it('nextCursor is undefined when no events are returned', async () => {
 			const buffer = {
 				push: vi.fn(),
 				query: vi.fn().mockReturnValue({ events: [], total: 0 }),
@@ -203,7 +205,7 @@ describe('createRequestHandler()', () => {
 	});
 
 	describe('GET /_tracker/ping', () => {
-		it('risponde { ok: true, appId, mode } per ping', async () => {
+		it('responds { ok: true, appId, mode } for ping', async () => {
 			const opts = makeOpts();
 			const handler = createRequestHandler(opts, { push: vi.fn(), query: vi.fn(), all: vi.fn(), size: vi.fn() } as any, makeLogger());
 			const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker/ping' });
@@ -215,8 +217,8 @@ describe('createRequestHandler()', () => {
 		});
 	});
 
-	describe('rotte non gestite', () => {
-		it('restituisce false per URL non riconosciuto', async () => {
+	describe('unhandled routes', () => {
+		it('returns false for unrecognized URL', async () => {
 			const handler = createRequestHandler(makeOpts(), { push: vi.fn(), query: vi.fn(), all: vi.fn(), size: vi.fn() } as any, makeLogger());
 			const { req, res } = makeReqRes({ method: 'GET', url: '/unknown' });
 			const handled = await handler(req, res);
@@ -224,8 +226,8 @@ describe('createRequestHandler()', () => {
 		});
 	});
 
-	describe('autenticazione via apiKey', () => {
-		it('senza apiKey ogni richiesta è consentita', async () => {
+	describe('authentication via apiKey', () => {
+		it('without apiKey every request is allowed', async () => {
 			const opts = makeOpts();
 			opts.storage.apiKey = '';
 			const buffer = { push: vi.fn(), query: vi.fn().mockReturnValue({ events: [], total: 0 }), all: vi.fn(), size: vi.fn().mockReturnValue(0) } as any
@@ -235,7 +237,7 @@ describe('createRequestHandler()', () => {
 			expect((res as any).writeHead).toHaveBeenCalledWith(200, expect.any(Object));
 		});
 
-		it('con apiKey e header corretto risponde 200', async () => {
+		it('with apiKey and correct header responds 200', async () => {
 			const opts = makeOpts();
 			opts.storage.apiKey = 'secret';
 			const buffer = { push: vi.fn(), query: vi.fn().mockReturnValue({ events: [], total: 0 }), all: vi.fn(), size: vi.fn().mockReturnValue(0) } as any
@@ -249,7 +251,7 @@ describe('createRequestHandler()', () => {
 			expect((res as any).writeHead).toHaveBeenCalledWith(200, expect.any(Object));
 		});
 
-		it('con apiKey e header errato risponde 401', async () => {
+		it('with apiKey and incorrect header responds 401', async () => {
 			const opts = makeOpts();
 			opts.storage.apiKey = 'secret';
 			const handler = createRequestHandler(opts, { push: vi.fn(), query: vi.fn(), all: vi.fn(), size: vi.fn() } as any, makeLogger());
@@ -262,7 +264,7 @@ describe('createRequestHandler()', () => {
 			expect((res as any).writeHead).toHaveBeenCalledWith(401, expect.any(Object));
 		});
 
-		it('con apiKey e header mancante risponde 401', async () => {
+		it('with apiKey and missing header responds 401', async () => {
 			const opts = makeOpts();
 			opts.storage.apiKey = 'secret';
 			const handler = createRequestHandler(opts, { push: vi.fn(), query: vi.fn(), all: vi.fn(), size: vi.fn() } as any, makeLogger());
@@ -273,7 +275,7 @@ describe('createRequestHandler()', () => {
 	});
 
 	describe('CORS headers', () => {
-		it('la risposta include Access-Control-Allow-Origin: *', async () => {
+		it('the response includes Access-Control-Allow-Origin: *', async () => {
 			const buffer = { push: vi.fn(), query: vi.fn().mockReturnValue({ events: [], total: 0 }), all: vi.fn(), size: vi.fn().mockReturnValue(0) } as any
 			const handler = createRequestHandler(makeOpts(), buffer, makeLogger());
 			const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker/ping' });
@@ -285,7 +287,7 @@ describe('createRequestHandler()', () => {
 });
 
 describe('createMiddleware()', () => {
-	it('chiama next() per URL che non iniziano con /_tracker', async () => {
+	it('calls next() for URLs that do not start with /_tracker', async () => {
 		const middleware = createMiddleware(makeOpts(), makeLogger()) as Connect.NextHandleFunction;
 		const next = vi.fn();
 		const { req, res } = makeReqRes({ method: 'GET', url: '/app/page' });
@@ -293,7 +295,7 @@ describe('createMiddleware()', () => {
 		expect(next).toHaveBeenCalledOnce();
 	});
 
-	it('gestisce /_tracker/ping senza chiamare next()', async () => {
+	it('handles /_tracker/ping without calling next()', async () => {
 		const middleware = createMiddleware(makeOpts(), makeLogger()) as Connect.NextHandleFunction;
 		const next = vi.fn();
 		const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker/ping' });
@@ -302,7 +304,7 @@ describe('createMiddleware()', () => {
 		expect((res as any).writeHead).toHaveBeenCalledWith(200, expect.any(Object));
 	});
 
-	it('gestisce POST /_tracker/events con eventi validi', async () => {
+	it('handles POST /_tracker/events with valid events', async () => {
 		const middleware = createMiddleware(makeOpts(), makeLogger()) as Connect.NextHandleFunction;
 		const next = vi.fn();
 		const events = [makeEvent()];
@@ -312,7 +314,7 @@ describe('createMiddleware()', () => {
 		expect((res as any).writeHead).toHaveBeenCalledWith(200, expect.any(Object));
 	});
 
-	it('chiama next() per rotte /_tracker non gestite', async () => {
+	it('calls next() for unhandled /_tracker routes', async () => {
 		const middleware = createMiddleware(makeOpts(), makeLogger()) as Connect.NextHandleFunction;
 		const next = vi.fn();
 		const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker/unknown-route' });
@@ -320,33 +322,7 @@ describe('createMiddleware()', () => {
 		expect(next).toHaveBeenCalledOnce();
 	});
 });
-// ============================================================
-// AGGIUNTE al file standalone-server.test.ts esistente
-//
-// Aggiungere in cima al file esistente:
-//
-//   import { existsSync, readdirSync, readFileSync } from 'node:fs';
-//
-//   vi.mock('node:fs', async (importOriginal) => {
-//     const actual = await importOriginal<typeof import('node:fs')>();
-//     return {
-//       ...actual,
-//       existsSync:   vi.fn((...a: any[]) => (actual.existsSync   as any)(...a)),
-//       readdirSync:  vi.fn((...a: any[]) => (actual.readdirSync  as any)(...a)),
-//       readFileSync: vi.fn((...a: any[]) => (actual.readFileSync as any)(...a)),
-//     };
-//   });
-//
-// Incollare i describe block qui sotto in fondo al file.
-// ============================================================
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { afterEach } from 'node:test';
-
-// In ESM i namespace dei moduli non sono configurabili, quindi vi.spyOn
-// non funziona su node:fs. La soluzione corretta è vi.mock con factory:
-// le singole funzioni diventano vi.fn() che passano through all'implementazione
-// reale per default, e in ogni test si usa vi.mocked(fn) per sovrascriverle.
 vi.mock('node:fs', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('node:fs')>();
 	return {
@@ -357,14 +333,8 @@ vi.mock('node:fs', async (importOriginal) => {
 	};
 });
 
-// ----------------------------------------------------------------
-// RingBuffer — linee 28-66
-// Testato indirettamente tramite createMiddleware, che istanzia
-// un RingBuffer reale al suo interno.
-// ----------------------------------------------------------------
-
-describe('RingBuffer (tramite createMiddleware)', () => {
-	it('tronca il buffer quando supera maxBufferSize', async () => {
+describe('RingBuffer (via createMiddleware)', () => {
+	it('truncates the buffer when maxBufferSize is exceeded', async () => {
 		const opts = makeOpts();
 		opts.storage.maxBufferSize = 2;
 		const mw = createMiddleware(opts, makeLogger()) as Connect.NextHandleFunction;
@@ -387,7 +357,7 @@ describe('RingBuffer (tramite createMiddleware)', () => {
 		expect(body.events[1].timestamp).toBe('2024-01-02T00:00:00.000Z');
 	});
 
-	it('restituisce gli eventi dal più recente al meno recente', async () => {
+	it('returns events from most recent to least recent', async () => {
 		const mw = createMiddleware(makeOpts(), makeLogger()) as Connect.NextHandleFunction;
 		const next = vi.fn();
 
@@ -406,7 +376,7 @@ describe('RingBuffer (tramite createMiddleware)', () => {
 		expect(body.events[1].timestamp).toBe('2024-01-01T00:00:00.000Z');
 	});
 
-	it('filtra gli eventi tramite since', async () => {
+	it('filters events via since', async () => {
 		const mw = createMiddleware(makeOpts(), makeLogger()) as Connect.NextHandleFunction;
 		const next = vi.fn();
 
@@ -428,7 +398,7 @@ describe('RingBuffer (tramite createMiddleware)', () => {
 		expect(body.events[0].timestamp).toBe('2024-06-01T00:00:00.000Z');
 	});
 
-	it('filtra gli eventi tramite until', async () => {
+	it('filters events via until', async () => {
 		const mw = createMiddleware(makeOpts(), makeLogger()) as Connect.NextHandleFunction;
 		const next = vi.fn();
 
@@ -450,7 +420,7 @@ describe('RingBuffer (tramite createMiddleware)', () => {
 		expect(body.events[0].timestamp).toBe('2024-01-01T00:00:00.000Z');
 	});
 
-	it('filtra gli eventi tramite after (cursor)', async () => {
+	it('filters events via after (cursor)', async () => {
 		const mw = createMiddleware(makeOpts(), makeLogger()) as Connect.NextHandleFunction;
 		const next = vi.fn();
 
@@ -462,7 +432,6 @@ describe('RingBuffer (tramite createMiddleware)', () => {
 		const { req: r1, res: s1 } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { events } });
 		await mw(r1, s1, next);
 
-		// after è esclusivo: restituisce solo timestamp > cursor
 		const { req: r2, res: s2 } = makeReqRes({
 			method: 'GET',
 			url: '/_tracker/events?after=2024-06-01T00:00:00.000Z&limit=100&page=1',
@@ -474,7 +443,7 @@ describe('RingBuffer (tramite createMiddleware)', () => {
 		expect(body.events[0].timestamp).toBe('2024-12-01T00:00:00.000Z');
 	});
 
-	it('rispetta la paginazione con limit e page', async () => {
+	it('respects pagination with limit and page', async () => {
 		const mw = createMiddleware(makeOpts(), makeLogger()) as Connect.NextHandleFunction;
 		const next = vi.fn();
 
@@ -486,7 +455,6 @@ describe('RingBuffer (tramite createMiddleware)', () => {
 		const { req: r1, res: s1 } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { events } });
 		await mw(r1, s1, next);
 
-		// Pagina 1: i 2 eventi più recenti
 		const { req: r2, res: s2 } = makeReqRes({ method: 'GET', url: '/_tracker/events?limit=2&page=1' });
 		await mw(r2, s2, next);
 		const body1 = (s2 as any).getBody() as { events: TrackerEvent[]; total: number };
@@ -494,7 +462,6 @@ describe('RingBuffer (tramite createMiddleware)', () => {
 		expect(body1.events).toHaveLength(2);
 		expect(body1.events[0].timestamp).toBe('2024-03-01T00:00:00.000Z');
 
-		// Pagina 2: il solo evento rimasto
 		const { req: r3, res: s3 } = makeReqRes({ method: 'GET', url: '/_tracker/events?limit=2&page=2' });
 		await mw(r3, s3, next);
 		const body2 = (s3 as any).getBody() as { events: TrackerEvent[]; total: number };
@@ -504,7 +471,7 @@ describe('RingBuffer (tramite createMiddleware)', () => {
 	});
 });
 
-describe('loadFromLogFiles() (tramite createMiddleware)', () => {
+describe('loadFromLogFiles() (via createMiddleware)', () => {
 	afterEach(() => vi.resetAllMocks());
 
 	function makeOptsWithTransport(logPath: string, format = 'json'): ResolvedTrackerOptions {
@@ -513,18 +480,18 @@ describe('loadFromLogFiles() (tramite createMiddleware)', () => {
 		return opts;
 	}
 
-	it('ignora i transport con formato diverso da json (riga 85)', () => {
+	it('ignores transports with format other than json', () => {
 		createMiddleware(makeOptsWithTransport('/logs/app.log', 'text'), makeLogger());
 		expect(vi.mocked(readdirSync)).not.toHaveBeenCalled();
 	});
 
-	it('salta la directory se non esiste', () => {
+	it('skips the directory if it does not exist', () => {
 		vi.mocked(existsSync).mockReturnValue(false);
 		createMiddleware(makeOptsWithTransport('/non/existent/app.log.json'), makeLogger());
 		expect(vi.mocked(readdirSync)).not.toHaveBeenCalled();
 	});
 
-	it('carica gli eventi dai file JSON e li inserisce nel buffer', async () => {
+	it('loads events from JSON files and inserts them into the buffer', async () => {
 		const ev = makeEvent({ timestamp: '2024-01-01T00:00:00.000Z' });
 		vi.mocked(existsSync).mockReturnValue(true);
 		vi.mocked(readdirSync).mockReturnValue(['app.log.json'] as any);
@@ -541,7 +508,7 @@ describe('loadFromLogFiles() (tramite createMiddleware)', () => {
 		expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Loaded 1 events'));
 	});
 
-	it('carica e ordina più file di log cronologicamente', async () => {
+	it('loads and sorts multiple log files chronologically', async () => {
 		const ev1 = makeEvent({ timestamp: '2024-01-01T00:00:00.000Z' });
 		const ev2 = makeEvent({ timestamp: '2024-06-01T00:00:00.000Z' });
 
@@ -563,7 +530,7 @@ describe('loadFromLogFiles() (tramite createMiddleware)', () => {
 		expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Loaded 2 events'));
 	});
 
-	it('salta le righe JSON malformate senza lanciare eccezioni', () => {
+	it('skips malformed JSON lines without throwing exceptions', () => {
 		vi.mocked(existsSync).mockReturnValue(true);
 		vi.mocked(readdirSync).mockReturnValue(['app.log.json'] as any);
 		vi.mocked(readFileSync).mockReturnValue('not-json\n{broken\n\n' as any);
@@ -571,7 +538,7 @@ describe('loadFromLogFiles() (tramite createMiddleware)', () => {
 		expect(() => createMiddleware(makeOptsWithTransport('/logs/app.log.json'), makeLogger())).not.toThrow();
 	});
 
-	it('logga un avviso se readdirSync lancia un errore', () => {
+	it('logs a warning when readdirSync throws an error', () => {
 		vi.mocked(existsSync).mockReturnValue(true);
 		vi.mocked(readdirSync).mockImplementation(() => { throw new Error('EPERM: permission denied'); });
 

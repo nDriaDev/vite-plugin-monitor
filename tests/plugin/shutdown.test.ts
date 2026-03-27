@@ -29,24 +29,24 @@ afterEach(() => {
 });
 
 describe('registerShutdownHook()', () => {
-	it('restituisce una funzione unregister', () => {
+	it('returns an unregister function', () => {
 		const unregister = registerShutdownHook(vi.fn());
 		expect(typeof unregister).toBe('function');
 	});
 
-	it('aggiunge il hook alla lista globale', () => {
+	it('adds the hook to the global list', () => {
 		const fn = vi.fn();
 		registerShutdownHook(fn);
 		const hooks = (globalThis as any)[HOOKS_KEY] as unknown[];
 		expect(hooks).toContain(fn);
 	});
 
-	it('installa HANDLER_KEY dopo la prima registrazione', () => {
+	it('installs HANDLER_KEY after the first registration', () => {
 		registerShutdownHook(vi.fn());
 		expect((globalThis as any)[HANDLER_KEY]).toBe(true);
 	});
 
-	it('non duplica lo stesso hook se registrato due volte', () => {
+	it('does not duplicate the same hook when registered twice', () => {
 		const fn = vi.fn();
 		registerShutdownHook(fn);
 		registerShutdownHook(fn);
@@ -54,7 +54,7 @@ describe('registerShutdownHook()', () => {
 		expect(hooks.filter(h => h === fn)).toHaveLength(1);
 	});
 
-	it('può registrare più hook diversi', () => {
+	it('can register multiple different hooks', () => {
 		const fn1 = vi.fn();
 		const fn2 = vi.fn();
 		registerShutdownHook(fn1);
@@ -65,7 +65,7 @@ describe('registerShutdownHook()', () => {
 	});
 
 	describe('unregister()', () => {
-		it('rimuove il hook dalla lista', () => {
+		it('removes the hook from the list', () => {
 			const fn = vi.fn();
 			const unregister = registerShutdownHook(fn);
 			unregister();
@@ -73,14 +73,14 @@ describe('registerShutdownHook()', () => {
 			expect(hooks).not.toContain(fn);
 		});
 
-		it('chiamata a unregister() su hook già rimosso è no-op', () => {
+		it('calling unregister() on an already removed hook is a no-op', () => {
 			const fn = vi.fn();
 			const unregister = registerShutdownHook(fn);
 			unregister();
 			expect(() => unregister()).not.toThrow();
 		});
 
-		it('rimuove solo il hook corretto e lascia gli altri intatti', () => {
+		it('removes only the correct hook and leaves the others intact', () => {
 			const fn1 = vi.fn();
 			const fn2 = vi.fn();
 			const unregister1 = registerShutdownHook(fn1);
@@ -91,7 +91,7 @@ describe('registerShutdownHook()', () => {
 			expect(hooks).toContain(fn2);
 		});
 
-		it('ignora il secondo segnale se è già in corso lo shutdown', () => {
+		it('ignores the second signal when shutdown is already in progress', () => {
 			const fn = vi.fn();
 			registerShutdownHook(fn);
 			const sigtermHandler = process.listeners('SIGTERM')[0] as (sig: string) => void;
@@ -104,7 +104,7 @@ describe('registerShutdownHook()', () => {
 			exitSpy.mockRestore();
 		});
 
-		it('runShutdown esegue tutti gli hook e poi rilancia il segnale', async () => {
+		it('runShutdown executes all hooks and then re-emits the signal', async () => {
 			vi.useFakeTimers();
 			const fn1 = vi.fn().mockResolvedValue(undefined);
 			const fn2 = vi.fn(() => { throw new Error('boom'); });
@@ -128,7 +128,7 @@ describe('registerShutdownHook()', () => {
 			vi.useRealTimers();
 		});
 
-		it('su uncaughtException logga, esegue gli hook e rilancia l\'errore', async () => {
+		it('on uncaughtException log, run hooks and rethrow the error', async () => {
 			const hook = vi.fn().mockResolvedValue(undefined);
 			registerShutdownHook(hook);
 			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
@@ -150,7 +150,7 @@ describe('registerShutdownHook()', () => {
 			consoleSpy.mockRestore();
 		});
 
-		it('se gli hook non risolvono entro la deadline logga un warning e completa lo shutdown', async () => {
+		it('when hooks do not resolve within the deadline logs a warning and completes shutdown', async () => {
 			vi.useFakeTimers();
 			registerShutdownHook(() => new Promise(() => { }));
 			const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
@@ -170,7 +170,7 @@ describe('registerShutdownHook()', () => {
 			vi.useRealTimers();
 		});
 
-		it('copre il ramo catch dentro allSettled quando un hook lancia in modo sincrono', async () => {
+		it('covers the catch branch inside allSettled when a hook throws synchronously', async () => {
 			const syncThrowingHook = () => {
 				throw new Error('sync boom');
 			};
@@ -191,8 +191,8 @@ describe('registerShutdownHook()', () => {
 
 	});
 
-	describe('installHandlers() — idempotenza', () => {
-		it('HANDLER_KEY non viene impostato due volte (idempotente)', () => {
+	describe('installHandlers() — idempotency', () => {
+		it('HANDLER_KEY is not set twice (idempotent)', () => {
 			const spy = vi.spyOn(process, 'on');
 			registerShutdownHook(vi.fn());
 			const countAfterFirst = spy.mock.calls.filter(([ev]) =>
@@ -207,7 +207,7 @@ describe('registerShutdownHook()', () => {
 			expect(countAfterFirst).toBe(countAfterSecond);
 		});
 
-		it('registra listener per SIGTERM, SIGINT, SIGHUP e uncaughtException', () => {
+		it('registers listeners for SIGTERM, SIGINT, SIGHUP and uncaughtException', () => {
 			const spy = vi.spyOn(process, 'on');
 			registerShutdownHook(vi.fn());
 			const signals = spy.mock.calls.map(([ev]) => ev);

@@ -113,7 +113,7 @@ afterEach(() => {
 });
 
 describe('setupTrackers()', () => {
-	it('è un no-op in SSR (window undefined)', async () => {
+	it('is a no-op in SSR (window undefined)', async () => {
 		const originalWindow = globalThis.window;
 		try {
 			// @ts-ignore
@@ -127,7 +127,7 @@ describe('setupTrackers()', () => {
 		}
 	});
 
-	it('crea preInitClient e installa i tracker attivi', async () => {
+	it('creates preInitClient and installs active trackers', async () => {
 		const { setupTrackers } = trackerModule;
 		const configWithTrackers = makeMiddlewareConfig({
 			track: {
@@ -148,7 +148,7 @@ describe('setupTrackers()', () => {
 		expect(setupClickTracker).toHaveBeenCalledTimes(1);
 	});
 
-	it('chiamate successive a setupTrackers() sono no-op (idempotente)', async () => {
+	it('successive calls to setupTrackers() are no-ops (idempotent)', async () => {
 		const { setupTrackers } = trackerModule;
 		const configWithTrackers = makeMiddlewareConfig({
 			track: {
@@ -171,7 +171,7 @@ describe('setupTrackers()', () => {
 		expect(setupClickTracker).toHaveBeenCalledTimes(1);
 	});
 
-	it('installa tutti i tracker attivi nella config', async () => {
+	it('installs all active trackers from config', async () => {
 		const { setupTrackers } = trackerModule;
 		const fullConfig = makeMiddlewareConfig({
 			track: {
@@ -201,7 +201,7 @@ describe('setupTrackers()', () => {
 		expect(setupNavigationTracker).toHaveBeenCalledTimes(1);
 	});
 
-	it('non installa i tracker con flag false nella config', async () => {
+	it('does not install trackers with false flag in config', async () => {
 		const { setupTrackers } = trackerModule;
 		setupTrackers();
 
@@ -212,7 +212,7 @@ describe('setupTrackers()', () => {
 		expect(setupConsoleTracker).not.toHaveBeenCalled();
 	});
 
-	it('esclude la route della dashboard dalle ignorePaths se dashboard.enabled è true', async () => {
+	it('excludes the dashboard route from ignorePaths when dashboard.enabled is true', async () => {
 		const { setupTrackers } = trackerModule;
 		const configWithDashboard = makeMiddlewareConfig({
 			dashboard: {
@@ -250,7 +250,7 @@ describe('setupTrackers()', () => {
 });
 
 describe('tracker.init()', () => {
-	it('è un no-op in SSR (window undefined)', async () => {
+	it('is a no-op in SSR (window undefined)', async () => {
 		const originalWindow = globalThis.window;
 		try {
 			// @ts-ignore
@@ -264,7 +264,7 @@ describe('tracker.init()', () => {
 		}
 	});
 
-	it('è un no-op se già inizializzato (singleton)', async () => {
+	it('is a no-op when already initialized (singleton)', async () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 		tracker.init();
@@ -279,7 +279,7 @@ describe('tracker.init()', () => {
 		expect(sessionStartEvents).toHaveLength(1);
 	});
 
-	it('riusa preInitClient se setupTrackers() era già stato chiamato', async () => {
+	it('reuses preInitClient when setupTrackers() was already called', async () => {
 		const { setupTrackers, tracker } = trackerModule;
 		const configWithTrackers = makeMiddlewareConfig({
 			track: {
@@ -301,12 +301,12 @@ describe('tracker.init()', () => {
 		expect(setupClickTracker).toHaveBeenCalledTimes(1);
 	});
 
-	it('crea un nuovo TrackerClient se preInitClient è null (senza setupTrackers)', () => {
+	it('creates a new TrackerClient when preInitClient is null (without setupTrackers)', () => {
 		const { tracker } = trackerModule;
 		expect(() => tracker.init()).not.toThrow();
 	});
 
-	it('emette un evento session:start alla prima init', async () => {
+	it('emits a session:start event on first init', async () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
@@ -320,7 +320,7 @@ describe('tracker.init()', () => {
 		expect(sessionEvent.payload.trigger).toBe('init');
 	});
 
-	it('attiva il flush periodico della queue (scheduleFlush)', async () => {
+	it('activates the periodic flush of the queue (scheduleFlush)', async () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
@@ -332,7 +332,7 @@ describe('tracker.init()', () => {
 		expect(fetchMock).toHaveBeenCalled();
 	});
 
-	it('monta il DebugOverlay se overlay.enabled è true', () => {
+	it('mounts the DebugOverlay when overlay.enabled is true', () => {
 		const { tracker } = trackerModule;
 		const configWithOverlay = makeMiddlewareConfig({
 			overlay: { enabled: true, position: 'bottom-right' }
@@ -344,34 +344,34 @@ describe('tracker.init()', () => {
 		expect(capturedOverlay).not.toBeNull();
 	});
 
-	it('NON monta il DebugOverlay se overlay.enabled è false', () => {
+	it('does NOT mount the DebugOverlay when overlay.enabled is false', () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
 		expect(capturedOverlay).toBeNull();
 	});
 
-	it('aggiunge il listener su visibilitychange', () => {
+	it('adds the listener on visibilitychange', () => {
 		const { tracker } = trackerModule;
 		const addEventSpy = vi.spyOn(window, 'addEventListener');
 		tracker.init();
 		expect(addEventSpy).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
 	});
 
-	it('aggiunge il listener su beforeunload', () => {
+	it('adds the listener on beforeunload', () => {
 		const { tracker } = trackerModule;
 		const addEventSpy = vi.spyOn(window, 'addEventListener');
 		tracker.init();
 		expect(addEventSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function));
 	});
 
-	it('espone il client su window.__tracker_instance__', () => {
+	it('exposes the client on window.__tracker_instance__', () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 		expect((window as any).__tracker_instance__).toBeDefined();
 	});
 
-	it('accetta una userIdFn e la usa per risolvere il userId', async () => {
+	it('accepts a userIdFn and uses it to resolve the userId', async () => {
 		const { tracker } = trackerModule;
 		tracker.init(() => 'user-from-fn');
 
@@ -385,7 +385,7 @@ describe('tracker.init()', () => {
 });
 
 describe('tracker.track()', () => {
-	it('è un no-op se non inizializzato', async () => {
+	it('is a no-op when not initialized', async () => {
 		const { tracker } = trackerModule;
 		expect(() => tracker.track('my-event', { foo: 'bar' })).not.toThrow();
 
@@ -394,7 +394,7 @@ describe('tracker.track()', () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
-	it('emette un evento di tipo "custom" con name e data corretti', async () => {
+	it('emits a "custom" event with the correct name and data', async () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
@@ -410,7 +410,7 @@ describe('tracker.track()', () => {
 		expect(customEvent.payload.data).toEqual({ buttonId: 'cta' });
 	});
 
-	it('usa il level fornito nelle opzioni', async () => {
+	it('uses the level provided in options', async () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
@@ -424,7 +424,7 @@ describe('tracker.track()', () => {
 		expect(customEvent.level).toBe('debug');
 	});
 
-	it('include groupId se fornito nelle opzioni', async () => {
+	it('includes groupId when provided in options', async () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
@@ -441,14 +441,14 @@ describe('tracker.track()', () => {
 });
 
 describe('tracker.time() / tracker.timeEnd()', () => {
-	it('timeEnd() senza time() precedente restituisce -1', () => {
+	it('timeEnd() without a preceding time() returns -1', () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 		const result = tracker.timeEnd('missing-label');
 		expect(result).toBe(-1);
 	});
 
-	it('timeEnd() senza time() precedente logga un warning', () => {
+	it('timeEnd() without a preceding time() logs a warning', () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
@@ -456,7 +456,7 @@ describe('tracker.time() / tracker.timeEnd()', () => {
 		expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('missing-label'));
 	});
 
-	it('time() doppio logga un warning e non sovrascrive il primo', () => {
+	it('double time() logs a warning and does not overwrite the first', () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
@@ -467,7 +467,7 @@ describe('tracker.time() / tracker.timeEnd()', () => {
 		expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('my-op'));
 	});
 
-	it('timeEnd() emette un evento con campo duration corretto', async () => {
+	it('timeEnd() emits an event with the correct duration field', async () => {
 		const { tracker } = trackerModule;
 
 		tracker.init();
@@ -487,7 +487,7 @@ describe('tracker.time() / tracker.timeEnd()', () => {
 		expect(timedEvent.payload.data.duration).toBeGreaterThanOrEqual(0);
 	});
 
-	it('timeEnd() restituisce -1 se chiamato senza init()', () => {
+	it('timeEnd() returns -1 when called without init()', () => {
 		const { tracker } = trackerModule;
 		const result = tracker.timeEnd('never-started');
 		expect(result).toBe(-1);
@@ -495,12 +495,12 @@ describe('tracker.time() / tracker.timeEnd()', () => {
 });
 
 describe('tracker.setUser()', () => {
-	it('è un no-op se non inizializzato', () => {
+	it('is a no-op when not initialized', () => {
 		const { tracker } = trackerModule;
 		expect(() => tracker.setUser('user-123')).not.toThrow();
 	});
 
-	it('emette session:end con il vecchio userId prima di cambiare', async () => {
+	it('emits session:end with the old userId before changing', async () => {
 		const { tracker } = trackerModule;
 		tracker.init(() => 'user-old');
 
@@ -521,7 +521,7 @@ describe('tracker.setUser()', () => {
 		expect(endEvent.payload.previousUserId).toBe('user-old');
 	});
 
-	it('emette session:start con il nuovo userId dopo il cambio', async () => {
+	it('emits session:start with the new userId after the change', async () => {
 		const { tracker } = trackerModule;
 		tracker.init(() => 'user-old');
 
@@ -543,7 +543,7 @@ describe('tracker.setUser()', () => {
 		expect(startEvent.payload.newUserId).toBe('user-new');
 	});
 
-	it('null come userId genera un ID anonimo', async () => {
+	it('null as userId generates an anonymous ID', async () => {
 		const { tracker } = trackerModule;
 		tracker.init(() => 'user-123');
 
@@ -563,7 +563,7 @@ describe('tracker.setUser()', () => {
 		expect(startAfterNull.userId).toMatch(/^anon_/);
 	});
 
-	it('null come userId rimuove il userId da sessionStorage', () => {
+	it('null as userId removes the userId from sessionStorage', () => {
 		const { tracker } = trackerModule;
 		tracker.init(() => 'user-123');
 
@@ -573,7 +573,7 @@ describe('tracker.setUser()', () => {
 		expect(sessionStorage.getItem('__tracker_user_id__')).toBeNull();
 	});
 
-	it('salva il nuovo userId in sessionStorage', () => {
+	it('saves the new userId in sessionStorage', () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
@@ -582,7 +582,7 @@ describe('tracker.setUser()', () => {
 		expect(sessionStorage.getItem('__tracker_user_id__')).toBe('user-saved');
 	});
 
-	it('chiama overlay.refreshUserId() se l\'overlay è montato', () => {
+	it('calls overlay.refreshUserId() when the overlay is mounted', () => {
 		const { tracker } = trackerModule;
 		const configWithOverlay = makeMiddlewareConfig({
 			overlay: { enabled: true, position: 'bottom-right' }
@@ -597,7 +597,7 @@ describe('tracker.setUser()', () => {
 		expect(capturedOverlay!.refreshUserId).toHaveBeenCalledTimes(1);
 	});
 
-	it('salva gli userAttributes se forniti', async () => {
+	it('saves userAttributes when provided', async () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
@@ -618,12 +618,12 @@ describe('tracker.setUser()', () => {
 });
 
 describe('tracker.setContext()', () => {
-	it('è un no-op se non inizializzato', () => {
+	it('is a no-op when not initialized', () => {
 		const { tracker } = trackerModule;
 		expect(() => tracker.setContext({ env: 'test' })).not.toThrow();
 	});
 
-	it('il context si riflette negli eventi successivi', async () => {
+	it('the context is reflected in subsequent events', async () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
@@ -640,7 +640,7 @@ describe('tracker.setContext()', () => {
 });
 
 describe('tracker.group()', () => {
-	it('restituisce un ID univoco con il nome fornito', () => {
+	it('returns a unique ID with the provided name', () => {
 		const { tracker } = trackerModule;
 
 		expect(() => tracker.init()).not.toThrow();
@@ -657,14 +657,14 @@ describe('tracker.group()', () => {
 		} catch { }
 	});
 
-	it('restituisce un ID offline se non inizializzato', () => {
+	it('returns an offline ID when not initialized', () => {
 		const { tracker } = trackerModule;
 		const id = tracker.group('flow');
 		expect(id).toContain('flow');
 		expect(id).toContain('offline');
 	});
 
-	it('il formato è grp_{name}_{counter}_{timestamp}', () => {
+	it('the format is grp_{name}_{counter}_{timestamp}', () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
@@ -674,12 +674,12 @@ describe('tracker.group()', () => {
 });
 
 describe('tracker.destroy()', () => {
-	it('è un no-op se non inizializzato', () => {
+	it('is a no-op when not initialized', () => {
 		const { tracker } = trackerModule;
 		expect(() => tracker.destroy()).not.toThrow();
 	});
 
-	it('emette session:end con trigger "destroy"', async () => {
+	it('emits session:end with "destroy" trigger', async () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
@@ -702,7 +702,7 @@ describe('tracker.destroy()', () => {
 		expect(endEvent).toBeDefined();
 	});
 
-	it('distrugge l\'overlay se montato', () => {
+	it('destroys the overlay if mounted', () => {
 		const { tracker } = trackerModule;
 		const configWithOverlay = makeMiddlewareConfig({
 			overlay: { enabled: true, position: 'bottom-right' }
@@ -717,7 +717,7 @@ describe('tracker.destroy()', () => {
 		expect(capturedOverlay!.destroy).toHaveBeenCalledTimes(1);
 	});
 
-	it('chiama tutti i teardown dei tracker installati', () => {
+	it('calls all teardowns of the installed trackers', () => {
 		const { setupTrackers, tracker } = trackerModule;
 		const configWithTrackers = makeMiddlewareConfig({
 			track: {
@@ -743,7 +743,7 @@ describe('tracker.destroy()', () => {
 });
 
 describe('visibilitychange', () => {
-	it('chiama flush della queue quando visibilityState diventa "hidden"', async () => {
+	it('Calls queue flush when visibilityState becomes "hidden"', async () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
@@ -770,7 +770,7 @@ describe('visibilitychange', () => {
 		});
 	});
 
-	it('non chiama flush se visibilityState rimane "visible"', async () => {
+	it('Do not call flush if visibilityState remains "visible"', async () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
@@ -787,7 +787,7 @@ describe('visibilitychange', () => {
 });
 
 describe('beforeunload', () => {
-	it('emette session:end e chiama flush prima che la pagina chiuda', async () => {
+	it('emits session:end and calls flush before the page closes', async () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
@@ -814,8 +814,8 @@ describe('beforeunload', () => {
 	});
 });
 
-describe('setupTrackers e tracker.init sono no-op in SSR (window undefined)', () => {
-	it('né setupTrackers né tracker.init lanciano se window è undefined', async () => {
+describe('setupTrackers and tracker.init are no-ops in SSR (window undefined)', () => {
+	it('neither setupTrackers nor tracker.init throw when window is undefined', async () => {
 		const originalWindow = globalThis.window;
 		try {
 			vi.resetModules();
@@ -838,7 +838,7 @@ describe('setupTrackers e tracker.init sono no-op in SSR (window undefined)', ()
 		}
 	});
 
-	it('emette un evento console', async () => {
+	it('emits a console event', async () => {
 		vi.resetModules();
 
 		let capturedEmit: any = null;
@@ -870,7 +870,7 @@ describe('setupTrackers e tracker.init sono no-op in SSR (window undefined)', ()
 		expect(evt.level).toBe('warn');
 	});
 
-	it('emette un evento http', async () => {
+	it('emits an http event', async () => {
 		vi.resetModules();
 
 		let capturedEmit: any = null;
@@ -902,7 +902,7 @@ describe('setupTrackers e tracker.init sono no-op in SSR (window undefined)', ()
 		expect(evt.level).toBe('error');
 	});
 
-	it('emette un evento navigation', async () => {
+	it('emits a navigation event', async () => {
 		vi.resetModules();
 
 		let capturedEmit: any = null;
@@ -934,7 +934,7 @@ describe('setupTrackers e tracker.init sono no-op in SSR (window undefined)', ()
 		expect(evt.level).toBe('info');
 	});
 
-	it('lancia errore se __TRACKER_CONFIG__ manca', async () => {
+	it('throws an error when __TRACKER_CONFIG__ is missing', async () => {
 		vi.resetModules();
 
 		// @ts-ignore
@@ -949,8 +949,8 @@ describe('setupTrackers e tracker.init sono no-op in SSR (window undefined)', ()
 
 });
 
-describe('emit con overlay attivo — overlay.pushEvent() (righe 57-59)', () => {
-	it('overlay.pushEvent() viene chiamato dalla callback emit dei tracker installati', async () => {
+describe('emit with active overlay — overlay.pushEvent() (lines 57-59)', () => {
+	it('overlay.pushEvent() is called by the emit callback of installed trackers', async () => {
 		let capturedEmitCallback: ((event: any) => void) | null = null;
 		let localOverlay: {
 			pushEvent: ReturnType<typeof vi.fn>;
@@ -1023,8 +1023,8 @@ describe('emit con overlay attivo — overlay.pushEvent() (righe 57-59)', () => 
 	});
 });
 
-describe('performance guard in time() e timeEnd() (righe 179-180, 190-191)', () => {
-	it('time() è un no-op se performance non è disponibile', () => {
+describe('performance guard in time() and timeEnd() (lines 179-180, 190-191)', () => {
+	it('time() is a no-op when performance is not available', () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
@@ -1037,7 +1037,7 @@ describe('performance guard in time() e timeEnd() (righe 179-180, 190-191)', () 
 		globalThis.performance = originalPerf;
 	});
 
-	it('timeEnd() restituisce -1 se performance non è disponibile', () => {
+	it('timeEnd() returns -1 when performance is not available', () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
@@ -1052,8 +1052,8 @@ describe('performance guard in time() e timeEnd() (righe 179-180, 190-191)', () 
 	});
 });
 
-describe('_mountOverlay — chiamata al primo init (overlay montato una sola volta)', () => {
-	it('monta l\'overlay esattamente una volta anche se init() viene chiamato due volte (singleton)', async () => {
+describe('_mountOverlay — called on first init (overlay mounted exactly once)', () => {
+	it('mounts the overlay exactly once even if init() is called twice (singleton)', async () => {
 		let overlayConstructorCallCount = 0;
 
 		vi.resetModules();
@@ -1097,7 +1097,7 @@ describe('_mountOverlay — chiamata al primo init (overlay montato una sola vol
 });
 
 describe('callback onUserIdChange dell\'overlay (righe 246-256)', () => {
-	it('la callback passata a DebugOverlay chiama setUser e emette user:id-changed', async () => {
+	it('the callback passed to DebugOverlay calls setUser and emits user:id-changed', async () => {
 		let capturedOnUserIdChange: ((newId: string | null) => void) | null = null;
 
 		vi.resetModules();
@@ -1149,7 +1149,7 @@ describe('callback onUserIdChange dell\'overlay (righe 246-256)', () => {
 		}
 	});
 
-	it('la callback con null genera un userId anonimo', async () => {
+	it('the callback with null generates an anonymous userId', async () => {
 		let capturedOnUserIdChange: ((newId: string | null) => void) | null = null;
 
 		vi.resetModules();

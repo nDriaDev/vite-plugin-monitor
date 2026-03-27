@@ -101,7 +101,7 @@ afterEach(() => {
 
 describe('createLogger()', () => {
 	describe('console methods (main thread)', () => {
-		it('debug() scrive su console.debug quando minLevel è debug', () => {
+		it('debug() writes to console.debug when minLevel is debug', () => {
 			const spy = vi.spyOn(console, 'debug').mockImplementation(() => { });
 			const logger = createLogger({ level: 'debug' });
 			logger.debug('test debug');
@@ -109,42 +109,42 @@ describe('createLogger()', () => {
 			expect(spy.mock.calls[0][0]).toContain('test debug');
 		});
 
-		it('debug() non scrive quando minLevel è info', () => {
+		it('debug() does not write when minLevel is info', () => {
 			const spy = vi.spyOn(console, 'debug').mockImplementation(() => { });
 			const logger = createLogger({ level: 'info' });
 			logger.debug('silent');
 			expect(spy).not.toHaveBeenCalled();
 		});
 
-		it('info() scrive su console.info', () => {
+		it('info() writes to console.info', () => {
 			const spy = vi.spyOn(console, 'info').mockImplementation(() => { });
 			const logger = createLogger({ level: 'info' });
 			logger.info('test info');
 			expect(spy).toHaveBeenCalledOnce();
 		});
 
-		it('warn() scrive su console.warn', () => {
+		it('warn() writes to console.warn', () => {
 			const spy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 			const logger = createLogger({ level: 'info' });
 			logger.warn('test warn');
 			expect(spy).toHaveBeenCalledOnce();
 		});
 
-		it('error() scrive su console.error', () => {
+		it('error() writes to console.error', () => {
 			const spy = vi.spyOn(console, 'error').mockImplementation(() => { });
 			const logger = createLogger({ level: 'info' });
 			logger.error('test error');
 			expect(spy).toHaveBeenCalledOnce();
 		});
 
-		it('warn() non scrive se minLevel è error', () => {
+		it('warn() does not write when minLevel is error', () => {
 			const spy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 			const logger = createLogger({ level: 'error' });
 			logger.warn('silent warn');
 			expect(spy).not.toHaveBeenCalled();
 		});
 
-		it('il messaggio include il prefix [vite-plugin-monitor]', () => {
+		it('the message includes the prefix [vite-plugin-monitor]', () => {
 			const spy = vi.spyOn(console, 'info').mockImplementation(() => { });
 			const logger = createLogger({ level: 'info' });
 			logger.info('ciao');
@@ -153,25 +153,25 @@ describe('createLogger()', () => {
 	});
 
 	describe('writeEvent() — lazy worker spawn', () => {
-		it('non spawna il worker finché non viene chiamato writeEvent()', () => {
+		it('does not spawn the worker until writeEvent() is called', () => {
 			createLogger({ level: 'info' });
 			expect(MockWorker.instances).toHaveLength(0);
 		});
 
-		it('spawna il worker alla prima chiamata writeEvent()', () => {
+		it('spawns the worker on the first writeEvent() call', () => {
 			const logger = createLogger({ level: 'info' });
 			logger.writeEvent(makeEvent());
 			expect(MockWorker.instances).toHaveLength(1);
 		});
 
-		it('non spawna un secondo worker alla seconda chiamata', () => {
+		it('does not spawn a second worker on the second call', () => {
 			const logger = createLogger({ level: 'info' });
 			logger.writeEvent(makeEvent());
 			logger.writeEvent(makeEvent());
 			expect(MockWorker.instances).toHaveLength(1);
 		});
 
-		it('buffering: event scritto prima del "ready" viene bufferizzato', () => {
+		it('buffering: event written before "ready" is buffered', () => {
 			const logger = createLogger({ level: 'info' });
 			const ev = makeEvent();
 			logger.writeEvent(ev);
@@ -179,7 +179,7 @@ describe('createLogger()', () => {
 			expect(worker.postMessage).not.toHaveBeenCalled();
 		});
 
-		it('dopo il "ready" vengono drainati gli eventi bufferizzati', () => {
+		it('after "ready" the buffered events are flushed', () => {
 			const logger = createLogger({ level: 'info' });
 			const ev = makeEvent();
 			logger.writeEvent(ev);
@@ -190,7 +190,7 @@ describe('createLogger()', () => {
 			expect(worker.postMessage).toHaveBeenCalledWith({ type: 'write', event: ev });
 		});
 
-		it('dopo il "ready" writeEvent invia direttamente postMessage', () => {
+		it('After the "ready" writeEvent, send the postMessage directly.', () => {
 			const logger = createLogger({ level: 'info' });
 			logger.writeEvent(makeEvent());
 			const worker = MockWorker.latest()!;
@@ -202,13 +202,13 @@ describe('createLogger()', () => {
 			expect(worker.postMessage).toHaveBeenCalledWith({ type: 'write', event: ev2 });
 		});
 
-		it('evento sotto minLevel viene ignorato (nessun spawn)', () => {
+		it('event below minLevel is ignored (no spawn)', () => {
 			const logger = createLogger({ level: 'error' });
 			logger.writeEvent(makeEvent({ level: 'info' }));
 			expect(MockWorker.instances).toHaveLength(0);
 		});
 
-		it('evento al livello minLevel viene scritto', () => {
+		it('event at minLevel is written', () => {
 			const logger = createLogger({ level: 'warn' });
 			const ev = makeEvent({ level: 'warn' });
 			logger.writeEvent(ev);
@@ -219,7 +219,7 @@ describe('createLogger()', () => {
 	});
 
 	describe('worker lifecycle', () => {
-		it('messaggio "error" dal worker scrive su console.error', () => {
+		it('"error" message from worker writes to console.error', () => {
 			const spy = vi.spyOn(console, 'error').mockImplementation(() => { });
 			const logger = createLogger({ level: 'info' });
 			logger.writeEvent(makeEvent());
@@ -231,7 +231,7 @@ describe('createLogger()', () => {
 			);
 		});
 
-		it('crash del worker (evento "error") logga e resetta il riferimento interno', () => {
+		it('worker crash ("error" event) log and reset internal reference', () => {
 			const spy = vi.spyOn(console, 'error').mockImplementation(() => { });
 			const logger = createLogger({ level: 'info' });
 			logger.writeEvent(makeEvent());
@@ -242,7 +242,7 @@ describe('createLogger()', () => {
 			expect(MockWorker.instances).toHaveLength(2);
 		});
 
-		it('exit con code !== 0 scrive su console.warn', () => {
+		it('exit with code !== 0 writes to console.warn', () => {
 			const spy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 			const logger = createLogger({ level: 'info' });
 			logger.writeEvent(makeEvent());
@@ -251,7 +251,7 @@ describe('createLogger()', () => {
 			expect(spy).toHaveBeenCalledWith(expect.stringContaining('code 1'));
 		});
 
-		it('exit con code 0 non scrive su console.warn', () => {
+		it('exit with code 0 does not write to console.warn', () => {
 			const spy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 			const logger = createLogger({ level: 'info' });
 			logger.writeEvent(makeEvent());
@@ -262,12 +262,12 @@ describe('createLogger()', () => {
 	});
 
 	describe('destroy()', () => {
-		it('se il worker non è mai stato spawnato, destroy() risolve subito', async () => {
+		it('when the worker has never been spawned, destroy() resolves immediately', async () => {
 			const logger = createLogger({ level: 'info' });
 			await expect(logger.destroy()).resolves.toBeUndefined();
 		});
 
-		it('invia { type: "destroy" } al worker', async () => {
+		it('send { type: "destroy" } to the worker', async () => {
 			const logger = createLogger({ level: 'info' });
 			logger.writeEvent(makeEvent());
 			const worker = MockWorker.latest()!;
@@ -280,7 +280,7 @@ describe('createLogger()', () => {
 			expect(worker.postMessage).toHaveBeenCalledWith({ type: 'destroy' });
 		});
 
-		it('draina eventi pendenti prima di inviare destroy', async () => {
+		it('drains pending events before sending destroy', async () => {
 			const logger = createLogger({ level: 'info' });
 			const ev = makeEvent();
 			logger.writeEvent(ev);
@@ -293,7 +293,7 @@ describe('createLogger()', () => {
 			expect(worker.postMessage).toHaveBeenCalledWith({ type: 'write', event: ev });
 		});
 
-		it('destroy() risolve entro il timeout di sicurezza (3s) anche senza exit', async () => {
+		it('destroy() resolves within the safety timeout (3s) even without exit', async () => {
 			vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
 			const logger = createLogger({ level: 'info' });
 			logger.writeEvent(makeEvent());
@@ -308,8 +308,8 @@ describe('createLogger()', () => {
 		});
 	});
 
-	describe('workerData passato al costruttore Worker', () => {
-		it('passa i transports corretti al worker', () => {
+	describe('workerData passed to Worker constructor', () => {
+		it('passes the correct transports to the worker', () => {
 			const transport = {
 				format: 'json' as const,
 				path: './logs/test.log',
@@ -323,7 +323,7 @@ describe('createLogger()', () => {
 			expect(workerData.transports).toEqual([transport]);
 		});
 
-		it('passa minLevel numerico corretto (info = 1)', () => {
+		it('passes the correct numeric minLevel (info = 1)', () => {
 			const logger = createLogger({ level: 'info' });
 			logger.writeEvent(makeEvent());
 			const worker = MockWorker.latest()!;
@@ -331,7 +331,7 @@ describe('createLogger()', () => {
 			expect(workerData.minLevel).toBe(1);
 		});
 
-		it('passa minLevel numerico corretto (debug = 0)', () => {
+		it('passes the correct numeric minLevel (debug = 0)', () => {
 			const logger = createLogger({ level: 'debug' });
 			logger.writeEvent(makeEvent());
 			const worker = MockWorker.latest()!;
@@ -339,7 +339,7 @@ describe('createLogger()', () => {
 			expect(workerData.minLevel).toBe(0);
 		});
 
-		it('usa i transports di default se loggingOpts è undefined', () => {
+		it('uses the default transports when loggingOpts is undefined', () => {
 			const logger = createLogger();
 			logger.writeEvent(makeEvent());
 			const worker = MockWorker.latest()!;

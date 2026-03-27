@@ -111,32 +111,32 @@ afterEach(() => {
 });
 
 describe('trackerPlugin()', () => {
-	describe('plugin disabilitato (enabled: false)', () => {
-		it('restituisce un plugin no-op senza hook', () => {
+	describe('plugin disabled (enabled: false)', () => {
+		it('returns a no-op plugin without hooks', () => {
 			const plugin = trackerPlugin(baseOpts({ enabled: false }));
 			expect(plugin.name).toBe('vite-plugin-monitor');
 			expect(plugin.configResolved).toBeUndefined();
 			expect(plugin.transformIndexHtml).toBeUndefined();
 		});
 
-		it('non crea il logger', () => {
+		it('does not create the logger', () => {
 			trackerPlugin(baseOpts({ enabled: false }));
 			expect(mockCreateLogger).not.toHaveBeenCalled();
 		});
 
-		it('non registra shutdown hook', () => {
+		it('does not register shutdown hook', () => {
 			trackerPlugin(baseOpts({ enabled: false }));
 			expect(mockRegisterShutdownHook).not.toHaveBeenCalled();
 		});
 	});
 
-	describe('proprietà base del plugin', () => {
-		it('name è "vite-plugin-monitor"', () => {
+	describe('base plugin properties', () => {
+		it('name is "vite-plugin-monitor"', () => {
 			const plugin = trackerPlugin(baseOpts());
 			expect(plugin.name).toBe('vite-plugin-monitor');
 		});
 
-		it('enforce è "pre"', () => {
+		it('enforce is "pre"', () => {
 			const plugin = trackerPlugin(baseOpts());
 			expect(plugin.enforce).toBe('pre');
 		});
@@ -144,21 +144,21 @@ describe('trackerPlugin()', () => {
 
 	describe('configResolved()', () => {
 
-		it('crea il logger con le opzioni di logging', () => {
+		it('creates the logger with the logging options', () => {
 			const plugin = trackerPlugin(baseOpts());
 			const hook = getHook(plugin, 'configResolved') as Function;
 			hook(makeViteConfig());
 			expect(mockCreateLogger).toHaveBeenCalledOnce();
 		});
 
-		it('registra uno shutdown hook', () => {
+		it('registers a shutdown hook', () => {
 			const plugin = trackerPlugin(baseOpts());
 			const hook = getHook(plugin, 'configResolved') as Function;
 			hook(makeViteConfig());
 			expect(mockRegisterShutdownHook).toHaveBeenCalledOnce();
 		});
 
-		it('in modalità serve, mode diventa "middleware" per mode auto → writeEndpoint risolto a /_tracker/events', () => {
+		it('in serve mode, mode becomes "middleware" for auto mode -> writeEndpoint resolved to /_tracker/events', () => {
 			const plugin = trackerPlugin(baseOpts());
 			(getHook(plugin, 'configResolved') as Function)(makeViteConfig({ command: 'serve' }));
 			const server = makeServer();
@@ -167,7 +167,7 @@ describe('trackerPlugin()', () => {
 			expect(mockCreateStandaloneServer).not.toHaveBeenCalled();
 		});
 
-		it('in modalità build con writeEndpoint, mode diventa "http" → nessun middleware né standalone', () => {
+		it('in build mode with writeEndpoint, mode becomes "http" -> no middleware or standalone', () => {
 			const plugin = trackerPlugin(baseOpts({
 				storage: { mode: 'http', writeEndpoint: '/api/events' } as any
 			}));
@@ -178,7 +178,7 @@ describe('trackerPlugin()', () => {
 			expect(mockCreateStandaloneServer).not.toHaveBeenCalled();
 		});
 
-		it('lancia se mode è "auto" in build senza writeEndpoint', () => {
+		it('throws when mode is "auto" in build without writeEndpoint', () => {
 			const plugin = trackerPlugin(baseOpts());
 			const hook = getHook(plugin, 'configResolved') as Function;
 			expect(() => hook(makeViteConfig({ command: 'build' }))).toThrow(
@@ -186,7 +186,7 @@ describe('trackerPlugin()', () => {
 			);
 		});
 
-		it('risolve wsEndpoint per mode standalone → crea il standalone server', () => {
+		it('resolves wsEndpoint for standalone mode -> creates the standalone server', () => {
 			const plugin = trackerPlugin(baseOpts({
 				storage: { mode: 'standalone' } as any
 			}));
@@ -197,7 +197,7 @@ describe('trackerPlugin()', () => {
 			expect(mockStandaloneServer.start).toHaveBeenCalledOnce();
 		});
 
-		it('su HMR (seconda configResolved) chiama prima unregister del vecchio hook', () => {
+		it('on HMR (second configResolved) first calls unregister of the old hook', () => {
 			const plugin = trackerPlugin(baseOpts());
 			const hook = getHook(plugin, 'configResolved') as Function;
 			hook(makeViteConfig());
@@ -207,42 +207,42 @@ describe('trackerPlugin()', () => {
 		});
 	});
 
-	describe('effectiveMode() — risoluzione del mode', () => {
+	describe('effectiveMode() — mode resolution', () => {
 		function resolveMode(opts: TrackerPluginOptions, command: 'serve' | 'build' = 'serve') {
 			const plugin = trackerPlugin(opts);
 			const hook = getHook(plugin, 'configResolved') as Function;
 			hook(makeViteConfig({ command }));
 		}
 
-		it('"http" rimane "http"', () => {
+		it('"http" remains "http"', () => {
 			expect(() => resolveMode(baseOpts({
 				storage: { mode: 'http', writeEndpoint: '/api/events' } as any
 			}))).not.toThrow();
 		});
 
-		it('"standalone" rimane "standalone"', () => {
+		it('"standalone" remains "standalone"', () => {
 			expect(() => resolveMode(baseOpts({
 				storage: { mode: 'standalone' } as any
 			}))).not.toThrow();
 		});
 
-		it('"middleware" rimane "middleware"', () => {
+		it('"middleware" remains "middleware"', () => {
 			expect(() => resolveMode(baseOpts({
 				storage: { mode: 'middleware' } as any
 			}))).not.toThrow();
 		});
 
-		it('"websocket" rimane "websocket"', () => {
+		it('"websocket" remains "websocket"', () => {
 			expect(() => resolveMode(baseOpts({
 				storage: { mode: 'websocket', wsEndpoint: 'ws://remote' } as any
 			}))).not.toThrow();
 		});
 
-		it('"auto" + serve → "middleware"', () => {
+		it('"auto" + serve -> "middleware"', () => {
 			expect(() => resolveMode(baseOpts(), 'serve')).not.toThrow();
 		});
 
-		it('"auto" + build + writeEndpoint → "http"', () => {
+		it('"auto" + build + writeEndpoint -> "http"', () => {
 			expect(() => resolveMode(baseOpts({
 				storage: { writeEndpoint: '/api/events' } as any
 			}), 'build')).not.toThrow();
@@ -260,32 +260,32 @@ describe('trackerPlugin()', () => {
 			return transform.handler();
 		}
 
-		it('order è "pre"', () => {
+		it('order is "pre"', () => {
 			const plugin = trackerPlugin(baseOpts());
 			(getHook(plugin, 'configResolved') as Function)(makeViteConfig());
 			const transform = getHook(plugin, 'transformIndexHtml') as { order: string };
 			expect(transform.order).toBe('pre');
 		});
 
-		it('restituisce sempre il tag setupScript', () => {
+		it('always returns the setupScript tag', () => {
 			const tags = runTransform(baseOpts()) as Array<{ children: string }>;
 			const setup = tags.find(t => t.children?.includes('setupTrackers'));
 			expect(setup).toBeDefined();
 		});
 
-		it('con autoInit: true restituisce anche il tag autoInit', () => {
+		it('with autoInit: true also returns the autoInit tag', () => {
 			const tags = runTransform(baseOpts({ autoInit: true })) as Array<{ children: string }>;
 			const autoInit = tags.find(t => t.children?.includes('tracker.init'));
 			expect(autoInit).toBeDefined();
 		});
 
-		it('con autoInit: false non restituisce il tag autoInit', () => {
+		it('with autoInit: false does not return the autoInit tag', () => {
 			const tags = runTransform(baseOpts({ autoInit: false })) as Array<{ children: string }>;
 			const autoInit = tags.find(t => t.children?.includes('tracker.init'));
 			expect(autoInit).toBeUndefined();
 		});
 
-		it('i tag hanno type: "module" e injectTo: "head-prepend"', () => {
+		it('tags have type: "module" and injectTo: "head-prepend"', () => {
 			const tags = runTransform(baseOpts()) as Array<{ attrs: Record<string, string>; injectTo: string }>;
 			for (const tag of tags) {
 				expect(tag.attrs?.type).toBe('module');
@@ -294,7 +294,7 @@ describe('trackerPlugin()', () => {
 		});
 	});
 
-	describe('configureServer() — mode middleware', () => {
+	describe('configureServer() — middleware mode', () => {
 		function setupMiddlewareMode() {
 			const plugin = trackerPlugin(baseOpts({
 				storage: { mode: 'middleware' } as any
@@ -305,25 +305,25 @@ describe('trackerPlugin()', () => {
 			return { plugin, server }
 		}
 
-		it('monta il middleware con server.middlewares.use()', () => {
+		it('mounts the middleware with server.middlewares.use()', () => {
 			const { server } = setupMiddlewareMode();
 			expect(mockCreateMiddleware).toHaveBeenCalledOnce();
 			expect(server.middlewares.use).toHaveBeenCalledWith(mockMiddlewareFn);
 		});
 
-		it('non crea il standalone server in mode middleware', () => {
+		it('does not create the standalone server in middleware mode', () => {
 			setupMiddlewareMode();
 			expect(mockCreateStandaloneServer).not.toHaveBeenCalled();
 		});
 
-		it('registra il ping endpoint su /_tracker/ping', () => {
+		it('registers the ping endpoint at /_tracker/ping', () => {
 			const { server } = setupMiddlewareMode();
 			const pingCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls
 				.find((args: any[]) => args[0] === '/_tracker/ping');
 			expect(pingCall).toBeDefined();
 		});
 
-		it('il ping handler risponde { ok: true, appId }', () => {
+		it('the ping handler responds { ok: true, appId }', () => {
 			const { server } = setupMiddlewareMode();
 			const pingCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls
 				.find((args: any[]) => args[0] === '/_tracker/ping');
@@ -335,13 +335,13 @@ describe('trackerPlugin()', () => {
 			expect(body.appId).toBe('test-app');
 		});
 
-		it('sostituisce server.printUrls con una versione decorata', () => {
+		it('replaces server.printUrls with a decorated version', () => {
 			const { server } = setupMiddlewareMode();
 			expect(typeof server.printUrls).toBe('function');
 		});
 	});
 
-	describe('configureServer() — mode standalone', () => {
+	describe('configureServer() — standalone mode', () => {
 		function setupStandaloneMode() {
 			const plugin = trackerPlugin(baseOpts({
 				storage: { mode: 'standalone' } as any
@@ -352,19 +352,19 @@ describe('trackerPlugin()', () => {
 			return { plugin, server }
 		}
 
-		it('crea e avvia il standalone server', () => {
+		it('creates and starts the standalone server', () => {
 			setupStandaloneMode();
 			expect(mockCreateStandaloneServer).toHaveBeenCalledOnce();
 			expect(mockStandaloneServer.start).toHaveBeenCalledOnce();
 		});
 
-		it('non monta il middleware in mode standalone', () => {
+		it('does not mount the middleware in standalone mode', () => {
 			setupStandaloneMode();
 			expect(mockCreateMiddleware).not.toHaveBeenCalled();
 		});
 	});
 
-	describe('configureServer() — dashboard abilitato', () => {
+	describe('configureServer() — dashboard enabled', () => {
 		function setupWithDashboard(dashboardOpts = {}) {
 			const plugin = trackerPlugin(baseOpts({
 				storage: { mode: 'middleware' } as any,
@@ -376,14 +376,14 @@ describe('trackerPlugin()', () => {
 			return { server }
 		}
 
-		it('registra il middleware per la route dashboard', () => {
+		it('registers the middleware for the dashboard route', () => {
 			const { server } = setupWithDashboard();
 			const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls
 				.find((args: any[]) => args[0] === '/_dashboard');
 			expect(dashCall).toBeDefined();
 		});
 
-		it('il dashboard handler serve index.html con il config iniettato', () => {
+		it('the dashboard handler serves index.html with the injected config', () => {
 			mockExistsSync.mockReturnValue(true);
 			mockReadFileSync.mockReturnValue('<html><head></head></html>');
 			const { server } = setupWithDashboard();
@@ -404,7 +404,7 @@ describe('trackerPlugin()', () => {
 			expect(html).toContain('__TRACKER_CONFIG__');
 		});
 
-		it('il config viene iniettato prima di </head>', () => {
+		it('the config is injected before </head>', () => {
 			mockExistsSync.mockReturnValue(true);
 			mockReadFileSync.mockReturnValue('<html><head></head></html>');
 			const { server } = setupWithDashboard();
@@ -423,7 +423,7 @@ describe('trackerPlugin()', () => {
 			expect(scriptIdx).toBeLessThan(headCloseIdx);
 		});
 
-		it('se index.html non esiste, chiama next() e logga un warning', () => {
+		it('when index.html does not exist, calls next() and logs a warning', () => {
 			mockExistsSync.mockReturnValue(false);
 			const { server } = setupWithDashboard();
 
@@ -440,7 +440,7 @@ describe('trackerPlugin()', () => {
 			);
 		});
 
-		it('URL con estensione → tenta di servire il file statico', () => {
+		it('URL with extension -> attempts to serve the static file', () => {
 			mockExistsSync.mockImplementation((p: string) => p.includes('.js'));
 			const { server } = setupWithDashboard();
 
@@ -459,7 +459,7 @@ describe('trackerPlugin()', () => {
 	});
 
 	describe('configurePreviewServer()', () => {
-		it('monta il middleware anche sul preview server', () => {
+		it('mounts the middleware also on the preview server', () => {
 			const plugin = trackerPlugin(baseOpts({
 				storage: { mode: 'middleware' } as any
 			}));
@@ -471,7 +471,7 @@ describe('trackerPlugin()', () => {
 	});
 
 	describe('buildStart()', () => {
-		it('crea la directory di log se non esiste', () => {
+		it('creates the log directory if it does not exist', () => {
 			mockExistsSync.mockReturnValue(false);
 			const plugin = trackerPlugin(baseOpts({
 				logging: {
@@ -487,7 +487,7 @@ describe('trackerPlugin()', () => {
 			);
 		});
 
-		it('non chiama mkdirSync se la directory esiste già', () => {
+		it('does not call mkdirSync when the directory already exists', () => {
 			mockExistsSync.mockReturnValue(true);
 			const plugin = trackerPlugin(baseOpts({
 				logging: {
@@ -502,7 +502,7 @@ describe('trackerPlugin()', () => {
 	});
 
 	describe('closeBundle()', () => {
-		it('chiama unregisterShutdown e poi cleanup', async () => {
+		it('calls unregisterShutdown and then cleanup', async () => {
 			const plugin = trackerPlugin(baseOpts({
 				storage: { mode: 'http', writeEndpoint: '/api/events' } as any
 			}));
@@ -513,7 +513,7 @@ describe('trackerPlugin()', () => {
 			expect(mockLogger.destroy).toHaveBeenCalledOnce();
 		});
 
-		it('non copia il dashboard se isBuild è false', async () => {
+		it('does not copy the dashboard when isBuild is false', async () => {
 			const plugin = trackerPlugin(baseOpts({
 				dashboard: { enabled: true, includeInBuild: true } as any
 			}));
@@ -523,7 +523,7 @@ describe('trackerPlugin()', () => {
 			expect(mockWriteFileSync).not.toHaveBeenCalled();
 		});
 
-		it('non copia il dashboard se includeInBuild è false', async () => {
+		it('does not copy the dashboard when includeInBuild is false', async () => {
 			const plugin = trackerPlugin(baseOpts({
 				storage: { mode: 'http', writeEndpoint: '/api/events' } as any,
 				dashboard: { enabled: true, includeInBuild: false } as any
@@ -534,7 +534,7 @@ describe('trackerPlugin()', () => {
 			expect(mockWriteFileSync).not.toHaveBeenCalled();
 		});
 
-		it('logga warning se includeInBuild è true ma la dir dashboard non esiste', async () => {
+		it('logs warning when includeInBuild is true but the dashboard dir does not exist', async () => {
 			mockExistsSync.mockReturnValue(false);
 			const plugin = trackerPlugin(baseOpts({
 				storage: { mode: 'http', writeEndpoint: '/api/events' } as any,
@@ -548,7 +548,7 @@ describe('trackerPlugin()', () => {
 			);
 		});
 
-		it('copia la dashboard e inietta il config se tutto esiste', async () => {
+		it('copies the dashboard and injects the config when everything exists', async () => {
 			mockExistsSync.mockReturnValue(true);
 			mockReadFileSync.mockReturnValue('<html><head></head></html>');
 
@@ -567,7 +567,7 @@ describe('trackerPlugin()', () => {
 			);
 		});
 
-		it('ferma il standalone server prima di chiamare logger.destroy', async () => {
+		it('stops the standalone server before calling logger.destroy', async () => {
 			const callOrder: string[] = [];
 			mockStandaloneServer.stop.mockImplementation(() => callOrder.push('stop'));
 			mockLogger.destroy.mockImplementation(async () => { callOrder.push('destroy') });
@@ -584,7 +584,7 @@ describe('trackerPlugin()', () => {
 			expect(callOrder[1]).toBe('destroy');
 		});
 
-		it('copia ricorsivamente directory e file nel dashboard (copertura copyDirSync)', async () => {
+		it('recursively copies directories and files into the dashboard (copyDirSync coverage)', async () => {
 			mockExistsSync.mockImplementation((p: string) => {
 				if (p.includes('dashboard/assets')) return true
 				if (p.includes('dashboard/index.html')) return true
@@ -635,7 +635,7 @@ describe('trackerPlugin()', () => {
 		];
 
 		for (const [url, expectedMime] of mimeTests) {
-			it(`${url} → ${expectedMime}`, () => {
+			it(`${url} -> ${expectedMime}`, () => {
 				const pipeMock = vi.fn();
 				mockCreateReadStream.mockReturnValue({ pipe: pipeMock });
 
@@ -663,7 +663,7 @@ describe('trackerPlugin()', () => {
 		}
 	});
 
-	describe('printUrls() — URL mostrati in console', () => {
+	describe('printUrls() — URLs shown in console', () => {
 		function setupAndCallPrintUrls(opts: TrackerPluginOptions, viteConfigOverrides: Partial<ResolvedConfig> = {}) {
 			const plugin = trackerPlugin(opts);
 			const config = makeViteConfig(viteConfigOverrides);
@@ -677,35 +677,35 @@ describe('trackerPlugin()', () => {
 			return consoleSpy;
 		}
 
-		it('in mode middleware stampa /_tracker come URL API', () => {
+		it('in middleware mode prints /_tracker as the API URL', () => {
 			const spy = setupAndCallPrintUrls(baseOpts({
 				storage: { mode: 'middleware' } as any
 			}));
 			expect(spy).toHaveBeenCalledWith(expect.stringContaining('/_tracker'));
 		});
 
-		it('in mode standalone stampa la porta standalone come URL API', () => {
+		it('in standalone mode prints the standalone port as the API URL', () => {
 			const spy = setupAndCallPrintUrls(baseOpts({
 				storage: { mode: 'standalone' } as any
 			}));
 			expect(spy).toHaveBeenCalledWith(expect.stringContaining('4242'));
 		});
 
-		it('in mode http stampa readEndpoint come URL API', () => {
+		it('in http mode prints readEndpoint as the API URL', () => {
 			const spy = setupAndCallPrintUrls(baseOpts({
 				storage: { mode: 'http', writeEndpoint: '/api/events', readEndpoint: '/api' } as any
 			}));
 			expect(spy).toHaveBeenCalledWith(expect.stringContaining('/api'));
 		});
 
-		it('in mode websocket stampa wsEndpoint come URL API', () => {
+		it('in websocket mode prints wsEndpoint as the API URL', () => {
 			const spy = setupAndCallPrintUrls(baseOpts({
 				storage: { mode: 'websocket', wsEndpoint: 'ws://remote:9000' } as any
 			}));
 			expect(spy).toHaveBeenCalledWith(expect.stringContaining('ws://remote:9000'));
 		});
 
-		it('con dashboard abilitato stampa anche la URL del dashboard', () => {
+		it('with dashboard enabled also prints the dashboard URL', () => {
 			const spy = setupAndCallPrintUrls(baseOpts({
 				storage: { mode: 'middleware' } as any,
 				dashboard: { enabled: true, route: '/_dashboard' } as any,
@@ -713,7 +713,7 @@ describe('trackerPlugin()', () => {
 			expect(spy).toHaveBeenCalledWith(expect.stringContaining('/_dashboard'));
 		});
 
-		it('senza dashboard non stampa la URL del dashboard', () => {
+		it('without dashboard does not print the dashboard URL', () => {
 			const spy = setupAndCallPrintUrls(baseOpts({
 				storage: { mode: 'middleware' } as any,
 			}));
@@ -723,7 +723,7 @@ describe('trackerPlugin()', () => {
 			expect(dashboardPrint).toBeUndefined();
 		});
 
-		it('chiama la printUrls originale prima di stampare le proprie righe', () => {
+		it('calls the original printUrls before printing its own lines', () => {
 			const plugin = trackerPlugin(baseOpts({ storage: { mode: 'middleware' } as any }));
 			(getHook(plugin, 'configResolved') as Function)(makeViteConfig());
 			const originalPrint = vi.fn();

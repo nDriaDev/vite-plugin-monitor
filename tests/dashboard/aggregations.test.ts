@@ -23,12 +23,12 @@ const UNTIL = '2026-12-31T23:59:59.000Z';
 const TS = '2026-06-15T12:00:00.000Z';
 
 describe('computeMetrics', () => {
-	it('restituisce activeSessions=0 per array vuoto', () => {
+	it('returns activeSessions=0 for empty array', () => {
 		const result = computeMetrics([], SINCE, UNTIL);
 		expect(result.activeSessions).toBe(0);
 	});
 
-	it('conta le sessioni attive negli ultimi 5 minuti', () => {
+	it('counts active sessions in the last 5 minutes', () => {
 		const recent = new Date(Date.now() - 2 * 60_000).toISOString();
 		const old = new Date(Date.now() - 10 * 60_000).toISOString();
 		const events = [
@@ -39,7 +39,7 @@ describe('computeMetrics', () => {
 		expect(result.activeSessions).toBe(1);
 	});
 
-	it('raggruppa per bucket orario se diffHours <= 48', () => {
+	it('groups by hourly bucket when diffHours <= 48', () => {
 		const events = [
 			makeEvent({ timestamp: '2026-06-15T12:00:00.000Z' }),
 			makeEvent({ timestamp: '2026-06-15T12:30:00.000Z' }),
@@ -53,7 +53,7 @@ describe('computeMetrics', () => {
 		expect(bucket12!.value).toBe(2);
 	});
 
-	it('raggruppa per bucket giornaliero se diffHours > 48', () => {
+	it('groups by daily bucket when diffHours > 48', () => {
 		const events = [
 			makeEvent({ timestamp: '2026-06-15T12:00:00.000Z' }),
 			makeEvent({ timestamp: '2026-06-16T12:00:00.000Z' }),
@@ -65,7 +65,7 @@ describe('computeMetrics', () => {
 		expect(bucketDay16!.value).toBe(2);
 	});
 
-	it('calcola errorRateTimeline correttamente', () => {
+	it('calculates errorRateTimeline correctly', () => {
 		const events = [
 			makeEvent({ timestamp: TS, level: 'info' }),
 			makeEvent({ timestamp: TS, level: 'error' }),
@@ -75,7 +75,7 @@ describe('computeMetrics', () => {
 		expect(bucket.value).toBe(50);
 	});
 
-	it('calcola topPages da eventi navigation', () => {
+	it('calculates topPages from navigation events', () => {
 		const events = [
 			makeEvent({ timestamp: TS, type: 'navigation', payload: { from: '/home', to: '/about' } as unknown as EventPayload }),
 			makeEvent({ timestamp: TS, type: 'navigation', payload: { from: '/home', to: '/about' } as unknown as EventPayload }),
@@ -86,7 +86,7 @@ describe('computeMetrics', () => {
 		expect(result.topPages[1]).toEqual({ label: '/contact', count: 1 });
 	});
 
-	it('ignora navigation con to vuoto', () => {
+	it('ignores navigation with empty to', () => {
 		const events = [
 			makeEvent({ timestamp: TS, type: 'navigation', payload: { from: '/home', to: '' } as unknown as EventPayload }),
 		];
@@ -94,7 +94,7 @@ describe('computeMetrics', () => {
 		expect(result.topPages).toHaveLength(0);
 	});
 
-	it('calcola topErrors da eventi error', () => {
+	it('calculates topErrors from error events', () => {
 		const events = [
 			makeEvent({ timestamp: TS, type: 'error', payload: { message: 'TypeError: foo' } as unknown as EventPayload }),
 			makeEvent({ timestamp: TS, type: 'error', payload: { message: 'TypeError: foo' } as unknown as EventPayload }),
@@ -105,7 +105,7 @@ describe('computeMetrics', () => {
 		expect(result.topErrors[0].count).toBe(2);
 	});
 
-	it('topErrors: lastSeen viene aggiornato con il timestamp più recente', () => {
+	it('topErrors: lastSeen is updated with the most recent timestamp', () => {
 		const ts1 = '2026-06-15T10:00:00.000Z';
 		const ts2 = '2026-06-15T12:00:00.000Z';
 		const events = [
@@ -116,7 +116,7 @@ describe('computeMetrics', () => {
 		expect(result.topErrors[0].lastSeen).toBe(ts2);
 	});
 
-	it('calcola navigationFunnel', () => {
+	it('calculates navigationFunnel', () => {
 		const events = [
 			makeEvent({ timestamp: TS, type: 'navigation', payload: { from: '/home', to: '/about' } as unknown as EventPayload }),
 			makeEvent({ timestamp: TS, type: 'navigation', payload: { from: '/home', to: '/about' } as unknown as EventPayload }),
@@ -125,7 +125,7 @@ describe('computeMetrics', () => {
 		expect(result.navigationFunnel[0]).toEqual({ from: '/home', to: '/about', count: 2 });
 	});
 
-	it('ignora navigation con from === to nel funnel', () => {
+	it('ignores navigation with from === to in the funnel', () => {
 		const events = [
 			makeEvent({ timestamp: TS, type: 'navigation', payload: { from: '/home', to: '/home' } as unknown as EventPayload }),
 		];
@@ -133,7 +133,7 @@ describe('computeMetrics', () => {
 		expect(result.navigationFunnel).toHaveLength(0);
 	});
 
-	it('calcola topEndpoints da eventi http', () => {
+	it('calculates topEndpoints from http events', () => {
 		const events = [
 			makeEvent({ timestamp: TS, type: 'http', payload: { method: 'GET', url: '/api/users', status: 200 } as unknown as EventPayload }),
 			makeEvent({ timestamp: TS, type: 'http', payload: { method: 'GET', url: '/api/users', status: 200 } }),
@@ -143,7 +143,7 @@ describe('computeMetrics', () => {
 		expect(result.topEndpoints[0]).toEqual({ label: '/api/users', count: 2 });
 	});
 
-	it('esclude eventi fuori dalla finestra temporale', () => {
+	it('excludes events outside the time window', () => {
 		const events = [
 			makeEvent({ timestamp: '2025-01-01T00:00:00.000Z' }),
 		];
@@ -154,7 +154,7 @@ describe('computeMetrics', () => {
 });
 
 describe('computeStats', () => {
-	it('restituisce zeri per array vuoto', () => {
+	it('returns zeros for empty array', () => {
 		const result = computeStats([], SINCE, UNTIL);
 		expect(result.totalEvents).toBe(0);
 		expect(result.totalSessions).toBe(0);
@@ -162,7 +162,7 @@ describe('computeStats', () => {
 		expect(result.errorRate).toBe(0);
 	});
 
-	it('conta totalEvents, totalSessions e totalUsers correttamente', () => {
+	it('counts totalEvents, totalSessions and totalUsers correctly', () => {
 		const events = [
 			makeEvent({ sessionId: 'sess-1', userId: 'user-1', timestamp: TS }),
 			makeEvent({ sessionId: 'sess-1', userId: 'user-1', timestamp: TS }),
@@ -174,7 +174,7 @@ describe('computeStats', () => {
 		expect(result.totalUsers).toBe(2);
 	});
 
-	it('calcola errorRate come rapporto eventi "error" su totale', () => {
+	it('Calculate errorRate as the ratio of "error" events to total', () => {
 		const events = [
 			makeEvent({ type: 'error', level: 'error', timestamp: TS }),
 			makeEvent({ type: 'click', level: 'info', timestamp: TS }),
@@ -183,7 +183,7 @@ describe('computeStats', () => {
 		expect(result.errorRate).toBeCloseTo(0.5);
 	});
 
-	it('calcola avgHttpDuration correttamente', () => {
+	it('calculates avgHttpDuration correctly', () => {
 		const events = [
 			makeEvent({ type: 'http', timestamp: TS, payload: { method: 'GET', url: '/a', duration: 100 } }),
 			makeEvent({ type: 'http', timestamp: TS, payload: { method: 'GET', url: '/b', duration: 300 } }),
@@ -192,13 +192,13 @@ describe('computeStats', () => {
 		expect(result.avgHttpDuration).toBe(200);
 	});
 
-	it('avgHttpDuration è undefined se non ci sono http con duration', () => {
+	it('avgHttpDuration is undefined when there are no http events with duration', () => {
 		const events = [makeEvent({ timestamp: TS })];
 		const result = computeStats(events, SINCE, UNTIL);
 		expect(result.avgHttpDuration).toBeUndefined();
 	});
 
-	it('calcola httpStats: total, count2xx, count4xx, count5xx', () => {
+	it('calculates httpStats: total, count2xx, count4xx, count5xx', () => {
 		const events = [
 			makeEvent({ type: 'http', timestamp: TS, payload: { method: 'GET', url: '/a', status: 200 } }),
 			makeEvent({ type: 'http', timestamp: TS, payload: { method: 'GET', url: '/b', status: 404 } }),
@@ -211,7 +211,7 @@ describe('computeStats', () => {
 		expect(result.httpStats.count5xx).toBe(1);
 	});
 
-	it('calcola pct2xx/pct4xx/pct5xx', () => {
+	it('calculates pct2xx/pct4xx/pct5xx', () => {
 		const events = [
 			makeEvent({ type: 'http', timestamp: TS, payload: { method: 'GET', url: '/a', status: 200 } }),
 			makeEvent({ type: 'http', timestamp: TS, payload: { method: 'GET', url: '/b', status: 404 } }),
@@ -221,7 +221,7 @@ describe('computeStats', () => {
 		expect(result.httpStats.pct4xx).toBe(50);
 	});
 
-	it('mostCalledEndpoint è l\'endpoint con più chiamate', () => {
+	it('mostCalledEndpoint is the endpoint with the most calls', () => {
 		const events = [
 			makeEvent({ type: 'http', timestamp: TS, payload: { method: 'GET', url: '/api/users', status: 200 } }),
 			makeEvent({ type: 'http', timestamp: TS, payload: { method: 'GET', url: '/api/users', status: 200 } }),
@@ -232,7 +232,7 @@ describe('computeStats', () => {
 		expect(result.httpStats.mostCalledEndpoint?.count).toBe(2);
 	});
 
-	it('slowestEndpoint è l\'endpoint con avg duration maggiore', () => {
+	it('slowestEndpoint is the endpoint with the highest avg duration', () => {
 		const events = [
 			makeEvent({ type: 'http', timestamp: TS, payload: { method: 'GET', url: '/fast', status: 200, duration: 50 } }),
 			makeEvent({ type: 'http', timestamp: TS, payload: { method: 'GET', url: '/slow', status: 200, duration: 2000 } }),
@@ -242,7 +242,7 @@ describe('computeStats', () => {
 		expect(result.httpStats.slowestEndpoint?.avgDuration).toBe(2000);
 	});
 
-	it('calcola topRoutes', () => {
+	it('calculates topRoutes', () => {
 		const events = [
 			makeEvent({ timestamp: TS, meta: { route: '/home', viewport: '', language: '', userAgent: '' } }),
 			makeEvent({ timestamp: TS, meta: { route: '/home', viewport: '', language: '', userAgent: '' } }),
@@ -252,7 +252,7 @@ describe('computeStats', () => {
 		expect(result.topRoutes[0]).toEqual({ route: '/home', count: 2 });
 	});
 
-	it('calcola topUsers', () => {
+	it('calculates topUsers', () => {
 		const events = [
 			makeEvent({ timestamp: TS, userId: 'alice' }),
 			makeEvent({ timestamp: TS, userId: 'alice' }),
@@ -262,7 +262,7 @@ describe('computeStats', () => {
 		expect(result.topUsers[0]).toEqual({ userId: 'alice', count: 2 });
 	});
 
-	it('calcola timeline per bucket orario', () => {
+	it('calculates timeline by hourly bucket', () => {
 		const events = [
 			makeEvent({ timestamp: '2026-06-15T12:30:00.000Z' }),
 			makeEvent({ timestamp: '2026-06-15T12:45:00.000Z' }),
@@ -273,7 +273,7 @@ describe('computeStats', () => {
 		expect(bucket!.count).toBe(2);
 	});
 
-	it('httpStats.total=0: pct sono 0 e mostCalled/slowest sono undefined', () => {
+	it('httpStats.total=0: pct are 0 and mostCalled/slowest are undefined', () => {
 		const result = computeStats([], SINCE, UNTIL);
 		expect(result.httpStats.pct2xx).toBe(0);
 		expect(result.httpStats.mostCalledEndpoint).toBeUndefined();

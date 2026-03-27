@@ -78,14 +78,14 @@ afterEach(() => {
 	vi.doUnmock('node:fs');
 });
 
-describe('logger-worker — inizializzazione', () => {
+describe('logger-worker — initialization', () => {
 	it('invia { type: "ready" } a parentPort subito dopo l\'import', async () => {
 		const port = new FakeParentPort();
 		await loadWorker({ transports: [makeTransport()], minLevel: 1, fakePort: port });
 		expect(port.postMessage).toHaveBeenCalledWith({ type: 'ready' });
 	});
 
-	it('crea un WriteStream per ogni transport fornito in workerData', async () => {
+	it('creates a WriteStream for each transport provided in workerData', async () => {
 		const port = new FakeParentPort();
 		const stream = makeFakeStream();
 
@@ -129,7 +129,7 @@ describe('logger-worker — inizializzazione', () => {
 		expect(createWriteStreamCallCount).toBe(2);
 	});
 
-	it('crea la directory del log se non esiste (ensureDir)', async () => {
+	it('creates the log directory if it does not exist (ensureDir)', async () => {
 		const port = new FakeParentPort();
 		const stream = makeFakeStream();
 
@@ -167,7 +167,7 @@ describe('logger-worker — inizializzazione', () => {
 
 
 describe('logger-worker — message handler: write', () => {
-	it('scrive l\'evento nel transport quando il livello è >= minLevel', async () => {
+	it('writes the event to the transport when level is >= minLevel', async () => {
 		const port = new FakeParentPort();
 		const stream = makeFakeStream();
 		await loadWorker({ transports: [makeTransport()], minLevel: 1, fakePort: port, fakeStream: stream });
@@ -180,7 +180,7 @@ describe('logger-worker — message handler: write', () => {
 		expect(written).toContain('"type":"console"');
 	});
 
-	it('scarta l\'evento se il livello è < minLevel', async () => {
+	it('discards the event when level is < minLevel', async () => {
 		const port = new FakeParentPort();
 		const stream = makeFakeStream();
 		await loadWorker({ transports: [makeTransport()], minLevel: 2, fakePort: port, fakeStream: stream });
@@ -189,7 +189,7 @@ describe('logger-worker — message handler: write', () => {
 		expect(stream.write).not.toHaveBeenCalled();
 	});
 
-	it('scrive solo nel transport indicato da transportIdx', async () => {
+	it('writes only to the transport indicated by transportIdx', async () => {
 		const port = new FakeParentPort();
 		const stream0 = makeFakeStream();;
 		const stream1 = makeFakeStream();;
@@ -221,7 +221,7 @@ describe('logger-worker — message handler: write', () => {
 		expect(stream1.write).toHaveBeenCalledOnce();
 	});
 
-	it('scrive su tutti i transport se transportIdx è assente', async () => {
+	it('writes to all transports when transportIdx is absent', async () => {
 		const port = new FakeParentPort();
 		const stream0 = makeFakeStream();
 		const stream1 = makeFakeStream();
@@ -253,7 +253,7 @@ describe('logger-worker — message handler: write', () => {
 		expect(stream1.write).toHaveBeenCalledOnce();
 	});
 
-	it('segnala errore a parentPort se write() lancia', async () => {
+	it('signals error to parentPort when write() throws', async () => {
 		const port = new FakeParentPort();
 		const stream = makeFakeStream();
 		stream.write.mockImplementation(() => { throw new Error('disk full') });
@@ -270,7 +270,7 @@ describe('logger-worker — message handler: write', () => {
 
 
 describe('logger-worker — message handler: destroy', () => {
-	it('chiama process.exit(0) alla ricezione del messaggio destroy', async () => {
+	it('calls process.exit(0) on receiving the destroy message', async () => {
 		const port = new FakeParentPort();
 		const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
 
@@ -282,7 +282,7 @@ describe('logger-worker — message handler: destroy', () => {
 		exitSpy.mockRestore();
 	});
 
-	it('chiude tutti i WriteStream (stream.end()) prima di uscire', async () => {
+	it('closes all WriteStreams (stream.end()) before exiting', async () => {
 		const port = new FakeParentPort();
 		const stream0 = makeFakeStream();
 		const stream1 = makeFakeStream();
@@ -317,7 +317,7 @@ describe('logger-worker — message handler: destroy', () => {
 });
 
 describe('logger-worker — formatters', () => {
-	it('formatJson produce una riga JSON terminata da \\n', async () => {
+	it('formatJson produces a JSON line terminated by \\n', async () => {
 		const port = new FakeParentPort();
 		const stream = makeFakeStream();
 		await loadWorker({ transports: [makeTransport({ format: 'json' })], minLevel: 0, fakePort: port, fakeStream: stream });
@@ -330,7 +330,7 @@ describe('logger-worker — formatters', () => {
 		expect(line.endsWith('\n')).toBe(true);
 	});
 
-	it('formatPretty produce una riga leggibile con timestamp, level, type, user, session', async () => {
+	it('formatPretty produces a human-readable line with timestamp, level, type, user, session', async () => {
 		const port = new FakeParentPort();
 		const stream = makeFakeStream();
 		await loadWorker({ transports: [makeTransport({ format: 'pretty' })], minLevel: 0, fakePort: port, fakeStream: stream });
@@ -349,7 +349,7 @@ describe('logger-worker — formatters', () => {
 
 
 describe('logger-worker — parseSize', () => {
-	it('transport senza rotation non fa rotate — stream.write viene chiamato direttamente', async () => {
+	it('transport without rotation does not rotate — stream.write is called directly', async () => {
 		const port = new FakeParentPort();
 		const stream = makeFakeStream();
 		stream.bytesWritten = 0;
@@ -365,7 +365,7 @@ describe('logger-worker — parseSize', () => {
 		expect(stream.write).toHaveBeenCalledOnce();
 	});
 
-	it('parseSize usa il fallback 10mb quando maxSize ha un formato invalido', async () => {
+	it('parseSize uses the 10mb fallback when maxSize has an invalid format', async () => {
 		const port = new FakeParentPort();
 
 		vi.resetModules();
@@ -406,8 +406,8 @@ describe('logger-worker — parseSize', () => {
 
 });
 
-describe('logger-worker — rotazione size', () => {
-	it('esegue la rotazione e riapre lo stream quando bytesWritten >= bytesLimit', async () => {
+describe('logger-worker — size rotation', () => {
+	it('performs rotation and reopens the stream when bytesWritten >= bytesLimit', async () => {
 		const port = new FakeParentPort();
 
 		let streamCallCount = 0;
@@ -449,7 +449,7 @@ describe('logger-worker — rotazione size', () => {
 		expect(stream2.write).toHaveBeenCalledOnce();
 	});
 
-	it('cleanupOldFiles elimina i file oltre maxFiles durante la rotazione', async () => {
+	it('cleanupOldFiles removes files beyond maxFiles during rotation', async () => {
 		const port = new FakeParentPort();
 
 		let streamCallCount = 0;
@@ -524,8 +524,8 @@ describe('logger-worker — rotazione size', () => {
 
 });
 
-describe('logger-worker — rotazione daily', () => {
-	it('riapre lo stream con la data corrente quando la data cambia', async () => {
+describe('logger-worker — daily rotation', () => {
+	it('reopens the stream with the current date when the date changes', async () => {
 		const port = new FakeParentPort();
 
 		let streamCallCount = 0;
@@ -571,7 +571,7 @@ describe('logger-worker — rotazione daily', () => {
 });
 
 describe('logger-worker — stream error callback', () => {
-	it('segnala errori di stream a parentPort via { type: "error" }', async () => {
+	it('Report stream errors to parentPort via { type: "error" }', async () => {
 		const port = new FakeParentPort();
 
 		vi.resetModules();
@@ -607,8 +607,8 @@ describe('logger-worker — stream error callback', () => {
 	});
 });
 
-describe('logger-worker — buffering durante drain', () => {
-	it('bufferizza le righe quando stream.write() ritorna false e le draina sull\'evento drain', async () => {
+describe('logger-worker — buffering during drain', () => {
+	it('Buffers lines when stream.write() returns false and drains them on the drain event', async () => {
 		const port = new FakeParentPort();
 
 		vi.resetModules();

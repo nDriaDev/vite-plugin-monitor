@@ -8,178 +8,178 @@ function baseOpts(overrides: Partial<TrackerPluginOptions> = {}): TrackerPluginO
 
 describe('resolveOptions()', () => {
 
-	describe('validazione input', () => {
-		it('lancia se appId è assente', () => {
+	describe('input validation', () => {
+		it('throws when appId is absent', () => {
 			expect(() => resolveOptions({} as TrackerPluginOptions)).toThrow(
 				'`appId` is required'
 			);
 		});
 
-		it('lancia se appId è stringa vuota', () => {
+		it('throws when appId is an empty string', () => {
 			expect(() => resolveOptions({ appId: '' })).toThrow(
 				'`appId` is required'
 			);
 		});
 
-		it('lancia se mode è "websocket" e wsEndpoint è assente', () => {
+		it('throws when mode is "websocket" and wsEndpoint is absent', () => {
 			expect(() =>
 				resolveOptions(baseOpts({ storage: { mode: 'websocket' } as any }))
 			).toThrow('`storage.wsEndpoint` is required when mode is "websocket"');
 		});
 
-		it('lancia se mode è "http" e writeEndpoint è assente', () => {
+		it('throws when mode is "http" and writeEndpoint is absent', () => {
 			expect(() =>
 				resolveOptions(baseOpts({ storage: { mode: 'http' } as any }))
 			).toThrow('`storage.writeEndpoint` is required when mode is "http"');
 		});
 
-		it('non lancia se mode è "http" con writeEndpoint valido', () => {
+		it('does not throw when mode is "http" with valid writeEndpoint', () => {
 			expect(() =>
 				resolveOptions(baseOpts({ storage: { mode: 'http', writeEndpoint: '/api/events' } as any }))
 			).not.toThrow();
 		});
 
-		it('non lancia se mode è "websocket" con wsEndpoint valido', () => {
+		it('does not throw when mode is "websocket" with valid wsEndpoint', () => {
 			expect(() =>
 				resolveOptions(baseOpts({ storage: { mode: 'websocket', wsEndpoint: 'ws://localhost:4242' } as any }))
 			).not.toThrow();
 		});
 
-		it('non lancia con solo appId (mode auto)', () => {
+		it('does not throw with only appId (auto mode)', () => {
 			expect(() => resolveOptions(baseOpts())).not.toThrow();
 		});
 	});
 
-	describe('valori di default', () => {
-		it('enabled è true di default', () => {
+	describe('default values', () => {
+		it('enabled is true by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.enabled).toBe(true);;
 		});
 
-		it('autoInit è true di default', () => {
+		it('autoInit is true by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.autoInit).toBe(true);
 		});
 
-		it('storage.mode è "auto" di default', () => {
+		it('storage.mode is "auto" by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.storage.mode).toBe('auto');
 		});
 
-		it('storage.port è 4242 di default', () => {
+		it('storage.port is 4242 by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.storage.port).toBe(4242);
 		});
 
-		it('storage.batchSize è 25 di default', () => {
+		it('storage.batchSize is 25 by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.storage.batchSize).toBe(25);
 		});
 
-		it('storage.flushInterval è 3000 di default', () => {
+		it('storage.flushInterval is 3000 by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.storage.flushInterval).toBe(3000);
 		});
 
-		it('storage.maxBufferSize è 500000 di default', () => {
+		it('storage.maxBufferSize is 500000 by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.storage.maxBufferSize).toBe(500000);
 		});
 
-		it('track.clicks è false di default', () => {
+		it('track.clicks is false by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.track.clicks).toBe(false);
 		});
 
-		it('track.console è true di default', () => {
+		it('track.console is true by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.track.console).toBe(true);
 		});
 
-		it('track.level è "info" di default', () => {
+		it('track.level is "info" by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.track.level).toBe('info');
 		});
 
-		it('track.ignoreUrls è [] di default', () => {
+		it('track.ignoreUrls is [] by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.track.ignoreUrls).toEqual([]);
 		});
 
-		it('logging.level è "info" di default', () => {
+		it('logging.level is "info" by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.logging.level).toBe('info');
 		});
 
-		it('logging.transports ha un transport json di default', () => {
+		it('logging.transports has a json transport by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.logging.transports).toHaveLength(1);
 			expect(r.logging.transports![0].format).toBe('json');
 			expect(r.logging.transports![0].path).toContain('test-app.log');
 		});
 
-		it('dashboard.enabled è false di default', () => {
+		it('dashboard.enabled is false by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.dashboard.enabled).toBe(false);
 		});
 
-		it('dashboard.route è "/_dashboard" di default', () => {
+		it('dashboard.route is "/_dashboard" by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.dashboard.route).toBe('/_dashboard');
 		});
 
-		it('dashboard.auth è false di default', () => {
+		it('dashboard.auth is false by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.dashboard.auth).toBe(false);
 		});
 
-		it('dashboard.pollInterval è 3000 di default', () => {
+		it('dashboard.pollInterval is 3000 by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.dashboard.pollInterval).toBe(3000);
 		});
 
-		it('overlay.enabled è false di default', () => {
+		it('overlay.enabled is false by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.overlay.enabled).toBe(false);
 		});
 
-		it('overlay.position è "bottom-right" di default', () => {
+		it('overlay.position is "bottom-right" by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.overlay.position).toBe('bottom-right');
 		});
 	});
 
-	describe('storage - modalità http', () => {
+	describe('storage - http mode', () => {
 
-		it('preserva writeEndpoint senza trailing slash', () => {
+		it('preserves writeEndpoint without trailing slash', () => {
 			const r = resolveOptions(baseOpts({
 				storage: { mode: 'http', writeEndpoint: '/api/events' } as any
 			}));
 			expect(r.storage.writeEndpoint).toBe('/api/events');
 		});
 
-		it('rimuove il trailing slash da writeEndpoint', () => {
+		it('removes the trailing slash from writeEndpoint', () => {
 			const r = resolveOptions(baseOpts({
 				storage: { mode: 'http', writeEndpoint: '/api/events/' } as any
 			}));
 			expect(r.storage.writeEndpoint).toBe('/api/events');
 		});
 
-		it('rimuove il trailing slash da readEndpoint', () => {
+		it('removes the trailing slash from readEndpoint', () => {
 			const r = resolveOptions(baseOpts({
 				storage: { mode: 'http', writeEndpoint: '/api/events', readEndpoint: '/api/' } as any
 			}));
 			expect(r.storage.readEndpoint).toBe('/api');
 		});
 
-		it('wsEndpoint è stringa vuota per mode http', () => {
+		it('wsEndpoint is an empty string for http mode', () => {
 			const r = resolveOptions(baseOpts({
 				storage: { mode: 'http', writeEndpoint: '/api/events' } as any
 			}));
 			expect(r.storage.wsEndpoint).toBe('');
 		});
 
-		it('eredita batchSize, flushInterval, apiKey da httpOpts', () => {
+		it('inherits batchSize, flushInterval, apiKey from httpOpts', () => {
 			const r = resolveOptions(baseOpts({
 				storage: {
 					mode: 'http',
@@ -195,9 +195,9 @@ describe('resolveOptions()', () => {
 		});
 	});
 
-	describe('storage - modalità websocket', () => {
+	describe('storage - websocket mode', () => {
 
-		it('mode è "websocket" nel risultato', () => {
+		it('mode is "websocket" in the result', () => {
 			const r = resolveOptions(baseOpts({
 				storage: { mode: 'websocket', wsEndpoint: 'ws://remote:4242' } as any
 			}));
@@ -205,7 +205,7 @@ describe('resolveOptions()', () => {
 			expect(r.storage.wsEndpoint).toBe('ws://remote:4242');
 		});
 
-		it('writeEndpoint e readEndpoint sono stringhe vuote per websocket', () => {
+		it('writeEndpoint and readEndpoint are empty strings for websocket', () => {
 			const r = resolveOptions(baseOpts({
 				storage: { mode: 'websocket', wsEndpoint: 'ws://remote:4242' } as any
 			}));
@@ -213,7 +213,7 @@ describe('resolveOptions()', () => {
 			expect(r.storage.readEndpoint).toBe('');
 		});
 
-		it('port fisso a 4242 per websocket', () => {
+		it('port fixed at 4242 for websocket', () => {
 			const r = resolveOptions(baseOpts({
 				storage: { mode: 'websocket', wsEndpoint: 'ws://remote:4242' } as any
 			}));
@@ -221,24 +221,24 @@ describe('resolveOptions()', () => {
 		});
 	});
 
-	describe('dashboard.auth - hashing delle credenziali', () => {
+	describe('dashboard.auth - credential hashing', () => {
 
-		it('auth false rimane false', () => {
+		it('auth false remains false', () => {
 			const r = resolveOptions(baseOpts({ dashboard: { auth: false } as any }));
 			expect(r.dashboard.auth).toBe(false);
 		});
 
-		it('auth null rimane false', () => {
+		it('auth null remains false', () => {
 			const r = resolveOptions(baseOpts({ dashboard: { auth: null } as any }));
 			expect(r.dashboard.auth).toBe(false);
 		});
 
-		it('auth undefined rimane false', () => {
+		it('auth undefined remains false', () => {
 			const r = resolveOptions(baseOpts({ dashboard: { auth: undefined } as any }));
 			expect(r.dashboard.auth).toBe(false);
 		});
 
-		it('auth con credenziali viene hashed', () => {
+		it('auth with credentials is hashed', () => {
 			const r = resolveOptions(baseOpts({
 				dashboard: { auth: { username: 'admin', password: 'secret' } } as any
 			}));
@@ -248,7 +248,7 @@ describe('resolveOptions()', () => {
 			expect(auth.password).toHaveLength(64);
 		});
 
-		it('credenziali diverse producono hash diversi', () => {
+		it('different credentials produce different hashes', () => {
 			const r1 = resolveOptions(baseOpts({
 				dashboard: { auth: { username: 'admin', password: 'secret1' } } as any
 			}));
@@ -260,7 +260,7 @@ describe('resolveOptions()', () => {
 			expect(a1.password).not.toBe(a2.password);
 		});
 
-		it('lo stesso input produce sempre lo stesso hash (deterministico)', () => {
+		it('the same input always produces the same hash (deterministic)', () => {
 			const r1 = resolveOptions(baseOpts({
 				dashboard: { auth: { username: 'admin', password: 'pass' } } as any
 			}));
@@ -274,14 +274,14 @@ describe('resolveOptions()', () => {
 		});
 	});
 
-	describe('opts passate direttamente', () => {
+	describe('directly passed opts', () => {
 
-		it('enabled false viene propagato', () => {
+		it('enabled false is propagated', () => {
 			const r = resolveOptions(baseOpts({ enabled: false }));
 			expect(r.enabled).toBe(false);
 		});
 
-		it('autoInit false viene propagato', () => {
+		it('autoInit false is propagated', () => {
 			const r = resolveOptions(baseOpts({ autoInit: false }));
 			expect(r.autoInit).toBe(false);
 		});
@@ -291,23 +291,23 @@ describe('resolveOptions()', () => {
 			expect(r.track.level).toBe('debug');
 		});
 
-		it('track.ignoreUrls viene propagato', () => {
+		it('track.ignoreUrls is propagated', () => {
 			const r = resolveOptions(baseOpts({ track: { ignoreUrls: ['/health'] } as any }));
 			expect(r.track.ignoreUrls).toEqual(['/health']);
 		});
 
-		it('userId fn passata viene preservata', () => {
+		it('passed userId fn is preserved', () => {
 			const fn = () => 'user-123'
 			const r = resolveOptions(baseOpts({ track: { userId: fn } as any }));
 			expect(r.track.userId).toBe(fn);
 		});
 
-		it('logging.level "debug" viene propagato', () => {
+		it('logging.level "debug" is propagated', () => {
 			const r = resolveOptions(baseOpts({ logging: { level: 'debug' } as any }));
 			expect(r.logging.level).toBe('debug');
 		});
 
-		it('usa la funzione di default se track esiste ma userId non è fornito', () => {
+		it('uses the default function when track exists but userId is not provided', () => {
 			const r = resolveOptions(baseOpts({
 				track: { clicks: true } as any
 			}));
