@@ -27,7 +27,7 @@
 		"dev": "tsdown --watch",
 		"dev:server": "tsx scripts/dev-server.ts",
 		"dev:ui": "vite --config vite.dashboard.config.ts",
-		"test": "vitest run",
+		"test:run": "vitest run",
 		"test:coverage": "vitest run --coverage",
 		"typecheck": "tsc --noEmit",
 		"lint": "eslint .",
