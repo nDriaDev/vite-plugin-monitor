@@ -139,10 +139,6 @@ export default defineConfig({
 			message: 'Released under the MIT License.',
 			copyright: 'Copyright © 2024 nDriaDev',
 		},
-		editLink: {
-			pattern: 'https://github.com/nDriaDev/vite-plugin-monitor/edit/main/docs/:path',
-			text: 'Edit this page on GitHub',
-		},
 		search: {
 			provider: 'local',
 		},
