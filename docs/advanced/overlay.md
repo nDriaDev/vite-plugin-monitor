@@ -53,7 +53,7 @@ tracker.setUser(newValue || null)
 | Button | Description |
 |--------|-------------|
 | **Open Dashboard** | Opens `window.location.origin + dashboard.route` in a new tab. Only shown when `dashboard.enabled: true`. |
-| **Remove Tracker Info** | Calls `tracker.destroy()`. Removes the overlay, detaches all proxies, flushes the queue. |
+| **Remove Tracker Info** | Calls `overlay.destroy()`. Removes only the overlay FAB button from pages. It reappears if the page is refreshed. |
 
 ### Theme Toggle
 
