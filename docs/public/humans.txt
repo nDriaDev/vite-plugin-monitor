@@ -1,0 +1,12 @@
+/* TEAM */
+Developer: Andrea Cosentino
+Contact: admin@ndria.dev
+Telegram: @ndr14_d3v_dev
+Location: Italy
+website: www.ndria.dev
+
+
+/* SITE */
+Last update: 04/02/2026
+Standards: Javascript, Typescript, HTML, CSS
+Software: Automatic User Interaction Tracking, Real-Time Dashboard & File Logging for Vite

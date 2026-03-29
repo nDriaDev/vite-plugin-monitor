@@ -1316,7 +1316,7 @@ pnpm dev:ui       # starts the dashboard on :5173
 ## 📞 Support
 
 - **Issues:** [GitHub Issues](https://github.com/nDriaDev/vite-plugin-monitor/issues)
-- **Email:** andreacosentino.work@gmail.com
+- **Email:** admin@ndria.dev
 
 ---
 
