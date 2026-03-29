@@ -1,7 +1,7 @@
 {
 	"name": "@ndriadev/vite-plugin-monitor",
-	"version": "0.1.0",
-	"description": "A Vite plugin for automatic user interaction tracking, with built-in real-time dashboard and file logging",
+	"version": "1.0.0",
+	"description": "Automatic User Interaction Tracking, Real-Time Dashboard & File Logging for Vite",
 	"type": "module",
 	"main": "./dist/index.cjs",
 	"module": "./dist/index.js",
@@ -19,7 +19,9 @@
 	},
 	"files": [
 		"dist",
-		"README.md"
+		"README.md",
+		"LICENSE",
+		"CHANGELOG.md"
 	],
 	"scripts": {
 		"dev": "tsdown --watch",
@@ -58,7 +60,7 @@
 		"@types/ws": "^8.18.1",
 		"@typescript-eslint/eslint-plugin": "^8.57.2",
 		"@typescript-eslint/parser": "^8.57.2",
-		"@vitest/coverage-v8": "^4.1.1",
+		"@vitest/coverage-v8": "^4.1.2",
 		"eslint": "^10.1.0",
 		"jsdom": "^29.0.1",
 		"mkdirp": "^3.0.1",
@@ -66,9 +68,9 @@
 		"tsdown": "^0.9.9",
 		"tsx": "^4.21.0",
 		"typescript": "^5.9.3",
-		"vite": "^6.0.0",
-		"vitepress": "^1.6.3",
-		"vitest": "^4.1.1",
+		"vite": "^6.4.1",
+		"vitepress": "^1.6.4",
+		"vitest": "^4.1.2",
 		"ws": "^8.20.0"
 	},
 	"keywords": [
@@ -85,7 +87,7 @@
 	},
 	"author": {
 		"name": "Andrea Cosentino",
-		"email": "andreacosentino.work@gmail.com",
+		"email": "admin@ndria.dev",
 		"url": "https://github.com/nDriaDev/"
 	},
 	"readmeFilename": "README.md",
