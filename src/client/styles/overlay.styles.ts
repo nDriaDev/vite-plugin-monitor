@@ -11,16 +11,16 @@ export const STYLES = `
 		--ov-bg-link:     #1e293b33;
 		--ov-border:      #1e293b;
 		--ov-border-mid:  #334155;
-		--ov-text-key:    #475569;
+		--ov-text-key:    #6e83a1c9;
 		--ov-text-val:    #94a3b8;
-		--ov-text-label:  #334155;
+		--ov-text-label:  #94a3b8;
 		--ov-text-accent: #60a5fa;
 		--ov-text-hi:     #a3e635;
 		--ov-text-input:  #e2e8f0;
-		--ov-text-close:  #334155;
+		--ov-text-close:  #94a3b8;
 		--ov-title:       #60a5fa;
 		--ov-fab-bg:      #1e293b;
-		--ov-fab-border:  #334155;
+		--ov-fab-border:  #94a3b8;
 		--ov-shadow:      0 20px 60px #000000aa;
 		--ov-fab-shadow:  0 4px 20px #00000066;
 	}
@@ -82,7 +82,7 @@ export const STYLES = `
 	/*  Panel  */
 	#panel {
 		position: fixed;
-		width: 320px;
+		width: 340px;
 		background: var(--ov-bg);
 		border: 1px solid var(--ov-border);
 		border-radius: 12px;
@@ -265,7 +265,7 @@ export const STYLES = `
 		justify-content: space-between;
 		padding: 10px 12px;
 		background: var(--ov-bg-link);
-		border: 1px solid var(--ov-border);
+		border: 1px solid #3b68a1;
 		border-radius: 8px;
 		text-decoration: none;
 		color: var(--ov-text-accent);
@@ -373,5 +373,36 @@ export const STYLES = `
 
 	.cancel-btn:hover {
 		border-color: #ef4444;
+	}
+
+	/* Destroy button */
+	#destroy-btn {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 10px 12px;
+		background: var(--ov-bg-link);
+		border: 1px solid #6c1a1a;
+		border-radius: 8px;
+		color: #ef4444;
+		font-size: 12px;
+		font-weight: 600;
+		font-family: inherit;
+		transition: background 0.15s, border-color 0.15s;
+		cursor: pointer;
+		width: 100%;
+		text-align: left;
+	}
+
+	#destroy-btn:hover {
+		background: rgba(239, 68, 68, 0.08);
+		border-color: #ef4444;
+	}
+
+	#destroy-btn svg {
+		width: 13px;
+		height: 13px;
+		flex-shrink: 0;
+		opacity: 0.7;
 	}
 `;

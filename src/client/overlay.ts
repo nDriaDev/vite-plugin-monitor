@@ -219,7 +219,7 @@ export class DebugOverlay implements IDebugOverlay {
 		return `
     <div id="header">
         <div id="header-title">
-			${ICONS.TRACKER_ICON}<span>Vite plugin Monitor - Tracker</span>
+			${ICONS.TRACKER_ICON}<span>Vite plugin Monitor - Tracker Info</span>
         </div>
         <div id="header-actions">
 			<button id="theme-toggle" title="Toggle theme">${this.theme === 'dark' ? '☀' : '☾'}</button>
@@ -264,6 +264,13 @@ export class DebugOverlay implements IDebugOverlay {
 			</div>
 			${ICONS.EXTERNAL_LINK_ICON}
         </a>
+
+		<button id="destroy-btn">
+            <span>Remove Tracker Info</span>
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                <path d="M12 4L4 12M4 4l8 8"/>
+            </svg>
+        </button>
 
     </div>
     `
@@ -390,6 +397,8 @@ export class DebugOverlay implements IDebugOverlay {
 		document.addEventListener('mousemove', this.onMouseMove);
 		document.addEventListener('mouseup', this.onMouseUp);
 		document.addEventListener('keydown', this.onKeyDown);
+
+		this.shadow.querySelector('#destroy-btn')!.addEventListener('click', () => this.destroy(), { once: true });
 	}
 
 	/**
