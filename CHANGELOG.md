@@ -1,0 +1,84 @@
+# Changelog
+
+## [1.0.1](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.0.1) - 2026-03-29
+
+### Features
+
+- add btn to close overlay ([e61328c](https://github.com/nDriaDev/vite-plugin-monitor/commit/e61328c))
+- add title to user and detail columns of table events ([0f3e884](https://github.com/nDriaDev/vite-plugin-monitor/commit/0f3e884))
+- add theme switch to overlay ([d2299d4](https://github.com/nDriaDev/vite-plugin-monitor/commit/d2299d4))
+- events table column orderable ([b1c7c8f](https://github.com/nDriaDev/vite-plugin-monitor/commit/b1c7c8f))
+- escape value ([5916f1e](https://github.com/nDriaDev/vite-plugin-monitor/commit/5916f1e))
+- add session event type ([123af2f](https://github.com/nDriaDev/vite-plugin-monitor/commit/123af2f))
+
+### Bug Fixes
+
+- linting ([cbd99b9](https://github.com/nDriaDev/vite-plugin-monitor/commit/cbd99b9))
+- add onDOMContentLoaded prop to prevent leaks ([1a605cc](https://github.com/nDriaDev/vite-plugin-monitor/commit/1a605cc))
+- parse size ([c17750e](https://github.com/nDriaDev/vite-plugin-monitor/commit/c17750e))
+- XHR handling ([d53f69b](https://github.com/nDriaDev/vite-plugin-monitor/commit/d53f69b))
+- message onUnhandledRejection event ([ffca051](https://github.com/nDriaDev/vite-plugin-monitor/commit/ffca051))
+- add group counter to provide uniqueness ([c603511](https://github.com/nDriaDev/vite-plugin-monitor/commit/c603511))
+- tracking unhandledRejection ([b943b6c](https://github.com/nDriaDev/vite-plugin-monitor/commit/b943b6c))
+- tracking unhandledRejection ([5c3afeb](https://github.com/nDriaDev/vite-plugin-monitor/commit/5c3afeb))
+- ignored trigger navigation ([1fa062a](https://github.com/nDriaDev/vite-plugin-monitor/commit/1fa062a))
+- avoided tracking events that occurred in the dashboard ([26e4bf3](https://github.com/nDriaDev/vite-plugin-monitor/commit/26e4bf3))
+- change icons monitor and overlay ([9f0362e](https://github.com/nDriaDev/vite-plugin-monitor/commit/9f0362e))
+- types ([9ee42a9](https://github.com/nDriaDev/vite-plugin-monitor/commit/9ee42a9))
+- live time range ([fd79253](https://github.com/nDriaDev/vite-plugin-monitor/commit/fd79253))
+- dashboard reading events logic ([cac524f](https://github.com/nDriaDev/vite-plugin-monitor/commit/cac524f))
+- worker bottleneck ([1e7988a](https://github.com/nDriaDev/vite-plugin-monitor/commit/1e7988a))
+- dashboard dir path ([d16a2fc](https://github.com/nDriaDev/vite-plugin-monitor/commit/d16a2fc))
+- overlay escape values and dynamic position ([8e40f37](https://github.com/nDriaDev/vite-plugin-monitor/commit/8e40f37))
+- rework dashboard + clean code ([be7fa28](https://github.com/nDriaDev/vite-plugin-monitor/commit/be7fa28))
+
+### Code Refactoring
+
+- clean code + v8 ignore test ([8435765](https://github.com/nDriaDev/vite-plugin-monitor/commit/8435765))
+- uniform getEventDetail function ([4dc418a](https://github.com/nDriaDev/vite-plugin-monitor/commit/4dc418a))
+- clean code ([11ce608](https://github.com/nDriaDev/vite-plugin-monitor/commit/11ce608))
+- typedoc ([d303618](https://github.com/nDriaDev/vite-plugin-monitor/commit/d303618))
+- logger and typedoc ([5298394](https://github.com/nDriaDev/vite-plugin-monitor/commit/5298394))
+- clean typedoc ([5f7de07](https://github.com/nDriaDev/vite-plugin-monitor/commit/5f7de07))
+- add module-level var for tracker client instance ([72d1bbf](https://github.com/nDriaDev/vite-plugin-monitor/commit/72d1bbf))
+- clean code ([464fa26](https://github.com/nDriaDev/vite-plugin-monitor/commit/464fa26))
+- clean code ([1a8c382](https://github.com/nDriaDev/vite-plugin-monitor/commit/1a8c382))
+
+### Documentation
+
+- set vitepress documentations ([01fa5a7](https://github.com/nDriaDev/vite-plugin-monitor/commit/01fa5a7))
+- add tests results to readme ([dcbdce8](https://github.com/nDriaDev/vite-plugin-monitor/commit/dcbdce8))
+- write README ([8519c38](https://github.com/nDriaDev/vite-plugin-monitor/commit/8519c38))
+- add architecture image ([85dfe01](https://github.com/nDriaDev/vite-plugin-monitor/commit/85dfe01))
+- update README.md ([90993f9](https://github.com/nDriaDev/vite-plugin-monitor/commit/90993f9))
+
+### Tests
+
+- fix test for overlay style changes ([c98e33d](https://github.com/nDriaDev/vite-plugin-monitor/commit/c98e33d))
+- test implementations ([d9f31d3](https://github.com/nDriaDev/vite-plugin-monitor/commit/d9f31d3))
+- add overlay to dashboard in dev mode ([465b7a0](https://github.com/nDriaDev/vite-plugin-monitor/commit/465b7a0))
+
+### Chores
+
+- update commad scripts ([712787c](https://github.com/nDriaDev/vite-plugin-monitor/commit/712787c))
+- update dependencies ([3b4e8bf](https://github.com/nDriaDev/vite-plugin-monitor/commit/3b4e8bf))
+- add github workflow ([5c1328f](https://github.com/nDriaDev/vite-plugin-monitor/commit/5c1328f))
+- vite config ([bf84f7d](https://github.com/nDriaDev/vite-plugin-monitor/commit/bf84f7d))
+- update dependencies ([c07cfbf](https://github.com/nDriaDev/vite-plugin-monitor/commit/c07cfbf))
+- add test dependencies ([7c75d6e](https://github.com/nDriaDev/vite-plugin-monitor/commit/7c75d6e))
+- update tsconfig + tsdown.config + scripts ([5f5b48c](https://github.com/nDriaDev/vite-plugin-monitor/commit/5f5b48c))
+- update package scripts ([40d3413](https://github.com/nDriaDev/vite-plugin-monitor/commit/40d3413))
+- initial commit ([8580c4e](https://github.com/nDriaDev/vite-plugin-monitor/commit/8580c4e))
+
+### Other Changes
+
+- exclude env.d.ts file ([ffd688d](https://github.com/nDriaDev/vite-plugin-monitor/commit/ffd688d))
+- renaming ([4f32c39](https://github.com/nDriaDev/vite-plugin-monitor/commit/4f32c39))
+- util methods ([988213e](https://github.com/nDriaDev/vite-plugin-monitor/commit/988213e))
+- Initial commit ([bb0ef34](https://github.com/nDriaDev/vite-plugin-monitor/commit/bb0ef34))
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
