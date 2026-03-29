@@ -82,7 +82,7 @@ export const STYLES = `
 	/*  Panel  */
 	#panel {
 		position: fixed;
-		width: 340px;
+		width: 320px;
 		background: var(--ov-bg);
 		border: 1px solid var(--ov-border);
 		border-radius: 12px;
@@ -196,11 +196,11 @@ export const STYLES = `
 
 	/*  Rows  */
 	.row {
-		display: flex;
-		justify-content: space-between;
+		display: grid;
+		grid-template-columns: 72px 1fr auto;
 		align-items: center;
-		gap: 8px;
-		padding: 3px 0;
+		gap: 0 8px;
+		padding: 4px 0;
 	}
 
 	.row-key {
@@ -209,24 +209,24 @@ export const STYLES = `
 		flex-shrink: 0;
 	}
 
-	.row-right {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		min-width: 0;
-	}
-
 	.row-val {
 		color: var(--ov-text-val);
 		font-size: 11px;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		max-width: 170px;
 	}
 
 	.row-val.highlight {
 		color: var(--ov-text-hi);
+	}
+
+	.row-actions {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		justify-content: flex-end;
+		min-width: 64px;
 	}
 
 	/*  Copy / Edit buttons  */
@@ -265,7 +265,7 @@ export const STYLES = `
 		justify-content: space-between;
 		padding: 10px 12px;
 		background: var(--ov-bg-link);
-		border: 1px solid #3b68a1;
+		border: 1px solid var(--ov-border);
 		border-radius: 8px;
 		text-decoration: none;
 		color: var(--ov-text-accent);

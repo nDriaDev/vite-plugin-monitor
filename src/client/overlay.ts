@@ -126,10 +126,10 @@ export class DebugOverlay implements IDebugOverlay {
 		return `
     <div class="row">
 		<span class="row-key">User ID</span>
-		<div class="row-right">
-			<span class="row-val highlight" id="userid-display" title="${uid}">${uid}</span>
-			<button class="copy-btn" data-val="${uid}" id="userid-copy">copy</button>
+		<span class="row-val highlight" id="userid-display" title="${uid}">${uid}</span>
+		<div class="row-actions">
 			<button class="edit-btn" id="userid-edit" title="Change user ID">edit</button>
+			<button class="copy-btn" data-val="${uid}" id="userid-copy">copy</button>
 		</div>
     </div>
     <div class="row" id="userid-edit-row" style="display:none">
@@ -235,8 +235,8 @@ export class DebugOverlay implements IDebugOverlay {
 			${identityRows.map(r => `
 				<div class="row">
 					<span class="row-key">${r.key}</span>
-					<div class="row-right">
-						<span class="row-val highlight" title="${r.val}">${r.val}</span>
+					<span class="row-val highlight" title="${r.val}">${r.val}</span>
+					<div class="row-actions">
 						${r.copy ? `<button class="copy-btn" data-val="${r.val}">copy</button>` : ''}
 					</div>
 				</div>
@@ -248,10 +248,9 @@ export class DebugOverlay implements IDebugOverlay {
 			<div class="section-label">Context</div>
 			${contextRows.map(r => `
 				<div class="row">
-				<span class="row-key">${r.key}</span>
-				<div class="row-right">
+					<span class="row-key">${r.key}</span>
 					<span class="row-val" data-field="${r.key}" title="${r.val}">${r.val}</span>
-				</div>
+					<div class="row-actions"></div>
 				</div>
 			`).join('')}
         </div>
@@ -308,7 +307,7 @@ export class DebugOverlay implements IDebugOverlay {
 			(display.closest('.row')! as HTMLElement).style.display = 'none';
 			editBtn.style.display = 'none';
 			copyBtn.style.display = 'none';
-			editRow.style.display = 'flex';
+			editRow.style.display = 'grid';
 			input.focus();
 			input.select();
 		});
