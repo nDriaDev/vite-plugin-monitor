@@ -1,5 +1,5 @@
 <div align="center">
-<a href="https://github.com/nDriaDev/vite-plugin-monitor">
+<a href="https://vite-plugin-monitor.ndria.dev">
     <img src="https://raw.githubusercontent.com/nDriaDev/vite-plugin-monitor/main/src/resources/logo.png" alt="vite-plugin-monitor" width="180">
 </a>
 <br>
