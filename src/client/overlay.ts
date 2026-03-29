@@ -1,5 +1,7 @@
-import { IDebugOverlay, TrackerEvent } from "@tracker/types";
-import { TrackerSession } from "./session";
+/* eslint-disable no-unused-vars */
+/* eslint-disable no-undef */
+import type { IDebugOverlay, TrackerEvent } from "@tracker/types";
+import type { TrackerSession } from "./session";
 import { STYLES } from "./styles/overlay.styles";
 import { ICONS } from "./styles/icons";
 
@@ -370,6 +372,7 @@ export class DebugOverlay implements IDebugOverlay {
 			if (!btn) {
 				return;
 			}
+			// eslint-disable-next-line @typescript-eslint/no-floating-promises
 			navigator.clipboard?.writeText(btn.dataset.val ?? '').then(() => {
 				btn.textContent = 'copied';
 				btn.classList.add('copied');

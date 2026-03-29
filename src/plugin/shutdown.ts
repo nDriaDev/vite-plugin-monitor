@@ -1,7 +1,9 @@
-import { CleanupFn } from "@tracker/types"
+/* eslint-disable @typescript-eslint/no-misused-promises */
+/* eslint-disable no-undef */
+import type { CleanupFn } from "@tracker/types";
 
-const HOOKS_KEY   = '__tracker_shutdown_hooks__'
-const HANDLER_KEY = '__tracker_shutdown_installed__'
+const HOOKS_KEY = '__tracker_shutdown_hooks__';
+const HANDLER_KEY = '__tracker_shutdown_installed__';
 
 function getHooks(): Array<CleanupFn> {
 	if (!globalThis[HOOKS_KEY]) {

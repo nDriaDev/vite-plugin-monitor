@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-undef */
 
 import { execSync } from 'child_process';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
@@ -27,7 +28,7 @@ function log(message, color = 'reset') {
 function execCommand(command) {
 	try {
 		return execSync(command, { encoding: 'utf-8', cwd: rootDir }).trim();
-	} catch (error) {
+	} catch {
 		return '';
 	}
 }

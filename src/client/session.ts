@@ -1,4 +1,5 @@
-import { EventPayload, LogLevel, TrackerEvent } from "@tracker/types";
+/* eslint-disable no-undef */
+import type { EventPayload, LogLevel, TrackerEvent } from "@tracker/types";
 
 function generateId(): string {
 	return typeof crypto !== 'undefined' && crypto.randomUUID

@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 // INFO Shared primitives
 
 /**
@@ -2201,7 +2202,7 @@ export interface EventsQuery {
 	type?: TrackerEventType
 	/** Filter by level. Not used by the built-in dashboard. */
 	level?: LogLevel
-	/** ​​Filter by userId. Not used by the built-in dashboard. */
+	/** Filter by userId. Not used by the built-in dashboard. */
 	userId?: string
 	/** Filter by sessionId. Not used by the built-in dashboard. */
 	sessionId?: string

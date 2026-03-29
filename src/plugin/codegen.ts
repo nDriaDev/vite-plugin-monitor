@@ -13,6 +13,7 @@ function clientDir(): string {
 		const __filename = fileURLToPath(import.meta.url)
 		return path.join(path.dirname(__filename), 'client')
 	} catch {
+		// eslint-disable-next-line no-undef
 		return path.join(__dirname, 'client')
 	}
 }

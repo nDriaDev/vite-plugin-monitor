@@ -1,4 +1,6 @@
-import { HttpPayload, HttpTrackOptions, LogLevel, ResolvedHttpOpts, TrackedXHR } from "@tracker/types";
+/* eslint-disable no-unused-vars */
+/* eslint-disable no-undef */
+import type { HttpPayload, HttpTrackOptions, LogLevel, ResolvedHttpOpts, TrackedXHR } from "@tracker/types";
 
 const SENSITIVE_HEADERS = new Set([
 	'authorization',
@@ -386,7 +388,7 @@ function patchXHR(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (pa
 
 		// INFO Store start time and raw body on the instance so the listener in open() can read them
 		this.__tracker_startTime__ = performance.now();
-		this.__tracker_reqBody__ = body != null ? String(body) : '';
+		this.__tracker_reqBody__ = body !== null ? String(body) : '';
 
 		return originalSend.apply(this, [body]);
 	}

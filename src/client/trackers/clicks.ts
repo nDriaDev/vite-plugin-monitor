@@ -1,4 +1,6 @@
-import { ClickPayload } from "@tracker/types";
+/* eslint-disable no-unused-vars */
+/* eslint-disable no-undef */
+import type { ClickPayload } from "@tracker/types";
 
 function getXPath(el: Element, maxDepth = 8): string {
 	const parts: string[] = []

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-undef */
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
@@ -51,7 +52,7 @@ function verifyPackageJson() {
 
 	let allGood = true;
 
-	checks.forEach(({ field, expected, description }) => {
+	checks.forEach(({ field, expected }) => {
 		const actual = packageJson[field];
 		if (actual === expected) {
 			log(`  ✅ ${field}: ${actual}`, 'green');

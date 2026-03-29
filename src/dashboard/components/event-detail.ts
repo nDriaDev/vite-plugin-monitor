@@ -1,4 +1,4 @@
-import { ConsolePayload, TrackerEvent } from "@tracker/types";
+import type { ConsolePayload, TrackerEvent } from "@tracker/types";
 import { store } from "../state";
 import { el, empty, escapeHtml, on, qs, setHtml, show } from "../utils/dom";
 import { formatDateTime, formatDuration, formatJson, truncate } from "../utils/format";

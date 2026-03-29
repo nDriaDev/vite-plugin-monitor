@@ -1,4 +1,4 @@
-import { HttpStats, MetricsResult, StatsResult, TrackerEvent } from "@tracker/types";
+import type { HttpStats, MetricsResult, StatsResult, TrackerEvent } from "@tracker/types";
 
 /**
 * Metrics computation pure, from buffer

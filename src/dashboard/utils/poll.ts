@@ -1,4 +1,7 @@
-import { PollHandle, PollOptions } from "@tracker/types";
+/* eslint-disable @typescript-eslint/no-floating-promises */
+/* eslint-disable @typescript-eslint/no-misused-promises */
+/* eslint-disable no-undef */
+import type { PollHandle, PollOptions } from "@tracker/types";
 
 /**
 * setTimeout-based polling engine.

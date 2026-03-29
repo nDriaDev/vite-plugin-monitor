@@ -1,5 +1,6 @@
-import { Logger, ResolvedTrackerOptions, TrackerPluginOptions } from "@tracker/types";
-import { HtmlTagDescriptor, Plugin, PreviewServer, ResolvedConfig, ViteDevServer } from "vite";
+/* eslint-disable no-undef */
+import type { Logger, ResolvedTrackerOptions, TrackerPluginOptions } from "@tracker/types";
+import type { HtmlTagDescriptor, Plugin, PreviewServer, ResolvedConfig, ViteDevServer } from "vite";
 import { resolveOptions } from "./config";
 import { createLogger } from "./logger";
 import { createMiddleware, createStandaloneServer } from "./standalone-server";

@@ -1,4 +1,5 @@
-import { IDebugOverlay, ITrackerClient, LogLevel, SessionPayload, SetUserOptions, Tracker, TrackerConfig, TrackerEvent, TrackEventOptions } from "@tracker/types";
+/* eslint-disable no-undef */
+import type { IDebugOverlay, ITrackerClient, LogLevel, SessionPayload, SetUserOptions, Tracker, TrackerConfig, TrackEventOptions } from "@tracker/types";
 import { TrackerSession } from "./session";
 import { EventQueue } from "./queue";
 import { setupConsoleTracker } from "./trackers/console";

@@ -1,7 +1,8 @@
-import { formatCount, formatDuration, formatPercent, formatPct, truncate } from "../utils/format";
+/* eslint-disable no-unused-vars */
+import { formatCount, formatDuration, formatPercent } from "../utils/format";
 import { el } from "../utils/dom";
 import { store } from "../state";
-import { HttpStats, KpiCard, MetricsResult, StatsResult } from "@tracker/types";
+import type { HttpStats, KpiCard, MetricsResult, StatsResult } from "@tracker/types";
 
 const CARDS: KpiCard[] = [
 	{

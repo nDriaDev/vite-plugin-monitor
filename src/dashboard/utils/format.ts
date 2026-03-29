@@ -1,3 +1,5 @@
+/* eslint-disable no-case-declarations */
+/* eslint-disable no-useless-escape */
 /**
 * Pure formatting functions: no side effects, no DOM access.
 * Used throughout the dashboard to display timestamps, durations, counts.
@@ -225,7 +227,7 @@ export function getEventDetail(event: { type: string, payload: unknown }, trunca
 			return val;
 		case 'navigation':
 			val = truncateValue ? truncate((p.from ?? ""), 25) : (p.from ?? "").trim();
-			let to = truncateValue ? truncate((p.to ?? ""), 25) : (p.to ?? "").trim();
+			const to = truncateValue ? truncate((p.to ?? ""), 25) : (p.to ?? "").trim();
 			return `${val} -> ${to}`;
 		case 'console': {
 			const indent = '  '.repeat(Number(p.groupDepth ?? 0));
@@ -236,7 +238,7 @@ export function getEventDetail(event: { type: string, payload: unknown }, trunca
 			return `${p.name}${p.duration !== undefined ? ` - ${formatDuration(p.duration)}` : ''}`;
 		case 'session': {
 			val = truncateValue ? truncate((p.previousUserId ?? ""), 16) : (p.previousUserId ?? "").trim();
-			let newUserId = truncateValue ? truncate((p.newUserId ?? "-"), 16) : (p.newUserId ?? "-").trim();
+			const newUserId = truncateValue ? truncate((p.newUserId ?? "-"), 16) : (p.newUserId ?? "-").trim();
 			const who = p.previousUserId ? ` (${val} -> ${newUserId})` : '';
 			return `${p.action} · ${p.trigger}${who}`;
 		}

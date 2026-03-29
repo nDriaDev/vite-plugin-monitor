@@ -1,8 +1,9 @@
+/* eslint-disable no-undef */
 import { el, on, qs } from "../utils/dom";
 import { navigateTo } from "../router";
 import { clearAuth } from "./login";
 import { LIVE_WINDOW_MS, PRESETS, presetToRange, store } from "../state";
-import { AppTab, TimePreset, TimeRange } from "@tracker/types";
+import type { AppTab, TimePreset, TimeRange } from "@tracker/types";
 // @ts-ignore
 import logo from "../../resources/logo.png";
 

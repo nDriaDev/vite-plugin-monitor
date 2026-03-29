@@ -1,4 +1,6 @@
-import { EventsResponse, TrackerEvent } from "@tracker/types";
+/* eslint-disable @typescript-eslint/no-misused-promises */
+/* eslint-disable no-undef */
+import type { EventsResponse, TrackerEvent } from "@tracker/types";
 
 function getConfig() {
 	const cfg = window.__TRACKER_CONFIG__;

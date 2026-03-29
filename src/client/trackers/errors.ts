@@ -1,4 +1,6 @@
-import { ErrorPayload } from "@tracker/types";
+/* eslint-disable no-unused-vars */
+/* eslint-disable no-undef */
+import type { ErrorPayload } from "@tracker/types";
 
 export function setupErrorTracker(onEvent: (payload: ErrorPayload) => void): () => void {
 	const onError = (e: ErrorEvent) => {

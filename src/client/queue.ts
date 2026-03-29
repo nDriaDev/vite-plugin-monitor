@@ -1,4 +1,5 @@
-import { IngestRequest, QueueOptions, TrackerEvent } from "@tracker/types";
+/* eslint-disable no-undef */
+import type { IngestRequest, QueueOptions, TrackerEvent } from "@tracker/types";
 
 export class EventQueue {
 	private queue: TrackerEvent[] = [];

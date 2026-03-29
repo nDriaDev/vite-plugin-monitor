@@ -1,4 +1,5 @@
-import { NavigationPayload } from "@tracker/types";
+/* eslint-disable no-undef */
+import type { NavigationPayload } from "@tracker/types";
 
 /**
  *  INFO Storage key for MPA cross-page navigation
@@ -91,6 +92,7 @@ function setupMpaLinkInterceptor(): () => void {
  *                     A navigation is suppressed when either `from` or `to`
  *                     starts with one of these prefixes.
  */
+// eslint-disable-next-line no-unused-vars
 export function setupNavigationTracker(onEvent: (payload: NavigationPayload) => void, ignorePaths: string[] = []): () => void {
 	let currentRoute = window.location.pathname + window.location.search;
 	let routeStart = performance.now();

@@ -1,4 +1,4 @@
-import { HttpStorageOptions, ResolvedTrackerOptions, StorageMode, TrackerPluginOptions, WsStorageOptions } from "@tracker/types";
+import type { HttpStorageOptions, ResolvedTrackerOptions, StorageMode, TrackerPluginOptions, WsStorageOptions } from "@tracker/types";
 import { createHmac } from "node:crypto";
 
 

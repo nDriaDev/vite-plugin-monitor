@@ -70,6 +70,7 @@ class StreamTransport {
 	private currentDate!: string;
 	private bytesLimit: number;
 	private readonly transport: LogTransport;
+	// eslint-disable-next-line no-unused-vars
 	private readonly formatter: (e: TrackerEvent) => string;
 	private pending: string[] = [];  // INFO lines buffered while stream is draining
 
@@ -231,6 +232,7 @@ parentPort?.on('message', (msg: { type: string; event?: TrackerEvent; transportI
 		for (const t of transports) {
 			t.destroy();
 		}
+		// eslint-disable-next-line no-undef
 		process.exit(0);
 	}
 });

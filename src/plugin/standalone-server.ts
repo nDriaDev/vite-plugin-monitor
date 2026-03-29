@@ -1,9 +1,10 @@
-import { EventsResponse, Logger, ResolvedTrackerOptions, TrackerEvent } from "@tracker/types";
+import type { EventsResponse, Logger, ResolvedTrackerOptions, TrackerEvent } from "@tracker/types";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import type { Connect } from "vite";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { createServer, IncomingMessage, ServerResponse } from "node:http";
+import { createServer } from "node:http";
 import path from "node:path";
 import { version } from '../../package.json';
-import { Connect } from "vite";
 import { WebSocketServer } from "ws";
 
 /**
@@ -232,6 +233,7 @@ export function createStandaloneServer(opts: ResolvedTrackerOptions, logger: Log
 
 	loadFromLogFiles(opts, buffer, logger);
 
+	// eslint-disable-next-line @typescript-eslint/no-misused-promises
 	const server = createServer(async (req, res) => {
 		const handled = await handler(req, res);
 		if (!handled) {
@@ -267,6 +269,7 @@ export function createStandaloneServer(opts: ResolvedTrackerOptions, logger: Log
 				logger.info(`Standalone server listening on port ${opts.storage.port}`);
 				logger.info(`WebSocket endpoint: ws://localhost:${opts.storage.port}/_tracker/ws`);
 		});
+			// eslint-disable-next-line no-undef
 			server.on('error', (err: NodeJS.ErrnoException) => {
 				if (err.code === 'EADDRINUSE') {
 					logger.warn(`Port ${opts.storage.port} already in use - standalone server not started`);
@@ -289,6 +292,7 @@ export function createMiddleware(opts: ResolvedTrackerOptions, logger: Logger): 
 
 	loadFromLogFiles(opts, buffer, logger);
 
+	// eslint-disable-next-line @typescript-eslint/no-misused-promises
 	return async function trackerMiddleware(req: IncomingMessage, res: ServerResponse, next: Connect.NextFunction) {
 		if (!req.url?.startsWith('/_tracker')) {
 			return next();

@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 import { Worker } from 'node:worker_threads';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,7 +22,6 @@ function workerScriptPath(): string {
 		const __filename = fileURLToPath(import.meta.url);
 		return path.join(path.dirname(__filename), 'logger-worker.js');
 	} catch {
-		// eslint-disable-next-line @typescript-eslint/no-var-requires, no-undef
 		return path.join(__dirname, 'logger-worker.js');
 	}
 }

@@ -1,4 +1,4 @@
-import { AppState, AppTab, ChartType, EventsFilter, Listener, MetricsResult, SearchOperator, StateEvents, StatsResult, TimePreset, TimeRange, TrackerEvent } from "@tracker/types";
+import type { AppState, AppTab, ChartType, EventsFilter, Listener, MetricsResult, SearchOperator, StateEvents, StatsResult, TimePreset, TimeRange, TrackerEvent } from "@tracker/types";
 import { getEventDetail } from "./utils/format";
 
 export const PRESETS: { label: string; value: TimePreset; minutes: number }[] = [
@@ -223,6 +223,7 @@ function createStore() {
 	 * @param events - Full unfiltered event list returned by the backend.
 	 * @param _total - Ignored (total is now computed after client-side filtering).
 	 */
+	// eslint-disable-next-line no-unused-vars
 	function setEvents(events: TrackerEvent[], _total: number) {
 		rawEvents = events;
 		state.eventsLoading = false;

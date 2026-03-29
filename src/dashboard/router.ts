@@ -1,4 +1,5 @@
-import { AppTab } from "@tracker/types";
+/* eslint-disable no-undef */
+import type { AppTab } from "@tracker/types";
 import { store } from "./state";
 
 const HASH_TO_TAB: Record<string, AppTab> = {

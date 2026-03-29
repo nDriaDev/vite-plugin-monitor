@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-floating-promises */
+/* eslint-disable @typescript-eslint/no-misused-promises */
+/* eslint-disable no-undef */
 import { el, qs, on, show, hide } from '../utils/dom';
 import { store } from '../state';
 
@@ -135,7 +138,7 @@ export function createLoginScreen(): HTMLElement {
 				passwordInput.value = '';
 				passwordInput.focus();
 			}
-		} catch (error) {
+		} catch {
 			errorBox.textContent = 'Authentication error. Please try again.';
 			show(errorBox);
 		} finally {
