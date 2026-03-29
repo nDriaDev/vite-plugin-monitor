@@ -411,7 +411,7 @@ describe('DebugOverlay', () => {
 			overlay = makeOverlay();
 			const shadow = getShadow(overlay);
 			shadow.querySelector('#userid-edit')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-			expect(shadow.querySelector<HTMLElement>('#userid-edit-row')!.style.display).toBe('flex');
+			expect(shadow.querySelector<HTMLElement>('#userid-edit-row')!.style.display).toBe('grid');
 			overlay.destroy();
 		});
 
