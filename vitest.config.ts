@@ -12,6 +12,7 @@ export default defineConfig({
 			provider: 'v8',
 			include: ['src/**/*.ts'],
 			exclude: [
+				'src/env.d.ts',
 				'src/resources/**',
 				'src/types.ts',
 				'src/index.ts',
