@@ -1279,7 +1279,7 @@ select {
 	border: 1px solid var(--border);
 	border-radius: 12px;
 	padding: 32px;
-	width: 320px;
+	width: 360px;
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
