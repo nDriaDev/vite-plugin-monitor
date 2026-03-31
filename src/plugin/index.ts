@@ -109,8 +109,8 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				? opts.storage.readEndpoint
 				: opts.storage.writeEndpoint.replace(/\/events\/?$/, "")
 			: mode === "standalone"
-				? `http://localhost:${opts.storage.port}/_tracker`
-				: "/_tracker"; // INFO middleware
+				? `http://localhost:${opts.storage.port}/_tracker/events`
+				: "/_tracker/events"; // INFO middleware
 	}
 
 	/* v8 ignore start */
