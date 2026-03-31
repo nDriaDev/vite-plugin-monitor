@@ -10,25 +10,26 @@ function makeOpts(overrides: Partial<Parameters<typeof resolveOptions>[0]> = {})
 describe('generateAutoInitScript()', () => {
 
 	it('contains an import from client/index.js', () => {
-		const script = generateAutoInitScript(makeOpts());
+		const script = generateAutoInitScript(makeOpts(), false);
 		expect(script).toContain("import { tracker } from '");
 		expect(script).toContain('client/index.js');
 	});
 
 	it('contains the tracker.init() call', () => {
-		const script = generateAutoInitScript(makeOpts());
+		const script = generateAutoInitScript(makeOpts(), false);
 		expect(script).toContain('tracker.init(');
 	});
 
 	it('serializza la userId fn di default () => null', () => {
-		const script = generateAutoInitScript(makeOpts());
+		const script = generateAutoInitScript(makeOpts(), false);
 		expect(script).toContain('() => null');
 	});
 
 	it('serializes a custom userId fn via .toString()', () => {
 		const customFn = () => 'user-abc';
 		const script = generateAutoInitScript(
-			makeOpts({ track: { userId: customFn } as any })
+			makeOpts({ track: { userId: customFn } as any }),
+			false
 		);
 		expect(script).toContain(customFn.toString());
 	});
@@ -87,46 +88,47 @@ describe('generateConfigScript()', () => {
 describe('generateSetupScript()', () => {
 
 	it('contains import of setupTrackers from client/index.js', () => {
-		const script = generateSetupScript(makeOpts());
+		const script = generateSetupScript(makeOpts(), false);
 		expect(script).toContain("import { setupTrackers } from '");
 		expect(script).toContain('client/index.js');
 	});
 
 	it('contains Object.defineProperty on window.__TRACKER_CONFIG__', () => {
-		const script = generateSetupScript(makeOpts());
+		const script = generateSetupScript(makeOpts(), false);
 		expect(script).toContain("Object.defineProperty(window, '__TRACKER_CONFIG__'");
 	});
 
 	it('contains the setupTrackers() call', () => {
-		const script = generateSetupScript(makeOpts());
+		const script = generateSetupScript(makeOpts(), false);
 		expect(script).toContain('setupTrackers(');
 	});
 
 	it('serializes the default userId fn () => null', () => {
-		const script = generateSetupScript(makeOpts());
+		const script = generateSetupScript(makeOpts(), false);
 		expect(script).toContain('() => null');
 	});
 
 	it('serializes a custom userId fn via .toString()', () => {
 		const customFn = () => 'user-xyz';
 		const script = generateSetupScript(
-			makeOpts({ track: { userId: customFn } as any })
+			makeOpts({ track: { userId: customFn } as any }),
+			false
 		);
 		expect(script).toContain(customFn.toString());
 	});
 
 	it('includes appId in the serialized JSON', () => {
-		const script = generateSetupScript(makeOpts());
+		const script = generateSetupScript(makeOpts(), false);
 		expect(script).toContain('"appId": "test-app"');
 	});
 
 	it('contains Object.freeze of the config', () => {
-		const script = generateSetupScript(makeOpts());
+		const script = generateSetupScript(makeOpts(), false);
 		expect(script).toContain('Object.freeze(');
 	});
 
 	it('contains writable: false and configurable: false', () => {
-		const script = generateSetupScript(makeOpts());
+		const script = generateSetupScript(makeOpts(), false);
 		expect(script).toContain('writable:     false');
 		expect(script).toContain('configurable: false');
 	});
