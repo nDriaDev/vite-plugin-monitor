@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.4](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.0.4) - 2026-03-31
+
+### Bug Fixes
+
+- injected script path ([4aa5894](https://github.com/nDriaDev/vite-plugin-monitor/commit/4aa5894))
+- url for fetch events ([89e6e68](https://github.com/nDriaDev/vite-plugin-monitor/commit/89e6e68))
+- add readEndpoint and pingEndpoint to ignored tracked urls ([e73760d](https://github.com/nDriaDev/vite-plugin-monitor/commit/e73760d))
+
+### Tests
+
+- update codegen test ([8c2149f](https://github.com/nDriaDev/vite-plugin-monitor/commit/8c2149f))
+
 ## [1.0.3](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.0.3) - 2026-03-31
 
 ### Bug Fixes
