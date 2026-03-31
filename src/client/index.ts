@@ -80,7 +80,7 @@ class TrackerClient implements ITrackerClient {
 			);
 		}
 		if (track.http) {
-			const ignoreUrls = [this.config.writeEndpoint, ...(track.ignoreUrls ?? [])];
+			const ignoreUrls = [this.config.writeEndpoint, this.config.readEndpoint, this.config.pingEndpoint, ...(track.ignoreUrls ?? [])];
 			this.teardowns.push(
 				setupHttpTracker(
 					ignoreUrls,
