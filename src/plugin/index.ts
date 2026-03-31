@@ -143,8 +143,10 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			const dashDir = dashboardDistDir();
 
 			server.middlewares.use(opts.dashboard.route, (req, res, next) => {
-				// INFO serve asset files (JS, CSS, fonts) - URL contains a dot
-				const url = req.url ?? '/';
+				const rawUrl = req.url ?? '/';
+				const route = opts.dashboard.route.replace(/\/$/, '');
+				const url = rawUrl.startsWith(route) ? rawUrl.slice(route.length) || '/' : rawUrl;
+
 				if (url !== '/' && url.includes('.')) {
 					const filePath = path.join(dashDir, url);
 					if (existsSync(filePath)) {
