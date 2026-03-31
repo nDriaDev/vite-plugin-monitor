@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.3](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.0.3) - 2026-03-31
+
+### Bug Fixes
+
+- dashboard assets ([7a1cd1f](https://github.com/nDriaDev/vite-plugin-monitor/commit/7a1cd1f))
+
 ## [1.0.2](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.0.2) - 2026-03-31
 
 ### Bug Fixes
