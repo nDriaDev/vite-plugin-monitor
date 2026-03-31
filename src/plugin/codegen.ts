@@ -78,12 +78,14 @@ function buildConfig(opts: ResolvedTrackerOptions): TrackerConfig {
  * It must be a pure function with no closures over module-level variables
  * at build time, since it is serialized as a string and evaluated in the browser.
  */
-export function generateAutoInitScript(opts: ResolvedTrackerOptions): string {
+export function generateAutoInitScript(opts: ResolvedTrackerOptions, isBuild: boolean): string {
 	const userIdFn = opts.track.userId?.toString() ?? '() => null';
+
+	const importPath = isBuild ? '@ndriadev/vite-plugin-monitor/client' : `/@fs/${clientDir()}/index.js`;
 
 	return `
 // vite-plugin-tracker - auto-generated init script
-import { tracker } from '/@fs/${clientDir()}/index.js';
+import { tracker } from '${importPath}';
 
 tracker.init(${userIdFn});
 `;
@@ -129,13 +131,15 @@ Object.defineProperty(window, '__TRACKER_CONFIG__', {
  * @remarks
  * Installs all event proxies before any application code runs.
  */
-export function generateSetupScript(opts: ResolvedTrackerOptions): string {
+export function generateSetupScript(opts: ResolvedTrackerOptions, isBuild: boolean): string {
 	const config = buildConfig(opts);
 	const userIdFn = opts.track.userId?.toString() ?? '() => null';
 
+	const importPath = isBuild ? '@ndriadev/vite-plugin-monitor/client' : `/@fs/${clientDir()}/index.js`;
+
 	return `
 // vite-plugin-monitor - proxy setup (runs before app code)
-import { setupTrackers } from '/@fs/${clientDir()}/index.js';
+import { setupTrackers } from '${importPath}';
 
 Object.defineProperty(window, '__TRACKER_CONFIG__', {
 	value:        Object.freeze(${JSON.stringify(config, null, 2)}),

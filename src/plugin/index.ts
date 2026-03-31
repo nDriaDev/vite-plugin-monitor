@@ -237,7 +237,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 					{
 						tag: 'script',
 						attrs: { type: 'module' },
-						children: generateSetupScript(opts),
+						children: generateSetupScript(opts, isBuild),
 						injectTo: 'head-prepend',
 					}
 				];
@@ -245,7 +245,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 					tags.push({
 						tag: 'script',
 						attrs: { type: 'module' },
-						children: generateAutoInitScript(opts),
+						children: generateAutoInitScript(opts, isBuild),
 						injectTo: 'head-prepend',
 					});
 				}
