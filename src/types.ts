@@ -1052,17 +1052,57 @@ export interface SetUserOptions {
 export type StorageMode = 'http' | 'standalone' | 'middleware' | 'websocket' | 'auto'
 
 /**
-* HTTP transport configuration - used when `mode` is `'http'`, `'standalone'`,
-* `'middleware'`, or `'auto'`.
+* Shared client-side transport tuning options used by all non-WebSocket storage modes.
+*
+* @remarks
+* These fields control batching and flushing behaviour in the browser and are
+* independent of where events are sent or how the server is started.
 */
-export interface HttpStorageOptions {
+interface BaseHttpStorageOptions {
 	/**
-	* Storage backend to use.
+	* API key sent as `X-Tracker-Key` on every request (write and read).
 	*
-	* @see {@link StorageMode}
-	* @default 'auto'
+	* @remarks
+	* Omit to disable authentication - suitable for local development only.
 	*/
-	mode?: Exclude<StorageMode, 'websocket'>
+	apiKey?: string
+
+	/**
+	* Maximum number of events accumulated client-side before flushing.
+	*
+	* @remarks
+	* The queue flushes when `batchSize` **or** `flushInterval` is reached first.
+	* On page unload, remaining events are flushed via `navigator.sendBeacon`.
+	*
+	* @default 25
+	*/
+	batchSize?: number
+
+	/**
+	* Maximum time in milliseconds between automatic queue flushes.
+	*
+	* @remarks
+	* Timer resets on each flush. The 3 000 ms default stays well within the
+	* 30-second ingress timeout common in Kubernetes / OpenShift environments.
+	*
+	* @default 3000
+	*/
+	flushInterval?: number
+}
+
+/**
+* Storage configuration for `mode = 'http'`.
+*
+* @remarks
+* Use this mode in production when you operate your own backend that implements
+* the tracker ingest and query protocol. The plugin acts only as a Vite plugin —
+* it injects the client tracker into the app but does **not** start any
+* server-side handler. All endpoint URLs must point to your backend.
+*
+* @see {@link ManagedStorageOptions} for `standalone` / `middleware` / `auto`
+*/
+export interface HttpStorageOptions extends BaseHttpStorageOptions {
+	mode: 'http'
 
 	/**
 	* URL that receives batched events from the browser via HTTP POST.
@@ -1081,7 +1121,7 @@ export interface HttpStorageOptions {
 	*
 	* @example `'https://api.myapp.com/monitor/events'`, `'/api/tracking/ingest'`
 	*/
-	writeEndpoint?: string
+	writeEndpoint: string
 
 	/**
 	* Full URL of the event reading endpoint queried by the dashboard.
@@ -1105,6 +1145,8 @@ export interface HttpStorageOptions {
 	* the browser after receiving the time-windowed dataset, so your server does
 	* not need to implement any additional query logic beyond the time range.
 	*
+	* If omitted, defaults to `writeEndpoint` with the trailing `/events` removed.
+	*
 	* @example `'https://api.myapp.com/tracker/events'`
 	*/
 	readEndpoint?: string
@@ -1120,66 +1162,164 @@ export interface HttpStorageOptions {
 	* @example `'https://api.myapp.com/ping'`, `'https://api.myapp.com/health'`
 	*/
 	pingEndpoint?: string
+}
 
+/**
+* Storage configuration for `mode = 'standalone'`, `mode = 'middleware'`, or
+* `mode = 'auto'` (the default, which resolves to `'middleware'` in dev).
+*
+* @remarks
+* In these modes the plugin **owns** the entire server-side stack. It either
+* starts a standalone HTTP server (`standalone`) or mounts handlers directly
+* on the Vite dev server (`middleware` / `auto`). All event routing is handled
+* internally on fixed paths:
+*
+* | Path                    | Purpose                                    |
+* |-------------------------|--------------------------------------------|
+* | `POST /_tracker/events` | Ingest events from the browser client      |
+* | `GET  /_tracker/events` | Dashboard query endpoint                   |
+* | `GET  /_tracker/ping`   | Dashboard health check                     |
+* | `ws   /_tracker/ws`     | WebSocket endpoint (`standalone` only)     |
+*
+* Because these paths are owned and served by the plugin, `writeEndpoint`,
+* `readEndpoint`, and `pingEndpoint` are **intentionally absent** from this
+* interface. Providing them would have no effect: the plugin ignores any
+* user-supplied values and always binds to the fixed internal paths above.
+*
+* If you need to customise the endpoint paths, use `mode = 'http'` with
+* {@link HttpStorageOptions} and point the endpoints at your own backend.
+*
+* @see {@link AutoStorageOptions} for `mode = 'auto'` (the default)
+* @see {@link HttpStorageOptions} for `mode = 'http'`
+*/
+export interface ManagedStorageOptions extends BaseHttpStorageOptions {
 	/**
-	* API key sent as `X-Tracker-Key` on every request (write and read).
-	*
-	* @remarks
-	* Omit to disable authentication - suitable for local development only.
+	* Storage backend to use.
 	*/
-	apiKey?: string
+	mode: 'standalone' | 'middleware'
 
 	/**
 	* TCP port for the built-in standalone HTTP server.
 	*
 	* @remarks
-	* Only used when `mode = 'standalone'`. The plugin warns and skips if the
-	* port is in use (`EADDRINUSE`).
+	* Only relevant when `mode = 'standalone'`. The plugin logs a warning and
+	* skips starting the server if the port is already in use (`EADDRINUSE`).
 	*
 	* @default 4242
 	*/
 	port?: number
 
 	/**
-	* Maximum number of events accumulated client-side before flushing.
-	*
-	* @remarks
-	* The queue flushes when `batchSize` **or** `flushInterval` is reached first.
-	* On page unload, remaining events are flushed via `navigator.sendBeacon`.
-	*
-	* @default 25
-	*/
-	batchSize?: number
-
-	/**
-	* Maximum time in milliseconds between automatic queue flushes.
-	*
-	* @remarks
-	* Timer resets on each flush. The 3 000 ms default stays well within the
-	* 30-second ingress timeout common in Kubernetes / OpenShift environments.
-	*
-	* @default 3000
-	*/
-	flushInterval?: number
-
-	/**
 	* Maximum number of events kept in the server-side in-memory ring buffer.
 	*
 	* @remarks
-	* Only used when `mode = 'standalone'` or `mode = 'middleware'`. The ring
-	* buffer holds the most recent events in memory so the dashboard can query
-	* them without reading log files on every request. When the buffer exceeds
-	* this limit, the oldest events are evicted automatically (FIFO).
+	* The ring buffer holds the most recent events in memory so the dashboard
+	* can query them without reading log files on every request. When the buffer
+	* exceeds this limit, the oldest events are evicted automatically (FIFO).
 	*
-	* Because the dashboard now always queries the buffer with a `since`/`until`
-	* time window, the buffer only needs to hold events for the widest time range
-	* your users are likely to inspect (e.g. the last 30 days at typical traffic).
-	* Raising this value increases memory usage on the Node.js process linearly.
+	* Because the dashboard always queries with a `since`/`until` time window,
+	* the buffer only needs to hold events for the widest range your users are
+	* likely to inspect (e.g. the last 30 days at typical traffic volumes).
+	* Increasing this value raises memory usage on the Node.js process linearly.
 	*
 	* @default 500000
 	*/
 	maxBufferSize?: number
 }
+
+/**
+* Storage configuration for `mode = 'auto'` (the default when `storage` is omitted).
+*
+* @remarks
+* `'auto'` resolves differently depending on the Vite command:
+*
+* - **`vite dev` / `vite preview`** — resolves to `'middleware'`. The plugin mounts
+*   its own request handler on the Vite dev server. No extra process is started.
+*   `writeEndpoint` is ignored; all events are routed to the internal handler.
+*
+* - **`vite build`** — resolves to `'http'` **if `writeEndpoint` is provided**,
+*   otherwise throws a build error. This lets you use a single config for both
+*   local development (no endpoint needed) and production builds (endpoint required):
+*
+*   ```ts
+*   // vite.config.ts
+*   trackerPlugin({
+*     appId: 'my-app',
+*     storage: { writeEndpoint: 'https://api.myapp.com/tracker/events' },
+*   })
+*   ```
+*
+* If you want an explicit, unambiguous config, prefer {@link HttpStorageOptions}
+* (`mode: 'http'`) or {@link ManagedStorageOptions} (`mode: 'standalone' | 'middleware'`)
+* instead of relying on `'auto'` resolution.
+*
+* @see {@link ManagedStorageOptions} for `mode = 'standalone' | 'middleware'`
+* @see {@link HttpStorageOptions} for `mode = 'http'`
+*/
+export interface AutoStorageOptions extends BaseHttpStorageOptions {
+	/**
+	* @default 'auto'
+	*/
+	mode?: 'auto'
+
+	/**
+	* URL that receives batched events in production (`vite build`).
+	*
+	* @remarks
+	* Ignored during `vite dev` and `vite preview` — events are routed to the
+	* plugin's internal middleware handler instead.
+	*
+	* When present at build time, `mode` resolves to `'http'` automatically.
+	* When absent at build time, the build throws an error asking you to either
+	* provide this endpoint or set `mode: 'http'` explicitly.
+	*
+	* @example `'https://api.myapp.com/tracker/events'`
+	*/
+	writeEndpoint?: string
+
+	/**
+	* Full URL of the event reading endpoint queried by the dashboard in production.
+	*
+	* @remarks
+	* Ignored during `vite dev` — the dashboard reads from the internal handler.
+	* If omitted, defaults to `writeEndpoint` with the trailing `/events` removed.
+	*
+	* @example `'https://api.myapp.com/tracker/events'`
+	*/
+	readEndpoint?: string
+
+	/**
+	* Optional URL used by the dashboard health check in production.
+	*
+	* @remarks
+	* Ignored during `vite dev`. When omitted, no health check is performed.
+	*
+	* @example `'https://api.myapp.com/ping'`
+	*/
+	pingEndpoint?: string
+
+	/**
+	* TCP port for the built-in standalone HTTP server.
+	*
+	* @remarks
+	* Only relevant when `mode` resolves to `'standalone'` at runtime (which
+	* never happens for `'auto'`, but kept for completeness).
+	*
+	* @default 4242
+	*/
+	port?: number
+
+	/**
+	* Maximum number of events kept in the server-side in-memory ring buffer.
+	*
+	* @remarks
+	* Only relevant in `vite dev` (middleware mode). See {@link ManagedStorageOptions.maxBufferSize}.
+	*
+	* @default 500000
+	*/
+	maxBufferSize?: number
+}
+
 
 /**
 * WebSocket transport configuration - used when `mode = 'websocket'`.
@@ -1265,13 +1405,19 @@ export interface WsStorageOptions {
 * Configuration for the event storage and transport layer.
 *
 * @remarks
-* Use {@link HttpStorageOptions} for HTTP/standalone/middleware modes.
-* Use {@link WsStorageOptions} for WebSocket mode. The two are mutually
-* exclusive - TypeScript enforces this via the discriminated union.
+* Four mutually exclusive shapes, discriminated by `mode`:
+*
+* - {@link AutoStorageOptions} — `mode: 'auto'` (default). Resolves to `'middleware'` in dev
+*   and to `'http'` in build if `writeEndpoint` is provided.
+* - {@link HttpStorageOptions} — `mode: 'http'`. You operate your own backend;
+*   provide `writeEndpoint` (required) and optionally `readEndpoint` / `pingEndpoint`.
+* - {@link ManagedStorageOptions} — `mode: 'standalone' | 'middleware'`. The plugin
+*   manages the server internally; endpoint paths are fixed and not configurable.
+* - {@link WsStorageOptions} — `mode: 'websocket'`. Provide `wsEndpoint` pointing at your backend.
 *
 * @see {@link StorageMode}
 */
-export type StorageOptions = HttpStorageOptions | WsStorageOptions
+export type StorageOptions = AutoStorageOptions | HttpStorageOptions | ManagedStorageOptions | WsStorageOptions
 
 /**
 * Top-level options passed to `trackerPlugin(options)` in `vite.config.ts`.
@@ -2926,13 +3072,13 @@ export type TrackerConfig = TrackerConfigCommon & (
  * @internal
  */
 export interface ResolvedHttpOpts {
-	captureRequestHeaders:  boolean
-	captureRequestBody:     boolean
+	captureRequestHeaders: boolean
+	captureRequestBody: boolean
 	captureResponseHeaders: boolean
-	captureResponseBody:    boolean
-	excludeHeaders:         string[]
-	redactKeys:             string[]
-	maxBodySize:            number
+	captureResponseBody: boolean
+	excludeHeaders: string[]
+	redactKeys: string[]
+	maxBodySize: number
 }
 
 /**

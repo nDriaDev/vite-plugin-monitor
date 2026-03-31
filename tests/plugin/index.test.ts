@@ -220,6 +220,12 @@ describe('trackerPlugin()', () => {
 			}))).not.toThrow();
 		});
 
+		it('"http" + build + writeEndpoint -> "http"', () => {
+			expect(() => resolveMode(baseOpts({
+				storage: { mode: "http", writeEndpoint: '/api/events' } as any
+			}), 'build')).not.toThrow();
+		});
+
 		it('"standalone" remains "standalone"', () => {
 			expect(() => resolveMode(baseOpts({
 				storage: { mode: 'standalone' } as any
@@ -244,7 +250,7 @@ describe('trackerPlugin()', () => {
 
 		it('"auto" + build + writeEndpoint -> "http"', () => {
 			expect(() => resolveMode(baseOpts({
-				storage: { writeEndpoint: '/api/events' } as any
+				storage: { mode: "auto", writeEndpoint: '/api/events' } as any
 			}), 'build')).not.toThrow();
 		});
 	});

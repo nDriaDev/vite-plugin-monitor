@@ -1,4 +1,4 @@
-import type { HttpStorageOptions, ResolvedTrackerOptions, StorageMode, TrackerPluginOptions, WsStorageOptions } from "@tracker/types";
+import type { AutoStorageOptions, HttpStorageOptions, ManagedStorageOptions, ResolvedTrackerOptions, StorageMode, TrackerPluginOptions, WsStorageOptions } from "@tracker/types";
 import { createHmac } from "node:crypto";
 
 
@@ -24,8 +24,13 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 		}
 	}
 
-	const httpOpts = opts.storage as HttpStorageOptions | undefined
-	const wsOpts = opts.storage as WsStorageOptions | undefined
+	// INFO 'auto' gets its own type because it supports writeEndpoint/readEndpoint/pingEndpoint as optional fields — used only when the build resolves 'auto' to 'http'.
+	const httpOpts = mode === 'http' ? opts.storage as HttpStorageOptions : undefined;
+	const autoOpts = mode === 'auto' ? opts.storage as AutoStorageOptions : undefined;
+	const managedOpts = (mode === 'standalone' || mode === 'middleware') ? opts.storage as ManagedStorageOptions : undefined;
+	const wsOpts = mode === 'websocket' ? opts.storage as WsStorageOptions : undefined;
+	const anyOpts = httpOpts ?? autoOpts ?? managedOpts;
+
 	let auth = opts.dashboard?.auth;
 	if (auth === false || auth === undefined || auth === null) {
 		auth = false;
@@ -55,24 +60,24 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 			: {
 				mode,
 				wsEndpoint: '' as const,
-				writeEndpoint: httpOpts?.writeEndpoint?.replace(/\/$/, '') ?? '',
-				readEndpoint: httpOpts?.readEndpoint?.replace(/\/$/, '') ?? '',
-				pingEndpoint: httpOpts?.pingEndpoint ?? '',
-				apiKey: httpOpts?.apiKey ?? '',
-				port: httpOpts?.port ?? 4242,
-				batchSize: httpOpts?.batchSize ?? 25,
-				flushInterval: httpOpts?.flushInterval ?? 3000,
-				maxBufferSize: httpOpts?.maxBufferSize ?? 500000,
+				writeEndpoint: (httpOpts?.writeEndpoint ?? autoOpts?.writeEndpoint ?? '').replace(/\/$/, ''),
+				readEndpoint: (httpOpts?.readEndpoint ?? autoOpts?.readEndpoint ?? '').replace(/\/$/, ''),
+				pingEndpoint: httpOpts?.pingEndpoint ?? autoOpts?.pingEndpoint ?? '',
+				apiKey: anyOpts?.apiKey ?? '',
+				port: (autoOpts ?? managedOpts)?.port ?? 4242,
+				batchSize: anyOpts?.batchSize ?? 25,
+				flushInterval: anyOpts?.flushInterval ?? 3000,
+				maxBufferSize: (autoOpts ?? managedOpts)?.maxBufferSize ?? 500000,
 			},
 		track: {
-			clicks:      opts.track?.clicks      ?? false,
-			http:        opts.track?.http        ?? false,
-			errors:      opts.track?.errors      ?? false,
-			navigation:  opts.track?.navigation  ?? false,
-			console:     opts.track?.console     ?? true,
-			userId:      opts.track?.userId      ?? (() => null),
-			level:       opts.track?.level       ?? 'info',
-			ignoreUrls:  opts.track?.ignoreUrls  ?? [],
+			clicks: opts.track?.clicks ?? false,
+			http: opts.track?.http ?? false,
+			errors: opts.track?.errors ?? false,
+			navigation: opts.track?.navigation ?? false,
+			console: opts.track?.console ?? true,
+			userId: opts.track?.userId ?? (() => null),
+			level: opts.track?.level ?? 'info',
+			ignoreUrls: opts.track?.ignoreUrls ?? [],
 		},
 		logging: {
 			level: opts.logging?.level ?? 'info',
@@ -85,14 +90,14 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 			],
 		},
 		dashboard: {
-			enabled:        opts.dashboard?.enabled        ?? false,
-			route:          opts.dashboard?.route          ?? '/_dashboard',
+			enabled: opts.dashboard?.enabled ?? false,
+			route: opts.dashboard?.route ?? '/_dashboard',
 			auth,
 			includeInBuild: opts.dashboard?.includeInBuild ?? false,
-			pollInterval:   opts.dashboard?.pollInterval   ?? 3000,
+			pollInterval: opts.dashboard?.pollInterval ?? 3000,
 		},
 		overlay: {
-			enabled:  opts.overlay?.enabled  ?? false,
+			enabled: opts.overlay?.enabled ?? false,
 			position: opts.overlay?.position ?? 'bottom-right',
 		},
 		autoInit: opts.autoInit ?? true
