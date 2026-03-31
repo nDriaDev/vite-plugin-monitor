@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.1](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.1.1) - 2026-03-31
+
+### Bug Fixes
+
+- ignoreUrls to track ([e3f37b5](https://github.com/nDriaDev/vite-plugin-monitor/commit/e3f37b5))
+
 ## [1.1.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.1.0) - 2026-03-31
 
 ### Bug Fixes
