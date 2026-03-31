@@ -20,9 +20,9 @@ const LEVELS: Record<LogLevel, number> = {
 function workerScriptPath(): string {
 	try {
 		const __filename = fileURLToPath(import.meta.url);
-		return path.join(path.dirname(__filename), 'logger-worker.js');
+		return path.join(path.dirname(__filename), 'plugin', 'logger-worker.js');
 	} catch {
-		return path.join(__dirname, 'logger-worker.js');
+		return path.join(__dirname, 'plugin', 'logger-worker.cjs');
 	}
 }
 /* v8 ignore stop */
