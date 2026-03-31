@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.2](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.0.2) - 2026-03-31
+
+### Bug Fixes
+
+- worker script path ([9d31d37](https://github.com/nDriaDev/vite-plugin-monitor/commit/9d31d37))
+- dashboard serving file ([53f3733](https://github.com/nDriaDev/vite-plugin-monitor/commit/53f3733))
+
+### Documentation
+
+- Update overlay.md ([84eaea1](https://github.com/nDriaDev/vite-plugin-monitor/commit/84eaea1))
+- Update config.ts ([462aa74](https://github.com/nDriaDev/vite-plugin-monitor/commit/462aa74))
+- Update README.md ([08e5071](https://github.com/nDriaDev/vite-plugin-monitor/commit/08e5071))
+
+### Other Changes
+
+- Merge remote-tracking branch 'origin/main' ([825fc04](https://github.com/nDriaDev/vite-plugin-monitor/commit/825fc04))
+
 ## [1.0.1](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.0.1) - 2026-03-29
 
 ### Features
