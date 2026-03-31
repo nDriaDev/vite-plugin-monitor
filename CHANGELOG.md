@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.1.0) - 2026-03-31
+
+### Bug Fixes
+
+- storage mode definition ([8f42b62](https://github.com/nDriaDev/vite-plugin-monitor/commit/8f42b62))
+- resolveReadEndpoint ([76eafdb](https://github.com/nDriaDev/vite-plugin-monitor/commit/76eafdb))
+
 ## [1.0.4](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.0.4) - 2026-03-31
 
 ### Bug Fixes
