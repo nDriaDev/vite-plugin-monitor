@@ -111,7 +111,8 @@ export async function fetchAllEvents(since: string, until: string): Promise<Trac
 	}
 
 	const { readEndpoint, apiKey } = config;
-	const url = new URL(readEndpoint);
+	const base = readEndpoint.startsWith("/") ? window.location.origin : undefined;
+	const url = new URL(readEndpoint, base);
 	url.searchParams.set('since', since);
 	url.searchParams.set('until', until);
 
