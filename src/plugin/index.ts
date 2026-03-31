@@ -143,10 +143,8 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			const dashDir = dashboardDistDir();
 
 			server.middlewares.use(opts.dashboard.route, (req, res, next) => {
-				const rawUrl = req.url ?? '/';
-				const route = opts.dashboard.route.replace(/\/$/, '');
-				const url = rawUrl.startsWith(route) ? rawUrl.slice(route.length) || '/' : rawUrl;
-
+				// INFO serve asset files (JS, CSS, fonts) - URL contains a dot
+				const url = req.url ?? '/';
 				if (url !== '/' && url.includes('.')) {
 					const filePath = path.join(dashDir, url);
 					if (existsSync(filePath)) {
@@ -158,8 +156,12 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				// INFO all other requests -> serve index.html (SPA fallback)
 				const indexPath = path.join(dashDir, 'index.html');
 				if (existsSync(indexPath)) {
-					// INFO Inject config before </head> so window.__TRACKER_CONFIG__ is available when dashboard/main.ts executes
 					let html = readFileSync(indexPath, 'utf8');
+					// INFO Fix assets paths from relative paths to absolute paths.
+					const dashRoute = opts.dashboard.route.replace(/\/$/, '') + '/';
+					html = html.replace(/(src|href)="\.\//g, `$1="${dashRoute}`);
+
+					// INFO Inject config before </head> so window.__TRACKER_CONFIG__ is available when dashboard/main.ts executes
 					const configScript = `<script>${generateConfigScript(opts)}</script>`;
 					html = html.replace('</head>', `${configScript}\n</head>`)
 
