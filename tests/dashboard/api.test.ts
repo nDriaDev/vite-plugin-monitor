@@ -393,5 +393,30 @@ describe('ensureWsConnected + fetchAllEvents (WebSocket)', () => {
 
 			expect(await promise).toEqual([]);
 		});
+
+		it('send authentication message if apiKey is provided', async () => {
+			const apiKey = 'test-secret-key';
+			installTrackerConfig(makeConfig({
+				wsEndpoint: 'ws://localhost/_tracker',
+				apiKey
+			}));
+			const { fetchAllEvents } = await importApi();
+			const promise = fetchAllEvents('from', 'to');
+			mockWs.readyState = 1;
+			mockWs._emit('open');
+			await vi.waitFor(() => {
+				expect(mockWs.send).toHaveBeenCalledTimes(2);
+			});
+			const authCall = mockWs.send.mock.calls.find(args => JSON.parse(args[0]).type === 'auth');
+			expect(authCall).toBeDefined();
+			expect(JSON.parse(authCall![0])).toEqual({ type: 'auth', key: apiKey });
+			const queryCall = mockWs.send.mock.calls.find(args => JSON.parse(args[0]).type === 'events:query');
+			expect(queryCall).toBeDefined();
+			const reqId = JSON.parse(queryCall![0]).reqId;
+			mockWs._emit('message', {
+				data: JSON.stringify({ type: 'events:response', reqId, response: { events: [] } })
+			});
+			await promise;
+		});
 	});
 });

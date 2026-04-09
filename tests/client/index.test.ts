@@ -247,6 +247,83 @@ describe('setupTrackers()', () => {
 			expect.arrayContaining(['/_dashboard'])
 		);
 	});
+
+	it('track.level filters out automatic tracker events below the threshold', async () => {
+		vi.resetModules();
+
+		let capturedEmit: any = null;
+
+		vi.doMock('../../src/client/trackers/console', () => ({
+			setupConsoleTracker: vi.fn().mockImplementation((_opts, cb) => {
+				capturedEmit = cb;
+				return () => { };
+			})
+		}));
+
+		const mod = await import('../../src/client/index');
+
+		overrideTrackerConfig(makeMiddlewareConfig({
+			track: {
+				clicks: false,
+				http: false,
+				errors: false,
+				navigation: false,
+				console: true,
+				level: 'warn',
+				ignoreUrls: []
+			}
+		}));
+
+		mod.setupTrackers();
+		mod.tracker.init();
+
+		capturedEmit({ method: 'debug', args: [], message: 'debug msg', groupDepth: 0 }, 'debug');
+		capturedEmit({ method: 'info', args: [], message: 'info msg', groupDepth: 0 }, 'info');
+		capturedEmit({ method: 'warn', args: [], message: 'warn msg', groupDepth: 0 }, 'warn');
+		capturedEmit({ method: 'error', args: [], message: 'error msg', groupDepth: 0 }, 'error');
+
+		vi.advanceTimersByTime(3100);
+		await flushPromises();
+
+		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+		const sentTypes = body.events
+			.filter((e: any) => e.type === 'console')
+			.map((e: any) => e.level);
+
+		expect(sentTypes).not.toContain('debug');
+		expect(sentTypes).not.toContain('info');
+		expect(sentTypes).toContain('warn');
+		expect(sentTypes).toContain('error');
+	});
+
+	it('track.level does NOT filter custom events from tracker.track()', async () => {
+		const { tracker } = trackerModule;
+
+		overrideTrackerConfig(makeMiddlewareConfig({
+			track: {
+				clicks: false,
+				http: false,
+				errors: false,
+				navigation: false,
+				console: false,
+				level: 'error',
+				ignoreUrls: []
+			}
+		}));
+
+		tracker.init();
+		tracker.track('custom:debug', {}, { level: 'debug' });
+		tracker.track('custom:info', {}, { level: 'info' });
+
+		vi.advanceTimersByTime(3100);
+		await flushPromises();
+
+		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+		const customEvents = body.events.filter((e: any) => e.type === 'custom');
+
+		expect(customEvents.some((e: any) => e.payload.name === 'custom:debug')).toBe(true);
+		expect(customEvents.some((e: any) => e.payload.name === 'custom:info')).toBe(true);
+	});
 });
 
 describe('tracker.init()', () => {
@@ -484,7 +561,8 @@ describe('tracker.time() / tracker.timeEnd()', () => {
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
 		const timedEvent = body.events.find((e: any) => e.payload?.name === 'real-op');
 		expect(timedEvent).toBeDefined();
-		expect(timedEvent.payload.data.duration).toBeGreaterThanOrEqual(0);
+		expect(timedEvent.payload.duration).toBeGreaterThanOrEqual(0);
+		expect(timedEvent.payload.data.duration).toBeUndefined();
 	});
 
 	it('timeEnd() returns -1 when called without init()', () => {

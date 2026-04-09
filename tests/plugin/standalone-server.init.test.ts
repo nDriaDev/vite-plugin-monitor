@@ -173,47 +173,38 @@ describe('createStandaloneServer()', () => {
 	});
 
 	describe('WebSocket connection handler', () => {
-		it('closes the connection with 1008 when apiKey does not match', () => {
-			const opts = makeOpts();
-			opts.storage.apiKey = 'secret';
-			createStandaloneServer(opts, makeLogger());
-
-			const client = makeFakeWsClient();
-			mockWss.emit('connection', client, { headers: { 'x-tracker-key': 'wrong' } });
-
-			expect(client.close).toHaveBeenCalledWith(1008, 'Unauthorized');
-		});
-
-		it('does not close the connection when apiKey matches', () => {
-			const opts = makeOpts();
-			opts.storage.apiKey = 'secret';
-			createStandaloneServer(opts, makeLogger());
-
-			const client = makeFakeWsClient();
-			mockWss.emit('connection', client, { headers: { 'x-tracker-key': 'secret' } });
-
-			expect(client.close).not.toHaveBeenCalled();
-		});
-
-		it('does not close the connection when apiKey is not configured', () => {
-			const opts = makeOpts();
-			opts.storage.apiKey = '';
-			createStandaloneServer(opts, makeLogger());
-
-			const client = makeFakeWsClient();
-			mockWss.emit('connection', client, { headers: {} });
-
-			expect(client.close).not.toHaveBeenCalled();
-		});
-
 		it('registers the "message" listener on the client upon connection', () => {
 			createStandaloneServer(makeOpts(), makeLogger());
 
 			const client = makeFakeWsClient();
 			const onSpy = vi.spyOn(client, 'on');
-			mockWss.emit('connection', client, { headers: {} });
+			mockWss.emit('connection', client);
 
 			expect(onSpy).toHaveBeenCalledWith('message', expect.any(Function));
+		});
+
+		it('does not close or send anything on connection when apiKey is not configured', () => {
+			const opts = makeOpts();
+			opts.storage.apiKey = '';
+			createStandaloneServer(opts, makeLogger());
+
+			const client = makeFakeWsClient();
+			mockWss.emit('connection', client);
+
+			expect(client.close).not.toHaveBeenCalled();
+			expect(client.send).not.toHaveBeenCalled();
+		});
+
+		it('does not close the connection immediately when apiKey is configured (waits for auth message)', () => {
+			const opts = makeOpts();
+			opts.storage.apiKey = 'secret';
+			createStandaloneServer(opts, makeLogger());
+
+			const client = makeFakeWsClient();
+			mockWss.emit('connection', client);
+
+			// The server must NOT close the socket before the first message
+			expect(client.close).not.toHaveBeenCalled();
 		});
 	});
 
@@ -221,15 +212,73 @@ describe('createStandaloneServer()', () => {
 		function connectClient(opts = makeOpts(), logger = makeLogger()) {
 			createStandaloneServer(opts, logger);
 			const client = makeFakeWsClient();
-			mockWss.emit('connection', client, { headers: {} });
+			mockWss.emit('connection', client);
 			return { client, logger };
 		}
 
-		it('ingests valid events and responds with ack', () => {
+		it('accepts auth message with correct key and responds with auth_ok', () => {
+			const opts = makeOpts();
+			opts.storage.apiKey = 'secret';
+			const { client } = connectClient(opts);
+
+			client.emit('message', Buffer.from(JSON.stringify({ type: 'auth', key: 'secret' })));
+
+			expect(client.close).not.toHaveBeenCalled();
+			expect(JSON.parse(client.send.mock.calls[0][0])).toMatchObject({ type: 'auth_ok' });
+		});
+
+		it('closes with 1008 when auth message has wrong key', () => {
+			const opts = makeOpts();
+			opts.storage.apiKey = 'secret';
+			const { client } = connectClient(opts);
+
+			client.emit('message', Buffer.from(JSON.stringify({ type: 'auth', key: 'wrong' })));
+
+			expect(client.close).toHaveBeenCalledWith(1008, 'Unauthorized');
+		});
+
+		it('closes with 1008 when first message is an ingest instead of auth', () => {
+			const opts = makeOpts();
+			opts.storage.apiKey = 'secret';
+			const { client } = connectClient(opts);
+
+			client.emit('message', Buffer.from(JSON.stringify({ type: 'ingest', events: [makeEvent()] })));
+
+			expect(client.close).toHaveBeenCalledWith(1008, 'Unauthorized');
+		});
+
+		it('ingests events normally when no apiKey is configured (no auth message needed)', () => {
+			const opts = makeOpts();
+			opts.storage.apiKey = '';
+			const { client, logger } = connectClient(opts);
+			const event = makeEvent();
+
+			client.emit('message', Buffer.from(JSON.stringify({ type: 'ingest', events: [event] })));
+
+			expect(logger.writeEvent).toHaveBeenCalledWith(event);
+			expect(JSON.parse(client.send.mock.calls[0][0])).toMatchObject({ type: 'ack', saved: 1 });
+		});
+
+		it('ingests events after successful auth', () => {
+			const opts = makeOpts();
+			opts.storage.apiKey = 'secret';
+			const { client, logger } = connectClient(opts);
+			const event = makeEvent();
+
+			// First authenticate
+			client.emit('message', Buffer.from(JSON.stringify({ type: 'auth', key: 'secret' })));
+			// Then send events
+			client.emit('message', Buffer.from(JSON.stringify({ type: 'ingest', events: [event] })));
+
+			expect(logger.writeEvent).toHaveBeenCalledWith(event);
+			expect(JSON.parse(client.send.mock.calls[1][0])).toMatchObject({ type: 'ack', saved: 1 });
+		});
+
+		it('ingests valid events and responds with ack (no apiKey)', () => {
 			const { client, logger } = connectClient();
 			const event = makeEvent();
 
-			client.emit('message', Buffer.from(JSON.stringify({ events: [event] })));
+			client.emit('message', Buffer.from(JSON.stringify({ type: 'ingest', events: [event] })));
 
 			expect(logger.writeEvent).toHaveBeenCalledWith(event);
 			expect(logger.debug).toHaveBeenCalledWith(expect.stringContaining('ingested 1 events'));
@@ -239,7 +288,7 @@ describe('createStandaloneServer()', () => {
 		it('does not call writeEvent when events is an empty array', () => {
 			const { client, logger } = connectClient();
 
-			client.emit('message', Buffer.from(JSON.stringify({ events: [] })));
+			client.emit('message', Buffer.from(JSON.stringify({ type: 'ingest', events: [] })));
 
 			expect(logger.writeEvent).not.toHaveBeenCalled();
 		});
@@ -250,6 +299,38 @@ describe('createStandaloneServer()', () => {
 			client.emit('message', Buffer.from('{not valid json'));
 
 			expect(JSON.parse(client.send.mock.calls[0][0])).toMatchObject({ type: 'error', message: 'Invalid message' });
+		});
+
+		it('responds to "events:query" with filtered events from the buffer', () => {
+			const { client } = connectClient();
+			const event1 = makeEvent({ timestamp: '2023-01-01T10:00:00Z', payload: { name: 'old', data: {id: 1} } });
+			const event2 = makeEvent({ timestamp: '2023-01-02T10:00:00Z', payload: { name: 'new', data: {id: 0} } });
+			client.emit('message', Buffer.from(JSON.stringify({
+				type: 'ingest',
+				events: [event1, event2]
+			})));
+			const queryMsg = {
+				type: 'events:query',
+				reqId: 'req_123',
+				query: {
+					since: '2023-01-02T00:00:00Z'
+				}
+			};
+
+			client.emit('message', Buffer.from(JSON.stringify(queryMsg)));
+			const response = JSON.parse(client.send.mock.calls[1][0]);
+
+			expect(response).toMatchObject({
+				type: 'events:response',
+				reqId: 'req_123',
+				response: {
+					total: 1,
+					page: 1
+				}
+			});
+
+			expect(response.response.events).toHaveLength(1);
+			expect(response.response.events[0].payload.name).toBe('new');
 		});
 	});
 });

@@ -32,7 +32,7 @@ function makeEvent(overrides: Partial<TrackerEvent> = {}): TrackerEvent {
 		timestamp: new Date().toISOString(),
 		appId: 'test-app',
 		sessionId: 'sess_abc',
-		userId: null,
+		userId: 'anon_test',
 		payload: { message: 'test' },
 		...overrides,
 	} as TrackerEvent;
@@ -94,7 +94,7 @@ describe('createRequestHandler()', () => {
 			const buffer = { push: vi.fn(), query: vi.fn(), all: vi.fn(), size: vi.fn().mockReturnValue(1) } as any
 			const handler = createRequestHandler(makeOpts(), buffer, logger);
 			const events = [makeEvent()];
-			const { req, res } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { events } });
+			const { req, res } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { type: "ingest", events } });
 
 			const handled = await handler(req, res);
 			expect(handled).toBe(true);
@@ -151,7 +151,7 @@ describe('createRequestHandler()', () => {
 				size: vi.fn().mockReturnValue(1)
 			} as any;
 			const handler = createRequestHandler(makeOpts(), buffer, makeLogger());
-			const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker/events' });
+			const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker' });
 			await handler(req, res);
 			const body = (res as any).getBody() as { events: TrackerEvent[]; total: number };
 			expect(body.events).toHaveLength(1);
@@ -168,7 +168,7 @@ describe('createRequestHandler()', () => {
 			const handler = createRequestHandler(makeOpts(), buffer, makeLogger());
 			const { req, res } = makeReqRes({
 				method: 'GET',
-				url: '/_tracker/events?since=2024-01-01&until=2024-12-31&limit=10&page=2'
+				url: '/_tracker?since=2024-01-01&until=2024-12-31&limit=10&page=2'
 			});
 			await handler(req, res);
 			expect(buffer.query).toHaveBeenCalledWith(
@@ -185,7 +185,7 @@ describe('createRequestHandler()', () => {
 				size: vi.fn().mockReturnValue(1)
 			} as any;
 			const handler = createRequestHandler(makeOpts(), buffer, makeLogger());
-			const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker/events' });
+			const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker' });
 			await handler(req, res);
 			expect((res as any).getBody()).toMatchObject({ nextCursor: ev.timestamp });
 		});
@@ -198,7 +198,7 @@ describe('createRequestHandler()', () => {
 				size: vi.fn().mockReturnValue(0)
 			} as any;
 			const handler = createRequestHandler(makeOpts(), buffer, makeLogger());
-			const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker/events' });
+			const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker' });
 			await handler(req, res);
 			expect((res as any).getBody()).not.toHaveProperty('nextCursor');
 		});
@@ -232,7 +232,7 @@ describe('createRequestHandler()', () => {
 			opts.storage.apiKey = '';
 			const buffer = { push: vi.fn(), query: vi.fn().mockReturnValue({ events: [], total: 0 }), all: vi.fn(), size: vi.fn().mockReturnValue(0) } as any
 			const handler = createRequestHandler(opts, buffer, makeLogger());
-			const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker/events' });
+			const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker' });
 			await handler(req, res);
 			expect((res as any).writeHead).toHaveBeenCalledWith(200, expect.any(Object));
 		});
@@ -244,7 +244,7 @@ describe('createRequestHandler()', () => {
 			const handler = createRequestHandler(opts, buffer, makeLogger());
 			const { req, res } = makeReqRes({
 				method: 'GET',
-				url: '/_tracker/events',
+				url: '/_tracker',
 				headers: { 'x-tracker-key': 'secret' }
 			});
 			await handler(req, res);
@@ -257,7 +257,7 @@ describe('createRequestHandler()', () => {
 			const handler = createRequestHandler(opts, { push: vi.fn(), query: vi.fn(), all: vi.fn(), size: vi.fn() } as any, makeLogger());
 			const { req, res } = makeReqRes({
 				method: 'GET',
-				url: '/_tracker/events',
+				url: '/_tracker',
 				headers: { 'x-tracker-key': 'wrong' }
 			});
 			await handler(req, res);
@@ -348,7 +348,7 @@ describe('RingBuffer (via createMiddleware)', () => {
 		const { req: r1, res: s1 } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { events } });
 		await mw(r1, s1, next);
 
-		const { req: r2, res: s2 } = makeReqRes({ method: 'GET', url: '/_tracker/events?limit=100&page=1' });
+		const { req: r2, res: s2 } = makeReqRes({ method: 'GET', url: '/_tracker?limit=100&page=1' });
 		await mw(r2, s2, next);
 
 		const body = (s2 as any).getBody() as { events: TrackerEvent[]; total: number };
@@ -368,7 +368,7 @@ describe('RingBuffer (via createMiddleware)', () => {
 		const { req: r1, res: s1 } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { events } });
 		await mw(r1, s1, next);
 
-		const { req: r2, res: s2 } = makeReqRes({ method: 'GET', url: '/_tracker/events?limit=100&page=1' });
+		const { req: r2, res: s2 } = makeReqRes({ method: 'GET', url: '/_tracker?limit=100&page=1' });
 		await mw(r2, s2, next);
 
 		const body = (s2 as any).getBody() as { events: TrackerEvent[] };
@@ -389,7 +389,7 @@ describe('RingBuffer (via createMiddleware)', () => {
 
 		const { req: r2, res: s2 } = makeReqRes({
 			method: 'GET',
-			url: '/_tracker/events?since=2024-03-01T00:00:00.000Z&limit=100&page=1',
+			url: '/_tracker?since=2024-03-01T00:00:00.000Z&limit=100&page=1',
 		});
 		await mw(r2, s2, next);
 
@@ -411,7 +411,7 @@ describe('RingBuffer (via createMiddleware)', () => {
 
 		const { req: r2, res: s2 } = makeReqRes({
 			method: 'GET',
-			url: '/_tracker/events?until=2024-06-01T00:00:00.000Z&limit=100&page=1',
+			url: '/_tracker?until=2024-06-01T00:00:00.000Z&limit=100&page=1',
 		});
 		await mw(r2, s2, next);
 
@@ -434,7 +434,7 @@ describe('RingBuffer (via createMiddleware)', () => {
 
 		const { req: r2, res: s2 } = makeReqRes({
 			method: 'GET',
-			url: '/_tracker/events?after=2024-06-01T00:00:00.000Z&limit=100&page=1',
+			url: '/_tracker?after=2024-06-01T00:00:00.000Z&limit=100&page=1',
 		});
 		await mw(r2, s2, next);
 
@@ -455,14 +455,14 @@ describe('RingBuffer (via createMiddleware)', () => {
 		const { req: r1, res: s1 } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { events } });
 		await mw(r1, s1, next);
 
-		const { req: r2, res: s2 } = makeReqRes({ method: 'GET', url: '/_tracker/events?limit=2&page=1' });
+		const { req: r2, res: s2 } = makeReqRes({ method: 'GET', url: '/_tracker?limit=2&page=1' });
 		await mw(r2, s2, next);
 		const body1 = (s2 as any).getBody() as { events: TrackerEvent[]; total: number };
 		expect(body1.total).toBe(3);
 		expect(body1.events).toHaveLength(2);
 		expect(body1.events[0].timestamp).toBe('2024-03-01T00:00:00.000Z');
 
-		const { req: r3, res: s3 } = makeReqRes({ method: 'GET', url: '/_tracker/events?limit=2&page=2' });
+		const { req: r3, res: s3 } = makeReqRes({ method: 'GET', url: '/_tracker?limit=2&page=2' });
 		await mw(r3, s3, next);
 		const body2 = (s3 as any).getBody() as { events: TrackerEvent[]; total: number };
 		expect(body2.total).toBe(3);
@@ -501,7 +501,7 @@ describe('loadFromLogFiles() (via createMiddleware)', () => {
 		const mw = createMiddleware(makeOptsWithTransport('/logs/app.log.json'), logger) as Connect.NextHandleFunction;
 		const next = vi.fn();
 
-		const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker/events?limit=100&page=1' });
+		const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker?limit=100&page=1' });
 		await mw(req, res, next);
 
 		expect((res as any).getBody().total).toBe(1);
@@ -523,7 +523,7 @@ describe('loadFromLogFiles() (via createMiddleware)', () => {
 		const mw = createMiddleware(makeOptsWithTransport('/logs/app.log.json'), logger) as Connect.NextHandleFunction;
 		const next = vi.fn();
 
-		const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker/events?limit=100&page=1' });
+		const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker?limit=100&page=1' });
 		await mw(req, res, next);
 
 		expect((res as any).getBody().total).toBe(2);

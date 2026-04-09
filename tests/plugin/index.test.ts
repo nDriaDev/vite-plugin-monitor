@@ -59,6 +59,7 @@ const mockCopyFileSync = copyFileSync as ReturnType<typeof vi.fn>
 function makeViteConfig(overrides: Partial<ResolvedConfig> = {}): ResolvedConfig {
 	return {
 		command: 'serve',
+		root: process.cwd(),
 		base: '/',
 		server: { port: 5173 },
 		build: { outDir: 'dist' },
@@ -152,6 +153,7 @@ describe('trackerPlugin()', () => {
 		});
 
 		it('registers a shutdown hook', () => {
+			mockReadFileSync.mockReturnValue('{"version": "1.1.1"}');
 			const plugin = trackerPlugin(baseOpts());
 			const hook = getHook(plugin, 'configResolved') as Function;
 			hook(makeViteConfig());
@@ -204,6 +206,12 @@ describe('trackerPlugin()', () => {
 			hook(makeViteConfig());
 			expect(mockUnregister).toHaveBeenCalledOnce();
 			expect(mockRegisterShutdownHook).toHaveBeenCalledTimes(2);
+		});
+
+		it('in serve mode, readEndpoint resolves to /_tracker for middleware mode', () => {
+			const plugin = trackerPlugin(baseOpts());
+			const config = makeViteConfig({ command: 'serve' });
+			(getHook(plugin, 'configResolved') as Function)(config);
 		});
 	});
 

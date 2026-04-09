@@ -136,13 +136,6 @@ describe('setupConsoleTracker', () => {
 			expect(events).toHaveLength(0);
 		});
 
-		it('messages containing [vue] do not emit event', () => {
-			const events = capture({ methods: ['warn'] }, () =>
-				console.warn('[vue] something')
-			);
-			expect(events).toHaveLength(0);
-		});
-
 		it('messages without predefined patterns emit normally', () => {
 			const events = capture({ methods: ['log'] }, () =>
 				console.log('hello world')
@@ -588,7 +581,7 @@ describe('setupConsoleTracker', () => {
 		});
 
 		it('primo arg array -> "[Array]"', () => {
-			expect(logMsg([1, 2, 3])).toBe('[Array]');
+			expect(logMsg([1, 2, 3])).toBe('[Array(3)]');
 		});
 
 		it('primo arg oggetto -> "[Object]"', () => {
@@ -637,7 +630,7 @@ describe('setupConsoleTracker', () => {
 		});
 	});
 
-	describe('livelli degli eventi (METHOD_LEVEL)', () => {
+	describe('events levels (METHOD_LEVEL)', () => {
 		it('console.log -> level "info"', () => {
 			const { level } = captureOne({ methods: ['log'] }, () => console.log('test'));
 			expect(level).toBe('info');

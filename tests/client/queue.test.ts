@@ -40,10 +40,11 @@ class MockWebSocket {
 		});
 	}
 
-	simulateClose() {
+	simulateClose(code = 1000) {
 		this.readyState = 3;
+		const closeEvent = new CloseEvent('close', { code });
 		this.listeners.get('close')?.forEach(h => {
-			typeof h === 'function' ? h(this.generateEvent('close')) : h.handleEvent(this.generateEvent('close'));
+			typeof h === 'function' ? h(closeEvent) : h.handleEvent(closeEvent);
 		});
 	}
 
@@ -146,6 +147,57 @@ describe('EventQueue', () => {
 			expect((queue as any).wsReady).toBe(true);
 		});
 
+		it('sends auth message first if apiKey is configured', () => {
+			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test', apiKey: 'secret' }));
+			MockWebSocket.latest().simulateOpen();
+
+			const ws = MockWebSocket.latest();
+			expect(ws.send).toHaveBeenCalledOnce();
+			const msg = JSON.parse(ws.send.mock.calls[0][0]);
+			expect(msg).toEqual({ type: 'auth', key: 'secret' });
+		});
+
+		it('does not send auth message if apiKey is empty', () => {
+			new EventQueue(makeOpts({ wsEndpoint: 'ws://test', apiKey: '' }));
+			MockWebSocket.latest().simulateOpen();
+			expect(MockWebSocket.latest().send).not.toHaveBeenCalled();
+		});
+
+		it('calls ws.close() if sending auth fails', () => {
+			new EventQueue(makeOpts({ wsEndpoint: 'ws://test', apiKey: 'secret' }));
+			const ws = MockWebSocket.latest();
+			ws.send.mockImplementationOnce(() => {
+				throw new Error('Immediate failure');
+			});
+			ws.simulateOpen();
+			expect(ws.close).toHaveBeenCalled();
+		});
+
+		it('sends auth message before flushing wsPending events', () => {
+			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test', apiKey: 'secret' }));
+			const evt = makeEvent();
+			(queue as any).wsPending.push(evt);
+
+			MockWebSocket.latest().simulateOpen();
+
+			const ws = MockWebSocket.latest();
+			expect(ws.send).toHaveBeenCalledTimes(2);
+			const first = JSON.parse(ws.send.mock.calls[0][0]);
+			expect(first.type).toBe('auth');
+			const second = JSON.parse(ws.send.mock.calls[1][0]);
+			expect(second.type).toBe('ingest');
+		});
+
+		it('stops reconnection if server closes with 1008 (Unauthorized)', () => {
+			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
+			const ws = MockWebSocket.latest();
+			ws.simulateOpen();
+			ws.simulateClose(1008);
+			vi.advanceTimersByTime(3000);
+			expect(MockWebSocket.instances).toHaveLength(1);
+			expect((queue as any).stopped).toBe(true);
+		});
+
 		it('flush wsPending on open if there are buffered events', () => {
 			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			const evt = makeEvent();
@@ -242,6 +294,7 @@ describe('EventQueue', () => {
 
 			expect(MockWebSocket.latest().send).toHaveBeenCalledOnce();
 			const payload = JSON.parse(MockWebSocket.latest().send.mock.calls[0][0]);
+			expect(payload.type).toBe('ingest');
 			expect(payload.events[0]).toMatchObject({ payload: evt.payload });
 		});
 
@@ -363,6 +416,7 @@ describe('EventQueue', () => {
 
 			const raw = MockWebSocket.latest().send.mock.calls[0][0];
 			const parsed = JSON.parse(raw);
+			expect(parsed.type).toBe('ingest')
 			expect(parsed.events[0].payload).toEqual(evt.payload);
 		});
 
@@ -487,7 +541,7 @@ describe('EventQueue', () => {
 			);
 		});
 
-		it('the body is a JSON with the structure { events: [...] }', async () => {
+		it('the body is a JSON with the structure { type: "ingest", events: [...] }', async () => {
 			const queue = new EventQueue(makeOpts());
 			const evt = makeEvent();
 			queue.enqueue(evt);
@@ -497,6 +551,7 @@ describe('EventQueue', () => {
 
 			const [, init] = fetchMock.mock.calls[0];
 			const body = JSON.parse(init.body);
+			expect(body.type).toBe('ingest');
 			expect(body.events).toHaveLength(1);
 			expect(body.events[0].payload).toEqual(evt.payload);
 		});
@@ -578,6 +633,30 @@ describe('EventQueue', () => {
 			expect((queue as any).queue).toContain(evt);
 		});
 
+		it('re-queues events (unshift) when server responds with non-2xx status', async () => {
+			fetchMock.mockResolvedValue(new Response(null, { status: 500 }));
+			const queue = new EventQueue(makeOpts());
+			const evt = makeEvent();
+			queue.enqueue(evt);
+
+			queue.flush();
+			await flushPromises();
+
+			expect((queue as any).queue).toContain(evt);
+		});
+
+		it('does not re-queue events when server responds with 2xx status', async () => {
+			fetchMock.mockResolvedValue(new Response(null, { status: 201 }));
+			const queue = new EventQueue(makeOpts());
+			const evt = makeEvent();
+			queue.enqueue(evt);
+
+			queue.flush();
+			await flushPromises();
+
+			expect((queue as any).queue).not.toContain(evt);
+		});
+
 		it('sets sending = false in finally also after a fetch error', async () => {
 			fetchMock.mockRejectedValue(new Error('Network error'));
 			const queue = new EventQueue(makeOpts());
@@ -639,6 +718,42 @@ describe('EventQueue', () => {
 			await flushPromises();
 
 			expect((queue as any).timer).not.toBeNull();
+		});
+	});
+
+	describe('stop()', () => {
+		it('sets stopped = true and prevents new enqueues', () => {
+			const queue = new EventQueue(makeOpts());
+			queue.stop();
+			const evt = makeEvent();
+			queue.enqueue(evt);
+			expect((queue as any).queue).not.toContain(evt);
+		});
+
+		it('clears the timer and sets it to null if it exists', () => {
+			const queue = new EventQueue(makeOpts());
+			queue.init();
+			expect((queue as any).timer).not.toBeNull();
+			queue.stop();
+			expect((queue as any).timer).toBeNull();
+			vi.advanceTimersByTime(BASE_OPTS.flushInterval);
+			expect(fetchMock).not.toHaveBeenCalled();
+		});
+
+		it('closes the WebSocket connection and sets it to null if it exists', () => {
+			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
+			const ws = MockWebSocket.latest();
+			expect((queue as any).ws).not.toBeNull();
+			queue.stop();
+			expect(ws.close).toHaveBeenCalledOnce();
+			expect((queue as any).ws).toBeNull();
+		});
+
+		it('prevents scheduleFlush from restarting a timer after stop', () => {
+			const queue = new EventQueue(makeOpts());
+			queue.stop();
+			(queue as any).scheduleFlush();
+			expect((queue as any).timer).toBeNull();
 		});
 	});
 });

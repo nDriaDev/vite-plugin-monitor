@@ -206,8 +206,8 @@ describe('patchFetch', () => {
 
 		const body = events[0].payload.requestBody as Record<string, unknown>;
 		expect(body.username).toBe('mario');
-		expect(body.password).toBe('[redacted]');
-		expect(body.token).toBe('[redacted]');
+		expect(body.password).toBe('[REDACTED]');
+		expect(body.token).toBe('[REDACTED]');
 		vi.unstubAllGlobals();
 	});
 
@@ -227,7 +227,7 @@ describe('patchFetch', () => {
 
 		const body = events[0].payload.requestBody as any;
 		expect(body.nothing).toBeNull();
-		expect(body.items[0].password).toBe('[redacted]');
+		expect(body.items[0].password).toBe('[REDACTED]');
 		expect(body.items[1].label).toBe('safe');
 		vi.unstubAllGlobals();
 	});
@@ -563,6 +563,7 @@ describe('patchXHR', () => {
 
 		const xhr = new XMLHttpRequest();
 		xhr.open('GET', '/api/data');
+		Object.defineProperty(xhr, 'status', { configurable: true, get: () => 200 });
 		xhr.dispatchEvent(new ProgressEvent('loadend', { bubbles: true }));
 
 		expect(events).toHaveLength(1);
@@ -577,6 +578,7 @@ describe('patchXHR', () => {
 
 		const xhr = new XMLHttpRequest();
 		xhr.open('GET', '/_tracker/events');
+		Object.defineProperty(xhr, 'status', { configurable: true, get: () => 200 });
 		xhr.dispatchEvent(new ProgressEvent('loadend', { bubbles: true }));
 
 		expect(events).toHaveLength(0);
@@ -588,10 +590,22 @@ describe('patchXHR', () => {
 
 		const xhr = new XMLHttpRequest();
 		xhr.open('POST', '/api/resource');
+		Object.defineProperty(xhr, 'status', { configurable: true, get: () => 201 });
 		xhr.dispatchEvent(new ProgressEvent('loadend', { bubbles: true }));
 
 		expect(events[0].payload.status).toBeDefined();
 		expect(typeof events[0].payload.duration).toBe('number');
+	});
+
+	it('loadend with status === 0 (network error) does NOT emit — already handled by error handler (Bug 19)', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupHttpTracker([], true, onEvent);
+
+		const xhr = new XMLHttpRequest();
+		xhr.open('GET', '/api/down');
+		xhr.dispatchEvent(new ProgressEvent('loadend', { bubbles: true }));
+
+		expect(events).toHaveLength(0);
 	});
 
 	it('captureRequestHeaders by setRequestHeader', () => {
@@ -602,6 +616,7 @@ describe('patchXHR', () => {
 		xhr.open('GET', '/api/data');
 		xhr.setRequestHeader('X-Custom', 'header-value');
 		xhr.setRequestHeader('Authorization', 'Bearer secret');
+		Object.defineProperty(xhr, 'status', { configurable: true, get: () => 200 });
 		xhr.dispatchEvent(new ProgressEvent('loadend', { bubbles: true }));
 
 		const headers = events[0].payload.requestHeaders!;
@@ -620,6 +635,7 @@ describe('patchXHR', () => {
 			'content-type: application/json\r\nx-request-id: req-42\r\n'
 		);
 
+		Object.defineProperty(xhr, 'status', { configurable: true, get: () => 200 });
 		xhr.dispatchEvent(new ProgressEvent('loadend', { bubbles: true }));
 
 		const headers = events[0].payload.responseHeaders!;
@@ -639,6 +655,7 @@ describe('patchXHR', () => {
 			get: () => JSON.stringify({ result: 'ok' }),
 		});
 
+		Object.defineProperty(xhr, 'status', { configurable: true, get: () => 200 });
 		xhr.dispatchEvent(new ProgressEvent('loadend', { bubbles: true }));
 
 		expect(events[0].payload.responseBody).toEqual({ result: 'ok' });
@@ -656,6 +673,19 @@ describe('patchXHR', () => {
 		expect(events[0].level).toBe('error');
 		expect(events[0].payload.error).toBe('Network error');
 		expect(events[0].payload.url).toBe('/api/down');
+	});
+
+	it('"error" then "loadend" on network failure emits exactly ONE event (Bug 19)', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupHttpTracker([], true, onEvent);
+
+		const xhr = new XMLHttpRequest();
+		xhr.open('GET', '/api/down');
+		xhr.dispatchEvent(new ProgressEvent('error', { bubbles: true }));
+		xhr.dispatchEvent(new ProgressEvent('loadend', { bubbles: true })); // status remains 0
+
+		expect(events).toHaveLength(1);
+		expect(events[0].payload.error).toBe('Network error');
 	});
 
 	it('"error" event with captureRequestHeaders: true includes headers in the payload', () => {
@@ -689,9 +719,8 @@ describe('patchXHR', () => {
 		const xhr = new XMLHttpRequest() as any;
 		xhr.open('POST', '/_tracker/events');
 		xhr.send('payload');
-		// __tracker_startTime__ non deve essere impostato perché send bypassa il tracker
 		expect(xhr.__tracker_startTime__).toBeUndefined();
-		// Nessun evento emesso
+		Object.defineProperty(xhr, 'status', { configurable: true, get: () => 200 });
 		xhr.dispatchEvent(new ProgressEvent('loadend', { bubbles: true }));
 		expect(events).toHaveLength(0);
 	});
@@ -722,6 +751,7 @@ describe('patchXHR', () => {
 		const xhr = new XMLHttpRequest();
 		xhr.open('POST', '/api/data');
 		xhr.send(JSON.stringify({ hello: 'world' }));
+		Object.defineProperty(xhr, 'status', { configurable: true, get: () => 200 });
 		xhr.dispatchEvent(new ProgressEvent('loadend', { bubbles: true }));
 
 		expect(events[0].payload.requestBody).toEqual({ hello: 'world' });
@@ -734,10 +764,11 @@ describe('patchXHR', () => {
 		const xhr = new XMLHttpRequest();
 		xhr.open('POST', '/api/login');
 		xhr.send(JSON.stringify({ username: 'mario', password: 'secret' }));
+		Object.defineProperty(xhr, 'status', { configurable: true, get: () => 200 });
 		xhr.dispatchEvent(new ProgressEvent('loadend', { bubbles: true }));
 
 		const body = events[0].payload.requestBody as Record<string, unknown>;
 		expect(body.username).toBe('mario');
-		expect(body.password).toBe('[redacted]');
+		expect(body.password).toBe('[REDACTED]');
 	});
 });
