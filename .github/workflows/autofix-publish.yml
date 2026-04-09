@@ -74,6 +74,7 @@ jobs:
           steps.audit1.outputs.vulnerable == 'true' &&
           steps.audit2.outputs.vulnerable == 'false'
         run: |
+          git clean -fd
           git add pnpm-lock.yaml package.json
           [ -f pnpm-workspace.yaml ] && git add pnpm-workspace.yaml
           git diff --staged --quiet || git commit -m "chore: update dependencies"
@@ -106,6 +107,7 @@ jobs:
           steps.audit2.outputs.vulnerable == 'true' &&
           steps.audit3.outputs.vulnerable == 'false'
         run: |
+          git clean -fd
           git add pnpm-lock.yaml package.json
           [ -f pnpm-workspace.yaml ] && git add pnpm-workspace.yaml
           git diff --staged --quiet || git commit -m "chore: update dependencies"
@@ -143,6 +145,7 @@ jobs:
           steps.audit3.outputs.vulnerable == 'true' &&
           steps.audit4.outputs.vulnerable == 'false'
         run: |
+          git clean -fd
           git add pnpm-lock.yaml package.json
           [ -f pnpm-workspace.yaml ] && git add pnpm-workspace.yaml
           git diff --staged --quiet || git commit -m "chore: update dependencies"
