@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.2.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.2.0) - 2026-04-09
+
+### Bug Fixes
+
+- various ([a584122](https://github.com/nDriaDev/vite-plugin-monitor/commit/a584122))
+- various ([e5e3133](https://github.com/nDriaDev/vite-plugin-monitor/commit/e5e3133))
+
+### Documentation
+
+- update documentation files ([c7743d6](https://github.com/nDriaDev/vite-plugin-monitor/commit/c7743d6))
+
+### Tests
+
+- fix for fixes in source files ([1650272](https://github.com/nDriaDev/vite-plugin-monitor/commit/1650272))
+
+### Chores
+
+- fix release script end of line ([746e2ea](https://github.com/nDriaDev/vite-plugin-monitor/commit/746e2ea))
+- fix workflow audit ([44b1579](https://github.com/nDriaDev/vite-plugin-monitor/commit/44b1579))
+- update dependencies ([cad488a](https://github.com/nDriaDev/vite-plugin-monitor/commit/cad488a))
+- github workflow security audit and publish ([d848ee5](https://github.com/nDriaDev/vite-plugin-monitor/commit/d848ee5))
+- update release script for CI/CD ([76892aa](https://github.com/nDriaDev/vite-plugin-monitor/commit/76892aa))
+
+### Other Changes
+
+- Merge remote-tracking branch 'origin/main' ([2552004](https://github.com/nDriaDev/vite-plugin-monitor/commit/2552004))
+- Update package.json ([1fe101f](https://github.com/nDriaDev/vite-plugin-monitor/commit/1fe101f))
+
 ## [1.1.1](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.1.1) - 2026-03-31
 
 ### Bug Fixes
