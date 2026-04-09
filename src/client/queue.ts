@@ -40,12 +40,28 @@ export class EventQueue {
 					ws.close();
 					return;
 				}
+				// INFO wsReady will be set to true only after receiving 'auth_ok' from the server
+				return;
 			}
+			// INFO No apiKey — no handshake needed, mark ready immediately
 			this.wsReady = true
 			// INFO  flush buffered events accumulated during connection
 			if (this.wsPending.length > 0) {
 				this.sendViaWs(this.wsPending.splice(0));
 			}
+		});
+
+		ws.addEventListener('message', (event: MessageEvent) => {
+			try {
+				const msg = JSON.parse(event.data as string);
+				if (msg.type === 'auth_ok') {
+					this.wsReady = true;
+					// INFO flush buffered events accumulated during auth handshake
+					if (this.wsPending.length > 0) {
+						this.sendViaWs(this.wsPending.splice(0));
+					}
+				}
+			} catch { /* ignore non-JSON frames */ }
 		});
 
 		ws.addEventListener('close', event => {

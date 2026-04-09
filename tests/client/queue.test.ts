@@ -33,6 +33,13 @@ class MockWebSocket {
 		return new Event(name, { bubbles: true });
 	}
 
+	simulateMessage(data: unknown) {
+		const event = new MessageEvent('message', { data: JSON.stringify(data) });
+		this.listeners.get('message')?.forEach(h => {
+			typeof h === 'function' ? h(event) : h.handleEvent(event);
+		});
+	}
+
 	simulateOpen() {
 		this.readyState = 1;
 		this.listeners.get('open')?.forEach(h => {
@@ -138,13 +145,20 @@ describe('EventQueue', () => {
 
 	describe('connectWs()', () => {
 
-		it('sets wsReady = true on the open event', () => {
+		it('sets wsReady = true on the open event when no apiKey is configured', () => {
 			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			expect((queue as any).wsReady).toBe(false);
 
 			MockWebSocket.latest().simulateOpen();
 
 			expect((queue as any).wsReady).toBe(true);
+		});
+
+		it('does not set wsReady = true on open when apiKey is configured — waits for auth_ok', () => {
+			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test', apiKey: 'secret' }));
+			MockWebSocket.latest().simulateOpen();
+
+			expect((queue as any).wsReady).toBe(false);
 		});
 
 		it('sends auth message first if apiKey is configured', () => {
@@ -178,14 +192,18 @@ describe('EventQueue', () => {
 			const evt = makeEvent();
 			(queue as any).wsPending.push(evt);
 
-			MockWebSocket.latest().simulateOpen();
-
 			const ws = MockWebSocket.latest();
-			expect(ws.send).toHaveBeenCalledTimes(2);
+			ws.simulateOpen();
+			expect(ws.send).toHaveBeenCalledTimes(1);
 			const first = JSON.parse(ws.send.mock.calls[0][0]);
 			expect(first.type).toBe('auth');
+			expect((queue as any).wsPending).toHaveLength(1);
+
+			ws.simulateMessage({ type: 'auth_ok' });
+			expect(ws.send).toHaveBeenCalledTimes(2);
 			const second = JSON.parse(ws.send.mock.calls[1][0]);
 			expect(second.type).toBe('ingest');
+			expect((queue as any).wsPending).toHaveLength(0);
 		});
 
 		it('stops reconnection if server closes with 1008 (Unauthorized)', () => {
@@ -249,6 +267,23 @@ describe('EventQueue', () => {
 			vi.advanceTimersByTime(3000);
 
 			expect(MockWebSocket.instances).toHaveLength(1);
+		});
+
+		it('sets wsReady = true and drains wsPending on auth_ok message', () => {
+			const queue = new EventQueue(makeOpts({ wsEndpoint: 'ws://test', apiKey: 'secret' }));
+			const evt = makeEvent();
+			(queue as any).wsPending.push(evt);
+
+			const ws = MockWebSocket.latest();
+			ws.simulateOpen();
+			expect((queue as any).wsReady).toBe(false);
+
+			ws.simulateMessage({ type: 'auth_ok' });
+
+			expect((queue as any).wsReady).toBe(true);
+			expect((queue as any).wsPending).toHaveLength(0);
+			const sent = JSON.parse(ws.send.mock.calls[1][0]);
+			expect(sent.type).toBe('ingest');
 		});
 
 		it('sets wsReady = false on the error event', () => {

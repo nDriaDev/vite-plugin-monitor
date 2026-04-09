@@ -24,7 +24,9 @@ class RingBuffer {
 	}
 
 	push(events: TrackerEvent[]) {
-		this.buf.push(...events);
+		for (const e of events) {
+			this.buf.push(e);
+		}
 		if (this.buf.length > this.cap) {
 			this.buf = this.buf.slice(this.buf.length - this.cap);
 		}
