@@ -11,13 +11,14 @@ Sensitive HTTP headers are **always stripped** from captured request and respons
 ```
 authorization
 cookie
+set-cookie
 x-api-key
 x-auth-token
-x-csrf-token
 x-access-token
+x-csrf-token
+x-session-token
 proxy-authorization
-x-forwarded-for
-x-real-ip
+www-authenticate
 ```
 
 ### Always-Redacted Response Headers
@@ -56,13 +57,13 @@ When `captureRequestBody` or `captureResponseBody` is enabled, JSON bodies are p
 The following key substrings are always redacted (case-insensitive):
 
 ```
-password    passwd      pass
-token       secret      apikey      api_key
-credential  auth        authorization
-card        cardnumber  cvv         cvc         ccv
-expiry      expiration
-iban        ssn         sin
-taxid       tax_id      nationalid
+password    passwd      pwd
+token       secret      apikey     api_key
+auth        credential
+ssn         fiscal      taxcode
+cvv         cvc         card
+iban        bic         swift
+private     signing
 ```
 
 ### Adding Custom Redaction Patterns

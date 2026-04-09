@@ -1,6 +1,6 @@
 # tracker.time() / tracker.timeEnd()
 
-Measure the duration of a named asynchronous or synchronous operation. `timeEnd()` emits a custom event with a `durationMs` field automatically populated.
+Measure the duration of a named asynchronous or synchronous operation. `timeEnd()` emits a custom event with a `duration` field automatically populated.
 
 ```typescript
 tracker.time(label: string): void
@@ -9,7 +9,7 @@ tracker.timeEnd(
   label: string,
   data?: Record<string, unknown>,
   opts?: TrackEventOptions
-): void
+): number
 ```
 
 ## `tracker.time()`
@@ -31,13 +31,13 @@ tracker.time('api:get-config')
 
 ## `tracker.timeEnd()`
 
-Stops the timer matching `label` and emits a custom event with `durationMs` merged into `data`.
+Stops the timer matching `label` and emits a custom event with `duration` as a **top-level field of the payload** (not merged into `data`).
 
 ```typescript
 tracker.time('api:load-users')
 const users = await fetchUsers()
 tracker.timeEnd('api:load-users', { count: users.length })
-// Emits: { name: 'api:load-users', durationMs: 142, count: 15 }
+// Emits payload: { name: 'api:load-users', duration: 142, data: { count: 15 } }
 ```
 
 If no matching `tracker.time()` call was made, `timeEnd()` is a no-op and logs a warning.
@@ -57,16 +57,16 @@ If no matching `tracker.time()` call was made, `timeEnd()` is a no-op and logs a
   "type":    "custom",
   "level":   "info",
   "payload": {
-    "name": "api:load-users",
+    "name":     "api:load-users",
+    "duration": 142,
     "data": {
-      "durationMs": 142,
       "count": 15
     }
   }
 }
 ```
 
-The `durationMs` field is always included in `data` — even if you don't pass any other data fields.
+The `duration` field is always a **top-level field of `payload`**, separate from `data` — even if you don't pass any other data fields.
 
 ## Examples
 

@@ -60,8 +60,8 @@ export default defineConfig(({ mode }) => ({
 ### Environment Variables (.env.production)
 
 ```bash
-VITE_TRACKER_WRITE_URL=https://api.myapp.com/tracker/ingest
-VITE_TRACKER_READ_URL=https://api.myapp.com/tracker/events
+VITE_TRACKER_WRITE_URL=https://api.myapp.com/tracker/events
+VITE_TRACKER_READ_URL=https://api.myapp.com/tracker
 VITE_TRACKER_PING_URL=https://api.myapp.com/health
 VITE_TRACKER_API_KEY=tk_prod_xxxxxxxxxxxxxxxxxxxx
 DASHBOARD_PASSWORD=a-strong-password
@@ -73,21 +73,21 @@ Your backend must implement at minimum:
 
 **Ingest endpoint (required):**
 ```
-POST /tracker/ingest
+POST /tracker/events
 Content-Type: application/json
 X-Tracker-Key: <apiKey>
 
-{ "events": TrackerEvent[] }
+{ "type": "ingest", "events": TrackerEvent[] }
 
 → 200 OK  (or any 2xx)
 ```
 
 **Read endpoint (required for dashboard):**
 ```
-GET /tracker/events?since=2024-01-01T00:00:00.000Z&until=2024-01-02T00:00:00.000Z
+GET /tracker?since=2024-01-01T00:00:00.000Z&until=2024-01-02T00:00:00.000Z
 X-Tracker-Key: <apiKey>
 
-→ { "events": TrackerEvent[], "total": 123 }
+→ { "events": TrackerEvent[], "total": 123, "page": 1, "limit": 5 }
 ```
 
 See [API Contracts](/reference/api-contracts) for the complete specification.

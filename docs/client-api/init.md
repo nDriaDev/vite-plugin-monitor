@@ -34,7 +34,7 @@ tracker.init(() => authStore.getState().userId)
 ## Behavior
 
 - **Singleton**: safe to call multiple times — subsequent calls are **no-ops**. The tracker is initialized exactly once per page lifetime.
-- **No-op before setup**: if called before the setup script runs (very early in the page lifecycle), it is queued until setup completes.
+- **Reuses pre-init client**: if `setupTrackers()` was called first (which happens automatically via the injected setup script), `init()` reuses the same `TrackerClient` instance already holding the queued events. If called without a prior `setupTrackers()` (e.g. in a fully manual setup), a fresh client is created.
 - **Queue activation**: calling `init()` activates the event flush timer. Events enqueued before `init()` (by the auto-trackers) are flushed on the first interval.
 
 ## When Is It Called?
@@ -117,10 +117,12 @@ When `tracker.init()` is called, a `session:start` event is automatically emitte
 {
   "type":      "session",
   "level":     "info",
+  "userId":    "user_123",
   "payload": {
     "action":  "start",
-    "source":  "init",
-    "userId":  "user_123"
+    "trigger": "init"
   }
 }
 ```
+
+Note: `userId` is part of the **event envelope** (the `TrackerEvent` wrapper), not the `SessionPayload`. The payload for an `init` trigger carries only `action` and `trigger`.

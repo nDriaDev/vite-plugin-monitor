@@ -41,7 +41,9 @@ dashboard: {
 The plugin serves the dashboard as a SPA — all sub-paths (e.g. `/_dashboard/events`) are handled by the same `index.html` with client-side routing.
 
 ::: info Dashboard self-exclusion
-The dashboard route is automatically injected into `ignoreUrls` for the HTTP tracker and into `ignorePaths` for the click and navigation trackers. Dashboard UI interactions are **never self-tracked**.
+The dashboard route is automatically injected into `ignorePaths` for the click and
+navigation trackers. The HTTP tracker excludes only the tracker's own endpoints
+(writeEndpoint, readEndpoint, pingEndpoint).
 :::
 
 ---
@@ -189,8 +191,8 @@ trackerPlugin({
   appId: 'my-app',
   storage: {
     mode:          'http',
-    writeEndpoint: 'https://api.myapp.com/tracker/ingest',
-    readEndpoint:  'https://api.myapp.com/tracker/events',
+    writeEndpoint: 'https://api.myapp.com/tracker/events',
+    readEndpoint:  'https://api.myapp.com/tracker',
     pingEndpoint:  'https://api.myapp.com/health',
   },
   dashboard: {

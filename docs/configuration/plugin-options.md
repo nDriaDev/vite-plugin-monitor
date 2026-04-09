@@ -98,7 +98,7 @@ trackerPlugin({
   appId: 'my-app',
   storage: {
     mode:          'http',
-    writeEndpoint: 'https://api.myapp.com/tracker/ingest',
+    writeEndpoint: 'https://api.myapp.com/tracker/events',
   },
 })
 ```

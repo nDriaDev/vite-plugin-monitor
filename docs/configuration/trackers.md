@@ -42,11 +42,9 @@ Enables click tracking via a single passive delegated listener on `document`. No
 - Element tag name (`button`, `a`, `div`, etc.)
 - Visible text content (up to 100 chars)
 - `id` attribute
-- `class` list
-- `href` (for anchor elements)
-- `data-*` attributes
-- `aria-label`
-- Current route
+- `classes`
+- `xpath`
+- `coordinates`
 
 ```typescript
 track: {
@@ -98,7 +96,7 @@ track: {
 Capture sanitized request headers. Sensitive headers are **always stripped** regardless of this setting.
 
 **Always-redacted request headers:**
-`authorization`, `cookie`, `x-api-key`, `x-auth-token`, `x-csrf-token`, `proxy-authorization`, `x-forwarded-for`
+`authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`, `x-access-token`, `x-csrf-token`, `x-session-token`, `proxy-authorization`, `www-authenticate`
 
 #### `captureRequestBody`
 **Type:** `boolean` · **Default:** `false`
@@ -131,7 +129,7 @@ excludeHeaders: ['x-internal-trace-id', 'x-company-id']
 
 Additional JSON body key patterns to redact (case-insensitive substring match). Applied **recursively** to nested objects and arrays.
 
-**Built-in always-redacted keys:** `password`, `passwd`, `pass`, `token`, `secret`, `apikey`, `api_key`, `credential`, `auth`, `authorization`, `card`, `cardnumber`, `cvv`, `cvc`, `ccv`, `expiry`, `expiration`, `iban`, `ssn`, `sin`, `taxid`, `tax_id`, `nationalid`
+**Built-in always-redacted keys:** `password`, `passwd`, `pwd`, `token`, `secret`, `apikey`, `api_key`, `auth`, `credential`, `ssn`, `fiscal`, `taxcode`, `cvv`, `cvc`, `card`, `iban`, `bic`, `swift`, `private`, `signing`,
 
 ```typescript
 redactKeys: ['fiscalCode', 'vatNumber', 'nationalId', 'pinCode']
@@ -140,7 +138,7 @@ redactKeys: ['fiscalCode', 'vatNumber', 'nationalId', 'pinCode']
 #### `maxBodySize`
 **Type:** `number` · **Default:** `2048`
 
-Maximum byte length of the stored body string after redaction. Bodies exceeding this limit are truncated with a `… [N chars truncated]` suffix. Set to `0` to disable truncation (not recommended for production).
+Maximum byte length of the stored body string after redaction. Bodies exceeding this limit are truncated with a `...[truncated ${N}B]` suffix. Set to `0` to disable truncation (not recommended for production).
 
 ---
 
@@ -177,7 +175,7 @@ track: {
 
 Intercepts all client-side navigation triggers. Compatible with all major SPA routers (React Router, Vue Router, TanStack Router, etc.).
 
-**Four interceptors are installed:**
+**Six interceptors are installed:**
 
 | Interceptor | Triggers on |
 |-------------|-------------|
@@ -185,7 +183,8 @@ Intercepts all client-side navigation triggers. Compatible with all major SPA ro
 | `history.replaceState` patch | `router.replace()`, silent URL rewrites |
 | `popstate` listener | Browser back/forward, `history.go()` |
 | `hashchange` listener | `#anchor` changes without full reload |
-| `load` listener (once) | Initial page load |
+| `<a>` click interceptor (capture phase) | Same-origin anchor clicks before MPA navigation — saves the current route to `sessionStorage` so the next page can report an accurate `from` value |
+| Inline emit at setup time | Initial page load — the `'load'` navigation event is emitted synchronously when the tracker installs, not in response to a DOM `load` event |
 
 **Captured data ([`NavigationPayload`](/reference/event-types#navigation)):**
 - `from` — previous route (pathname + search)
@@ -226,10 +225,10 @@ track: {
 track: {
   console: {
     methods:             ['error', 'warn', 'log'],
-    maxArgLength:        512,
+    maxArgLength:        1024,
     maxArgs:             5,
     captureStackOnError: true,
-    ignorePatterns:      ['[vite]', '[HMR]', '[tracker]', 'Stripe.js'],
+    ignorePatterns:      ['[vite]', '[HMR]', '[tracker]'],
   },
 }
 ```
@@ -241,7 +240,7 @@ track: {
 
 Subset of console methods to intercept. Methods not listed are not patched and incur zero overhead.
 
-All 19 supported methods: `log`, `info`, `warn`, `error`, `debug`, `trace`, `dir`, `dirxml`, `group`, `groupCollapsed`, `groupEnd`, `table`, `time`, `timeEnd`, `timeLog`, `timeStamp`, `assert`, `clear`, `count`, `countReset`
+All 19 supported methods: `log`, `info`, `warn`, `error`, `debug`, `trace`, `dir`, `dirxml`, `group`, `groupCollapsed`, `groupEnd`, `table`, `time`, `timeEnd`, `timeLog`, `assert`, `clear`, `count`, `countReset`
 
 ```typescript
 methods: ['error', 'warn'] // only capture errors and warnings
@@ -250,12 +249,12 @@ methods: ['error', 'warn'] // only capture errors and warnings
 #### `maxArgLength`
 **Type:** `number` · **Default:** `1024`
 
-Maximum character length for a single serialized argument. Values exceeding this limit are truncated with `'... [N chars omitted]'`.
+Maximum character length for a single serialized argument. Values exceeding this limit are truncated with `'... [+${N}]'`.
 
 #### `maxArgs`
 **Type:** `number` · **Default:** `10`
 
-Maximum number of arguments captured per console call. Additional arguments are silently dropped.
+Maximum number of arguments captured per console call. Arguments beyond this limit are replaced with a single `{ type: 'truncated', value: '\n…[+${N} chars]' }` sentinel entry appended to the `args` array.
 
 #### `captureStackOnError`
 **Type:** `boolean` · **Default:** `false`
@@ -341,5 +340,5 @@ track: {
 ```
 
 ::: info `writeEndpoint` is always excluded
-The tracker's own `writeEndpoint` is automatically added to `ignoreUrls` to prevent infinite recursion (tracking the tracking requests).
+The tracker's own `writeEndpoint`, `readEndpoint`, `pingEndpoint` are automatically added to `ignoreUrls` to prevent infinite recursion (tracking the tracking requests).
 :::

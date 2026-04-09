@@ -14,7 +14,7 @@
 [![License: MIT](https://img.shields.io/badge/LICENSE-MIT-blue.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
 ![Statements](https://img.shields.io/badge/statements-99.66%25-brightgreen.svg?style=for-the-badge)
-![Branches](https://img.shields.io/badge/branches-91.99%25-green.svg?style=for-the-badge)
+![Branches](https://img.shields.io/badge/branches-91.88%25-green.svg?style=for-the-badge)
 ![Functions](https://img.shields.io/badge/functions-98.11%25-green.svg?style=for-the-badge)
 ![Lines](https://img.shields.io/badge/lines-100%25-brightgreen.svg?style=for-the-badge)
 
@@ -90,7 +90,7 @@ It intercepts browser interactions at the lowest level (before any application c
 - **Clicks** — Single passive `click` listener via event delegation. Captures element tag, text, attributes, and route.
 - **HTTP Requests** — Patches `fetch` and `XMLHttpRequest`. Captures method, URL, status code, and duration. Optional capture of sanitized headers and bodies.
 - **Unhandled Errors** — Hooks into `window.onerror` (sync) and `unhandledrejection` (Promise). Captures message, stack, and source location.
-- **Navigation** — Intercepts `history.pushState`, `replaceState`, `popstate`, `hashchange`, and the initial `load` event. Compatible with all major SPA routers.
+- **Navigation** — Intercepts `history.pushState`, `replaceState`, `popstate`, `hashchange`, and emits a synthetic 'load' navigation synchronously at setup time. Compatible with all major SPA routers.
 - **Console** — Intercepts all 19 `console` methods. Configurable per-method, with argument length limits and ignore patterns.
 
 ### 📦 Event Transport
@@ -320,7 +320,7 @@ track: {
   /**
    * Enable client-side navigation tracking.
    * Patches history.pushState, replaceState, popstate,
-   * hashchange, and the initial load event.
+   * hashchange, and emits a synthetic 'load' navigation synchronously at setup time.
    * @default false
    */
   navigation?: boolean;
@@ -470,7 +470,7 @@ storage: {
   /**
    * URL that receives batched events via POST.
    * Required when mode = 'http'.
-   * Body: { "events": TrackerEvent[] }
+   * Body: { "type": "ingest", "events": TrackerEvent[] }
    * Any 2xx is treated as success; non-2xx requeues the batch.
    */
   writeEndpoint?: string;
@@ -690,7 +690,7 @@ tracker.init(() => authStore.getState().userId ?? null);
 
 ### `tracker` Object
 
-The `tracker` object is a safe proxy — all calls are silently dropped if the tracker has not been initialized yet (e.g. before `tracker.init()` or in SSR environments).
+The `tracker` object is a safe proxy — most calls are silently dropped if the tracker has not been initialized yet (e.g. before `tracker.init()` or in SSR environments). The one exception is `tracker.group()`, which always returns a valid group ID (with an `_offline` suffix) even before initialization.
 
 ```typescript
 import { tracker } from '@ndriadev/vite-plugin-monitor/client';
@@ -725,18 +725,18 @@ tracker.track('checkout:completed', { total: 99.99 }, { groupId });
 
 #### `tracker.time(label)` / `tracker.timeEnd(label, data?, opts?)`
 
-Time a named operation. `timeEnd` emits a custom event with `durationMs` appended to `data`.
+Time a named operation. `timeEnd` emits a custom event with `duration` as a **top-level field of the payload** (not merged into `data`).
 
 ```typescript
 tracker.time('api:load');
 const data = await fetchUserData();
 tracker.timeEnd('api:load', { userId: data.id });
-// Emits: { name: 'api:load', durationMs: 123, userId: '...' }
+// Emits payload: { name: 'api:load', duration: 123, data: { userId: '...' } }
 ```
 
 #### `tracker.setUser(userId, opts?)`
 
-Update the user identity after initialization. Emits a `session:start` event with `source: 'userId-change'` carrying both the previous and new user ID.
+Update the user identity after initialization. Emits a `session:end` event for the previous identity and a `session:start` event for the new one, both with `trigger: 'userId-change'`.
 
 ```typescript
 // After login
@@ -762,7 +762,7 @@ tracker.setContext({
 
 #### `tracker.group(name)`
 
-Generate a unique group ID for correlating a sequence of related events.
+Generate a unique group ID for correlating a sequence of related events. Unlike other `tracker.*` methods, this **always returns a valid ID** — even before `tracker.init()` is called (the ID will have an `_offline` suffix in that case).
 
 ```typescript
 const groupId = tracker.group('upload-flow');
@@ -821,8 +821,8 @@ trackerPlugin({
   appId: 'my-app',
   storage: {
     mode:          'http',
-    writeEndpoint: 'https://api.myapp.com/tracker/ingest',
-    readEndpoint:  'https://api.myapp.com/tracker/events',
+    writeEndpoint: 'https://api.myapp.com/tracker/events',
+    readEndpoint:  'https://api.myapp.com/tracker',
     pingEndpoint:  'https://api.myapp.com/health',
     apiKey:        process.env.TRACKER_API_KEY,
     batchSize:     50,
@@ -934,8 +934,8 @@ trackerPlugin({
       // Capture stack trace on console.error calls
       captureStackOnError:  true,
       // Ignore noisy internal patterns
-      ignorePatterns:       ['[vite]', '[HMR]', '[tracker]', 'Stripe.js'],
-      maxArgLength:         512,
+      ignorePatterns:       ['[vite]', '[HMR]', '[tracker]'],
+      maxArgLength:         1024,
     },
   },
 })
@@ -955,7 +955,7 @@ trackerPlugin({
 ```
 
 ```typescript
-// App bootstrap (e.g. main.ts or App.vue)
+// App bootstrap (e.g. main.ts)
 import { tracker } from '@ndriadev/vite-plugin-monitor/client';
 
 async function bootstrap() {
@@ -1057,8 +1057,8 @@ trackerPlugin({
   appId: 'my-app',
   storage: {
     mode:          'http',
-    writeEndpoint: 'https://api.myapp.com/tracker/ingest',
-    readEndpoint:  'https://api.myapp.com/tracker/events',
+    writeEndpoint: 'https://api.myapp.com/tracker/events',
+    readEndpoint:  'https://api.myapp.com/tracker',
   },
   dashboard: {
     enabled:        true,
@@ -1128,7 +1128,7 @@ The overlay is a Shadow DOM–isolated floating widget rendered in the browser. 
 - **Identity section**: User ID (editable inline), Session ID (copy button), App ID
 - **Context section**: Route (live-updated on open), Viewport size, Language, Connection type
 - **Open Dashboard** — opens `window.location.origin + dashboard.route` in a new tab
-- **Remove Tracker Info** — calls `destroy()`, removes the host element and all event listeners from the document
+- **Remove Tracker Info** — calls `overlay.destroy()`, removes the overlay host element from the DOM. Automatic tracking continues running in the background — this does **not** call `tracker.destroy()`
 - Dark/light theme toggle, persisted in `localStorage`
 
 ---
@@ -1146,6 +1146,7 @@ Content-Type: application/json
 X-Tracker-Key: <apiKey>           (only when apiKey is configured)
 
 {
+  "type": "ingest",
   "events": TrackerEvent[]
 }
 ```
@@ -1171,7 +1172,9 @@ The dashboard **always** sends `since` and `until`. Your server must honour them
 ```json
 {
   "events": TrackerEvent[],
-  "total":  123
+  "total":  123,
+  "page": 1,
+  "limit": 5
 }
 ```
 
@@ -1183,17 +1186,41 @@ All further filtering (type, level, userId, full-text search) and all aggregatio
 
 Used when `mode = 'websocket'`. All messages are JSON.
 
-**Browser → Server (event ingest):**
+#### Authentication (when `storage.apiKey` is configured)
+
+Immediately after the connection is established, the client sends an auth handshake as the **first message**:
+
+**Browser → Server:**
+```json
+{ "type": "auth", "key": "<storage.apiKey>" }
+```
+
+**Server → Browser:**
+```json
+{ "type": "auth_ok" }
+```
+
+Until this handshake completes, the server must reject all other messages (recommended: close with code `1008 Policy Violation`). If no `apiKey` is configured, no auth message is sent and the connection is immediately ready.
+
+---
+
+#### Event Ingest
+
+**Browser → Server:**
 ```json
 { "type": "ingest", "events": TrackerEvent[] }
 ```
 
-**Server → Browser (ingest acknowledgement):**
+**Server → Browser (acknowledgement):**
 ```json
 { "type": "ack", "saved": 42 }
 ```
 
-**Dashboard → Server (query):**
+---
+
+#### Dashboard Query
+
+**Dashboard → Server:**
 ```json
 {
   "type":  "events:query",
@@ -1202,7 +1229,7 @@ Used when `mode = 'websocket'`. All messages are JSON.
 }
 ```
 
-**Server → Browser (query response):**
+**Server → Dashboard:**
 ```json
 {
   "type":     "events:response",
@@ -1211,10 +1238,16 @@ Used when `mode = 'websocket'`. All messages are JSON.
 }
 ```
 
-**Server → Browser (optional real-time push):**
+---
+
+#### Real-Time Push (optional)
+
+**Server → Browser:**
 ```json
 { "type": "push", "events": TrackerEvent[] }
 ```
+
+When the dashboard receives a `push` message while in Live mode, it merges the new events without a full re-query.
 
 ---
 
@@ -1239,6 +1272,9 @@ The `dashboard.auth` credentials are HMAC-hashed with `appId` and stored in `win
 ### Dashboard Self-Exclusion
 
 The dashboard route is automatically injected into `ignoreUrls` for the click tracker and into `ignorePaths` for the navigation tracker. Dashboard UI interactions are never self-tracked.
+
+### Endpoints Self-Exclusion
+The tracker's own `writeEndpoint`, `readEndpoint`, `pingEndpoint` are automatically added to `ignoreUrls` to prevent infinite recursion (tracking the tracking requests).
 
 ### `includeInBuild` Requires a Prior `pnpm build:dashboard`
 
@@ -1267,7 +1303,7 @@ The Vite dev server is not running or the page was opened without going through 
 
 ### `autoInit: false` — Tracker Calls Are Silently Dropped
 
-The `tracker` proxy drops all calls until `tracker.init()` is called. Ensure `tracker.init()` is called before any `tracker.track()` / `tracker.setUser()` calls in the application lifecycle.
+The `tracker` proxy drops most calls until `tracker.init()` is called (the exception is `tracker.group()`, which always returns a valid ID). Ensure `tracker.init()` is called before any `tracker.track()` / `tracker.setUser()` calls in the application lifecycle.
 
 ### Log Files Not Created
 

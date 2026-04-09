@@ -14,6 +14,7 @@ Content-Type: application/json
 X-Tracker-Key: <storage.apiKey>    (only when apiKey is configured)
 
 {
+  "type": "ingest",
   "events": TrackerEvent[]
 }
 ```
@@ -45,17 +46,17 @@ No response body is required. The client ignores the response body for the inges
 
 ### Page Unload
 
-On page unload (`beforeunload`), the client sends remaining events via `navigator.sendBeacon`:
+On page unload (`beforeunload`), the client sends remaining events via `navigator.sendBeacon` using a `Blob` with `Content-Type: application/json`:
 
 ```
 POST <writeEndpoint>
-Content-Type: text/plain;charset=UTF-8
+Content-Type: application/json
 
-{ "events": TrackerEvent[] }
+{ "type": "ingest", "events": TrackerEvent[] }
 ```
 
 ::: info `Content-Type` on Beacon requests
-`navigator.sendBeacon` sends with `Content-Type: text/plain;charset=UTF-8` regardless of the data. Your backend must be prepared to parse a JSON body with this content type, or use `Content-Type: application/json` overriding with the Fetch Keepalive API (the plugin uses Beacon for maximum reliability on unload).
+The plugin wraps the payload in a `Blob({ type: 'application/json' })` before passing it to `navigator.sendBeacon`. This causes the browser to send the request with `Content-Type: application/json`, the same header used by regular fetch flushes. Your backend does not need special handling for beacon requests.
 :::
 
 ---
@@ -96,7 +97,9 @@ Content-Type: application/json
 
 {
   "events": TrackerEvent[],
-  "total":  123
+  "total":  123,
+  "page": 1,
+  "limit": 5
 }
 ```
 
@@ -129,7 +132,7 @@ GET <storage.pingEndpoint>
 
 The dashboard polls this endpoint to determine whether the backend is reachable and shows a coloured status dot (🟢 online / 🔴 offline).
 
-If `pingEndpoint` is not configured, the backend is assumed online and the status dot is hidden.
+If `pingEndpoint` is not configured, no request is made and the backend is **assumed to be online** — the status dot always shows 🟢 green.
 
 ---
 
@@ -141,9 +144,21 @@ The client connects to `storage.wsEndpoint` (`wss://...`) and uses the same conn
 
 ### Connection
 
-When the connection is established (or re-established after a disconnect), the client **does not** send an explicit handshake message. The server should treat the connection as open for both ingest and query messages.
+When apiKey is configured, immediately after the connection is established, the client sends:
+{
+  "type": "auth",
+  "key": "<storage.apiKey>"
+}
 
-The client reconnects automatically with exponential backoff on disconnect.
+The server must respond with:
+{ "type": "auth_ok" }
+
+Until authentication succeeds, the server must reject all other messages
+and may close the connection with code 1008.
+
+If no apiKey is configured, no auth message is sent and the connection
+is immediately ready for ingest and query messages.
+The client reconnects automatically with a fixed 3-second delay on disconnect.
 
 ---
 
@@ -153,7 +168,7 @@ The browser sends batched events:
 
 ```json
 {
-  "type":   "ingest",
+  "type": "ingest",
   "events": TrackerEvent[]
 }
 ```
@@ -253,7 +268,7 @@ In `middleware` and `standalone` modes, the plugin implements all endpoints inte
 |----------|-----------|------------|
 | Ingest (POST) | `/_tracker/events` | `http://localhost:4242/_tracker/events` |
 | Read (GET) | `/_tracker` | `http://localhost:4242/_tracker` |
-| Ping (GET) | `/_tracker/ping` | `/_tracker/ping` (also on Vite server) |
+| Ping (GET) | `/_tracker/ping` | `http://localhost:4242/_tracker/ping` |
 | WebSocket | — | `ws://localhost:4242/_tracker/ws` |
 
 The ping endpoint in middleware mode returns:

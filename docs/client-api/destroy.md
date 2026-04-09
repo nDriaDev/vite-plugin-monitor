@@ -8,13 +8,13 @@ tracker.destroy(): void
 
 ## What It Does
 
-1. Emits a `session:end` event with `source: 'destroy'`
-2. Flushes the event queue (sends any remaining events)
-3. Stops the flush timer
-4. Removes all event proxies (`fetch`, `XHR`, `console`, `history`)
-5. Removes all DOM event listeners (`click`, `popstate`, `hashchange`, etc.)
-6. Destroys the overlay (removes the host element from the DOM)
-7. Marks the tracker as uninitialized — subsequent calls to `tracker.track()` etc. are dropped silently
+1. Emits a `session:end` event with `trigger: 'destroy'`
+2. Removes all event proxies (`fetch`, `XHR`, `console`, `history`) and DOM event listeners (`click`, `popstate`, `hashchange`, etc.)
+3. Destroys the overlay (removes the host element from the DOM)
+4. Clears all active named timers started via `tracker.time()`
+5. Flushes the event queue (sends any remaining events via `fetch` or `sendBeacon`)
+6. Stops the flush interval timer permanently and closes the WebSocket connection (if open)
+7. Clears the singleton — subsequent calls to `tracker.track()` etc. are **silently dropped**
 
 ## When to Use
 
@@ -39,4 +39,4 @@ After calling `tracker.destroy()`, the tracker cannot be re-initialized in the s
 
 ## Overlay Destroy
 
-The overlay can also be removed independently using the **"Remove Tracker Info"** button in the overlay UI, which calls `tracker.destroy()` internally.
+The **"Remove Tracker Info"** button in the overlay UI removes only the overlay widget from the DOM. It does **not** call `tracker.destroy()` — automatic tracking continues to run in the background.

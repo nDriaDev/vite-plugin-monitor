@@ -132,8 +132,8 @@ Controls how and when old log files are archived and cleaned up.
 
 | Strategy | Behavior |
 |----------|----------|
-| `'daily'` | The first write **after UTC midnight** triggers rotation. The current file is renamed with a `-YYYY-MM-DD` suffix and a fresh file is opened. |
-| `'size'` | The first write that would **exceed `maxSize`** triggers rotation. The current file is renamed with a `-YYYY-MM-DD-HH-MM-SS` timestamp suffix. |
+| `'daily'` | The first write **after UTC midnight** triggers rotation. The current file is renamed with a `-YYYY_MM_DD` suffix and a fresh file is opened. |
+| `'size'` | The first write that would **exceed `maxSize`** triggers rotation. The current file is renamed with a `-YYYY_MM_DD_HH_MM_SS` timestamp suffix. |
 
 ##### `rotation.maxSize`
 

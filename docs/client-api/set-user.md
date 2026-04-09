@@ -29,7 +29,7 @@ interface SetUserOptions {
 
 #### `opts.attributes`
 
-Arbitrary attributes associated with this user identity. Merged into the `session:start` event payload for this identity change.
+Arbitrary attributes to attach to the new user identity. Stored in `EventMeta.userAttributes` and stamped on every subsequent event until `tracker.setUser(null)` is called.
 
 ## Examples
 
@@ -57,7 +57,7 @@ authService.onLogout(() => {
 
 When `setUser()` is called:
 
-1. `session:end` with `source: 'userId-change'` and `previousUserId` (the identity being closed)
-2. `session:start` with `source: 'userId-change'` and the new `userId`
+1. `session:end` with `trigger: 'userId-change'` and `previousUserId` (the identity being closed)
+2. `session:start` with `trigger: 'userId-change'` and the new `userId`
 
 This creates a clean boundary in the event log between the two user identities.

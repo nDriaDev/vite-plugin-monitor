@@ -28,7 +28,7 @@ Common issues and their solutions.
 
 4. **Is `autoInit: false` and `tracker.init()` was never called?**
 
-   With `autoInit: false`, all `tracker.*` calls are silently dropped until `tracker.init()` is called. Check the browser console for `[tracker]` messages.
+   With `autoInit: false`, most `tracker.*` calls are silently dropped until `tracker.init()` is called (the exception is `tracker.group()`, which always returns a valid ID). Check the browser console for `[tracker]` messages.
 
 5. **Is the plugin `enabled: false`?**
 

@@ -19,9 +19,9 @@ The log directory is created recursively on `buildStart` (i.e. when you run `vit
 ### JSONL (JSON Lines)
 
 ```json
-{"id":"...","timestamp":"2024-03-15T10:23:45.123Z","level":"info","type":"navigation","appId":"my-app","sessionId":"sess_abc","userId":"user_123","payload":{"from":"/home","to":"/products","trigger":"pushState","duration":4230},"meta":{"userAgent":"Mozilla/5.0...","route":"/products","viewport":"1440x900","language":"en-US"}}
-{"id":"...","timestamp":"2024-03-15T10:23:46.500Z","level":"info","type":"http","appId":"my-app","sessionId":"sess_abc","userId":"user_123","payload":{"method":"GET","url":"https://api.myapp.com/products","status":200,"duration":142},"meta":{...}}
-{"id":"...","timestamp":"2024-03-15T10:23:47.200Z","level":"error","type":"error","appId":"my-app","sessionId":"sess_abc","userId":"user_123","payload":{"message":"Cannot read properties of undefined","stack":"TypeError: ...","errorType":"TypeError"},"meta":{...}}
+{"timestamp":"2024-03-15T10:23:45.123Z","level":"info","type":"navigation","appId":"my-app","sessionId":"sess_abc","userId":"user_123","payload":{"from":"/home","to":"/products","trigger":"pushState","duration":4230},"meta":{"userAgent":"Mozilla/5.0...","route":"/products","viewport":"1440x900","language":"en-US"}}
+{"timestamp":"2024-03-15T10:23:46.500Z","level":"info","type":"http","appId":"my-app","sessionId":"sess_abc","userId":"user_123","payload":{"method":"GET","url":"https://api.myapp.com/products","status":200,"duration":142},"meta":{...}}
+{"timestamp":"2024-03-15T10:23:47.200Z","level":"error","type":"error","appId":"my-app","sessionId":"sess_abc","userId":"user_123","payload":{"message":"Cannot read properties of undefined","stack":"TypeError: ...","errorType":"TypeError"},"meta":{...}}
 ```
 
 One `TrackerEvent` per line. Machine-readable, grep-friendly, and easy to import into log analysis tools (Splunk, Datadog, ELK, etc.).
@@ -40,13 +40,13 @@ Human-readable aligned columns: `[timestamp] LEVEL | type | user:<userId> | sess
 
 ### Daily Rotation
 
-Triggered on the first write after UTC midnight. The active file is renamed with a `-YYYY-MM-DD` date suffix:
+Triggered on the first write after UTC midnight. The active file is renamed with a `-YYYY_MM_DD` date suffix:
 
 ```
 ./logs/monitor.log               ← active file (today)
-./logs/monitor-2024-03-14.log    ← yesterday
-./logs/monitor-2024-03-13.log    ← day before
-./logs/monitor-2024-03-12.log    ← ...
+./logs/monitor-2024_03_14.log    ← yesterday
+./logs/monitor-2024_03_13.log    ← day before
+./logs/monitor-2024_03_12.log    ← ...
 ```
 
 ```typescript
@@ -58,12 +58,12 @@ rotation: {
 
 ### Size-Based Rotation
 
-Triggered on the first write that would exceed `maxSize`. The active file is renamed with a timestamp suffix:
+Triggered on the first write that would exceed `maxSize`. The active file is renamed with a `-YYYY_MM_DD_HH_mm_ss` date suffix:
 
 ```
 ./logs/monitor.log
-./logs/monitor-2024-03-15-10-23-45.log
-./logs/monitor-2024-03-15-08-00-12.log
+./logs/monitor-2024_03_15_10_23_45.log
+./logs/monitor-2024_03_15_08_00_12.log
 ```
 
 ```typescript

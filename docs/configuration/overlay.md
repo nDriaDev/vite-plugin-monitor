@@ -60,14 +60,14 @@ A small circular button anchored to the configured corner. Click to open/close t
 | **Route** | Current `pathname + search`. Updated live when the panel is open. |
 | **Viewport** | Current `window.innerWidth × window.innerHeight`. |
 | **Language** | `navigator.language` (e.g. `en-US`, `it-IT`). |
-| **Connection** | Network connection type from `navigator.connection.effectiveType` (e.g. `4g`, `3g`, `wifi`). |
+| **Connection** | Network connection type from `navigator.connection.effectiveType` (e.g. `4g`, `3g`). |
 
 ### Actions
 
 | Action | Description |
 |--------|-------------|
 | **Open Dashboard** | Opens `window.location.origin + dashboard.route` in a new browser tab. Only shown when `dashboard.enabled: true`. |
-| **Remove Tracker Info** | Calls `tracker.destroy()`, removes the overlay host element, and detaches all event listeners. |
+| **Remove Tracker Info** | Calls `overlay.destroy()`, removes the overlay host element, and detaches all event listeners. Automatic tracking continues to run in the background — this does **not** call `tracker.destroy()`. |
 
 ### Theme Toggle
 

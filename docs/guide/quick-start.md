@@ -154,8 +154,8 @@ trackerPlugin({
   appId: 'my-app',
   storage: {
     mode:          'http',
-    writeEndpoint: 'https://api.myapp.com/tracker/ingest',
-    readEndpoint:  'https://api.myapp.com/tracker/events',
+    writeEndpoint: 'https://api.myapp.com/tracker/events',
+    readEndpoint:  'https://api.myapp.com/tracker',
     apiKey:        process.env.TRACKER_API_KEY,
   },
   track: { clicks: true, http: true, errors: true, navigation: true },

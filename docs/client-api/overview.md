@@ -40,7 +40,7 @@ tracker.track('page:viewed', { path: '/home' })
 | [`tracker.setUser(userId, opts?)`](/client-api/set-user) | Update the user identity. |
 | [`tracker.setContext(attrs)`](/client-api/set-context) | Attach persistent metadata to all future events. |
 | [`tracker.time(label)`](/client-api/timers) | Start a named timer. |
-| [`tracker.timeEnd(label, data?, opts?)`](/client-api/timers) | Stop a timer and emit a custom event with `durationMs`. |
+| [`tracker.timeEnd(label, data?, opts?)`](/client-api/timers) | Stop a timer and emit a custom event with `duration`. |
 | [`tracker.group(name)`](/client-api/groups) | Generate a unique group ID for correlated events. |
 | [`tracker.destroy()`](/client-api/destroy) | Tear down the tracker completely. |
 

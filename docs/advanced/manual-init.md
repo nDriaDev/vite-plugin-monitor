@@ -46,7 +46,8 @@ Even with `autoInit: false`, the **setup script** that installs all event proxie
 <script type="module">
   import { setupTrackers } from '/@fs/.../client/index.js'
   Object.defineProperty(window, '__TRACKER_CONFIG__', { value: Object.freeze({...}), ... })
-  setupTrackers()
+  const userIdFn = ...
+  setupTrackers(userIdFn)
   // ← tracker.init() is NOT called here
 </script>
 ```
@@ -205,7 +206,7 @@ However, if your consent banner is slow to appear or the user takes a long time 
 
 ## `tracker` Proxy — Safe to Call Before Init
 
-All `tracker.*` method calls before `tracker.init()` are **silently dropped** by the safe proxy. You can call them anywhere without guarding:
+Most `tracker.*` method calls before `tracker.init()` are **silently dropped** by the safe proxy. You can call them anywhere without guarding:
 
 ```typescript
 // These are always safe — even before init()
@@ -214,4 +215,11 @@ tracker.track('app:mounted')                  // no-op before init
 tracker.setUser(userId)                       // no-op before init
 ```
 
-The only method that matters before init is `tracker.init()` itself.
+The one exception is `tracker.group()`: even before `init()`, it **always returns a valid group ID** (with an `_offline` suffix) so you can safely use it to pre-build group IDs before the tracker is initialized:
+
+```typescript
+// Returns a valid ID even before init()
+const groupId = tracker.group('checkout')  // e.g. "grp_checkout_3k_offline"
+```
+
+The only method that actually *activates* tracking before init is `tracker.init()` itself.

@@ -11,8 +11,8 @@ trackerPlugin({
   appId: 'my-app',
   storage: {
     mode:          'http',
-    writeEndpoint: 'https://api.myapp.com/tracker/ingest',
-    readEndpoint:  'https://api.myapp.com/tracker/events',
+    writeEndpoint: 'https://api.myapp.com/tracker/events',
+    readEndpoint:  'https://api.myapp.com/tracker',
     pingEndpoint:  'https://api.myapp.com/health',
     apiKey:        process.env.TRACKER_API_KEY,
     port:          4242,
@@ -51,7 +51,7 @@ POST <writeEndpoint>
 Content-Type: application/json
 X-Tracker-Key: <apiKey>  (if configured)
 
-{ "events": TrackerEvent[] }
+{ "type": "ingest", "events": TrackerEvent[] }
 ```
 
 Any `2xx` response is treated as success. Non-`2xx` causes the batch to be **re-queued** and retried on the next flush interval.
@@ -66,8 +66,8 @@ In `middleware` and `standalone` modes, this is **auto-configured** (same-origin
 
 URL queried by the dashboard for events. Must honour `?since=<ISO8601>&until=<ISO8601>` query parameters.
 
-If omitted, it is **inferred** by stripping `/events` from `writeEndpoint`:
-- `https://api.myapp.com/tracker/ingest` → `https://api.myapp.com/tracker`
+If omitted, it is **inferred** by stripping `/events` from `writeEndpoint`, if it ends with /events:
+- `https://api.myapp.com/tracker/events` → `https://api.myapp.com/tracker`
 
 **Request format:**
 ```
@@ -78,7 +78,7 @@ X-Tracker-Key: <apiKey>  (if configured)
 
 **Response format:**
 ```json
-{ "events": TrackerEvent[], "total": 123 }
+{ "events": TrackerEvent[], "total": 123, "page": 1, "limit": 5 }
 ```
 
 ---
@@ -89,7 +89,7 @@ X-Tracker-Key: <apiKey>  (if configured)
 
 URL polled by the dashboard health check indicator (the coloured dot in the header). Any `2xx` response is treated as "online".
 
-If omitted, the backend health indicator is hidden (assumed online).
+If omitted, no ping request is made and the backend is **assumed to be online** (the indicator always shows green). The health indicator is hidden only when a ping request explicitly fails with a non-`2xx` response.
 
 ---
 
@@ -205,7 +205,7 @@ In `middleware` and `standalone` modes, endpoints are **automatically configured
 
 | Mode | `writeEndpoint` | `readEndpoint` |
 |------|-----------------|----------------|
-| `middleware` | `/_tracker/events` (same-origin) | `/_tracker` |
+| `middleware` | `/_tracker/events` (same-origin) | `/_tracker` (same-origin) |
 | `standalone` | `http://localhost:<port>/_tracker/events` | `http://localhost:<port>/_tracker` |
 
 The `pingEndpoint` in dev is always served at `/_tracker/ping` by the Vite middleware, regardless of storage mode.

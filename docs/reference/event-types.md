@@ -55,13 +55,13 @@ Browser metadata captured at event emission time and attached to every event.
 
 ```typescript
 interface EventMeta {
-  userAgent:    string    // navigator.userAgent
-  route:        string    // location.pathname + location.search
-  viewport:     string    // "1440x900" (CSS pixels)
-  language:     string    // navigator.language — e.g. "en-US"
-  referrer?:    string    // document.referrer (may be empty)
-  appVersion?:  string    // From package.json or custom build config
-  connection?:  string    // navigator.connection.effectiveType — "4g" | "3g" | "2g" | "slow-2g"
+  userAgent:        string                    // navigator.userAgent
+  route:            string                    // location.pathname + location.search
+  viewport:         string                    // "1440x900" (CSS pixels)
+  language:         string                    // navigator.language — e.g. "en-US"
+  referrer?:        string                    // document.referrer (may be empty)
+  buildVersion?:    string                    // Application build version injected at build time
+  userAttributes?:  Record<string, unknown>  // From tracker.setUser(id, { attributes })
 }
 ```
 
@@ -75,13 +75,12 @@ Emitted by the click tracker on every `click` event reaching `document` via even
 
 ```typescript
 interface ClickPayload {
-  tag:         string    // lowercase tag name: "button", "a", "div"
-  text?:       string    // innerText (trimmed, max 100 chars)
-  id?:         string    // element.id attribute
-  classes?:    string[]  // element.className split by space
-  href?:       string    // href attribute (anchor elements only)
-  attributes?: Record<string, string>  // data-* and aria-* attributes
-  route:       string    // meta.route at click time
+  tag:         string                   // lowercase tag name: "button", "a", "div"
+  text?:       string                   // innerText (trimmed, max 100 chars)
+  id?:         string                   // element.id attribute
+  classes?:    string                   // Space-separated CSS class names of the clicked element
+  xpath?:       string                   // Abbreviated XPath expression that uniquely identifies the element in the DOM
+  coordinates:       {x: number, y: number}                   // Viewport-relative click coordinates in CSS pixels.
 }
 ```
 
@@ -94,12 +93,9 @@ interface ClickPayload {
     "tag":     "button",
     "text":    "Add to cart",
     "id":      "add-to-cart-btn",
-    "classes": ["btn", "btn-primary"],
-    "attributes": {
-      "data-product-id": "42",
-      "aria-label":      "Add product to cart"
-    },
-    "route": "/products/42"
+    "classes": "btn btn-primary",
+    "xpath": "/html/body/div/h3[3]/code[1]",
+    "coordinates": {"x": 48, "y": 50}
   }
 }
 ```
@@ -118,9 +114,11 @@ interface HttpPayload {
   duration?:         number    // Round-trip ms (absent on early error)
   error?:            string    // Network/parsing error (mutually exclusive with status)
   requestHeaders?:   Record<string, string>   // Sanitized (requires captureRequestHeaders)
-  requestBody?:      string    // Redacted JSON string (requires captureRequestBody)
+  requestBody?:      unknown   // Redacted body (requires captureRequestBody)
+  requestSize?:      number    // Byte length of raw request body (before redaction)
   responseHeaders?:  Record<string, string>   // Sanitized (requires captureResponseHeaders)
-  responseBody?:     string    // Redacted JSON string (requires captureResponseBody)
+  responseBody?:     unknown   // Redacted body (requires captureResponseBody)
+  responseSize?:     number    // Byte length of raw response body (before redaction)
 }
 ```
 
@@ -209,7 +207,7 @@ interface NavigationPayload {
   from:     string    // Previous route (pathname + search)
   to:       string    // New route (pathname + search)
   trigger:  'pushState' | 'replaceState' | 'popstate' | 'hashchange' | 'load'
-  duration?: number  // Time on previous route in ms (absent for 'load' trigger)
+  duration?: number  // Time on previous route in ms (~0 for 'load' trigger)
 }
 ```
 
@@ -219,7 +217,7 @@ interface NavigationPayload {
 | `'replaceState'` | `history.replaceState()` — silent URL rewrite |
 | `'popstate'` | Browser back/forward button or `history.go()` |
 | `'hashchange'` | Anchor `#fragment` change without full reload |
-| `'load'` | Initial page load; `from === to` |
+| `'load'` | Initial page load — emitted synchronously at tracker setup time, not via a DOM `load` event; `from` is the previous route if known (MPA `sessionStorage` key or same-origin referrer), otherwise equals `to` |
 
 **Example:**
 ```json
@@ -243,20 +241,22 @@ Emitted by the console tracker for intercepted `console.*` calls.
 
 ```typescript
 interface ConsolePayload {
-  method:  ConsoleMethod       // Which console method was called
-  args:    SerializedArg[]     // Serialized arguments (up to maxArgs)
-  stack?:  string              // Stack trace (console.error when captureStackOnError: true)
+  method:     ConsoleMethod       // Which console method was called
+  message:    string              // Human-readable summary derived from the first argument.
+  args:       SerializedArg[]     // Serialized arguments (up to maxArgs)
+  stack?:     string              // Stack trace (console.error when captureStackOnError: true)
+  groupDepth: number              // Nesting depth of `console.group()` / `console.groupCollapsed()` calls at the moment this event was emitted.
 }
 
 type ConsoleMethod =
   | 'log' | 'info' | 'warn' | 'error' | 'debug' | 'trace'
   | 'dir' | 'dirxml' | 'group' | 'groupCollapsed' | 'groupEnd'
-  | 'table' | 'time' | 'timeEnd' | 'timeLog' | 'timeStamp'
-  | 'assert' | 'clear' | 'count' | 'countReset'
+  | 'table' | 'time' | 'timeEnd' | 'timeLog' | 'assert'
+  | 'clear' | 'count' | 'countReset'
 
 interface SerializedArg {
   type:  'string' | 'number' | 'boolean' | 'null' | 'undefined' | 'object' | 'array' | 'function' | 'symbol'
-  value: string    // Serialized value (truncated to maxArgLength)
+  value: unknown    // Serialized value (truncated to maxArgLength)
 }
 ```
 
@@ -266,11 +266,13 @@ interface SerializedArg {
   "type": "console",
   "level": "warn",
   "payload": {
+    "message": "this is an example",
     "method": "warn",
     "args": [
       { "type": "string", "value": "Deprecated API called:" },
       { "type": "string", "value": "useOldMethod()" }
-    ]
+    ],
+    "groupDepth": 0
   }
 }
 ```
@@ -308,8 +310,8 @@ interface CustomPayload {
   "level": "info",
   "payload": {
     "name":     "api:load-users",
-    "data":     { "durationMs": 142, "count": 15 },
-    "duration": 142
+    "duration": 142,
+    "data":     { "count": 15 }
   }
 }
 ```
@@ -322,15 +324,15 @@ Automatically emitted at key identity lifecycle moments.
 
 ```typescript
 interface SessionPayload {
-  action:      'start' | 'end'
-  source:      'init' | 'userId-change' | 'unload' | 'destroy'
-  userId?:     string    // New user ID (on 'start' events)
-  previousUserId?: string  // Previous user ID (on 'end' events from userId-change)
+  action:          'start' | 'end'
+  trigger:         'init' | 'userId-change' | 'unload' | 'destroy'
+  previousUserId?: string  // Only on 'end' events from userId-change
+  newUserId?:      string  // Only on 'start' events from userId-change
 }
 ```
 
-| trigger | action | source |
-|---------|--------|--------|
+| trigger | action | trigger value |
+|---------|--------|-----------|
 | `tracker.init()` | `start` | `init` |
 | `tracker.setUser()` called | `end` then `start` | `userId-change` |
 | Page unload (`beforeunload`) | `end` | `unload` |
@@ -341,18 +343,18 @@ interface SessionPayload {
 {
   "type": "session",
   "level": "info",
+  "userId": "user_123",
   "payload": {
     "action": "start",
-    "source": "init",
-    "userId": "user_123"
+    "trigger": "init"
   }
 }
 ```
 
 **Example (user change):**
 ```json
-{ "type": "session", "payload": { "action": "end", "source": "userId-change", "previousUserId": "anon_xyz" } }
-{ "type": "session", "payload": { "action": "start", "source": "userId-change", "userId": "user_456" } }
+{ "type": "session", "payload": { "action": "end", "trigger": "userId-change", "previousUserId": "anon_xyz" } }
+{ "type": "session", "payload": { "action": "start", "trigger": "userId-change", "newUserId": "user_456" } }
 ```
 
 ---

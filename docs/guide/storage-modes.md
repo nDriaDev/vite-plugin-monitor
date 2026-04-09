@@ -124,8 +124,8 @@ trackerPlugin({
   appId: 'my-app',
   storage: {
     mode:          'http',
-    writeEndpoint: 'https://api.myapp.com/tracker/ingest',  // required
-    readEndpoint:  'https://api.myapp.com/tracker/events',  // optional
+    writeEndpoint: 'https://api.myapp.com/tracker/events',  // required
+    readEndpoint:  'https://api.myapp.com/tracker',  // optional
     pingEndpoint:  'https://api.myapp.com/health',          // optional
     apiKey:        process.env.TRACKER_API_KEY,             // optional
     batchSize:     50,                                       // default: 25
@@ -141,7 +141,7 @@ POST <writeEndpoint>
 Content-Type: application/json
 X-Tracker-Key: <apiKey>   (only when configured)
 
-{ "events": TrackerEvent[] }
+{ "type": "ingest", "events": TrackerEvent[] }
 ```
 
 Any `2xx` response is treated as success. Non-`2xx` causes the batch to be re-queued and retried on the next flush interval.
@@ -154,7 +154,7 @@ Accept: application/json
 X-Tracker-Key: <apiKey>
 
 Response:
-{ "events": TrackerEvent[], "total": 123 }
+{ "type": "ingest", "events": TrackerEvent[], "total": 123, "page": 1, "limit": 5 }
 ```
 
 If `readEndpoint` is not set, it is inferred by stripping `/events` from `writeEndpoint`.
@@ -188,7 +188,7 @@ Your server must implement the tracker WebSocket sub-protocol:
 | Browser → Server | `{ "type": "ingest", "events": TrackerEvent[] }` |
 | Server → Browser | `{ "type": "ack", "saved": 42 }` |
 | Dashboard → Server | `{ "type": "events:query", "reqId": "uuid", "query": { "since": "...", "until": "..." } }` |
-| Server → Dashboard | `{ "type": "events:response", "reqId": "uuid", "response": { "events": [...], "total": 123 } }` |
+| Server → Dashboard | `{ "type": "events:response", "reqId": "uuid", "response": { "type": "ingest", "events": [...], "total": 123, "page": 1, "limit": 5 } }` |
 | Server → Browser (push) | `{ "type": "push", "events": TrackerEvent[] }` (optional) |
 
 See [WebSocket Protocol](/reference/api-contracts#websocket-protocol) for the full specification.
