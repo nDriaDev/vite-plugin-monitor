@@ -111,6 +111,7 @@ export class TrackerSession {
 				viewport: typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : '0x0',
 				language: typeof navigator !== 'undefined' ? navigator.language : '',
 				referrer: typeof document !== 'undefined' ? document.referrer || undefined : undefined,
+				buildVersion: typeof window !== 'undefined' ? window.__TRACKER_CONFIG__?.buildVersion : undefined,
 				userAttributes: userAttrs,
 			},
 		}

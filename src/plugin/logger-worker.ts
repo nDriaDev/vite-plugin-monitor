@@ -24,7 +24,7 @@ import type { TrackerEvent, LogTransport } from '../types.js'
 
 interface WorkerInit {
 	transports: LogTransport[]
-	minLevel:   number  // numeric threshold (0=debug,1=info,2=warn,3=error)
+	minLevel: number  // INFO numeric threshold (0=debug,1=info,2=warn,3=error)
 }
 
 const LEVEL_NUM: Record<string, number> = {
@@ -91,7 +91,11 @@ class StreamTransport {
 		const line = this.formatter(event);
 
 		if (this.transport.rotation?.strategy === 'daily') {
-			const today = new Date().toISOString().slice(0, 10);
+			const now = new Date();
+			const yyyy = now.getUTCFullYear();
+			const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
+			const dd = String(now.getUTCDate()).padStart(2, '0');
+			const today = `${yyyy}_${mm}_${dd}`;
 			if (today !== this.currentDate) {
 				this.closeStream();
 				this.openStream(this.resolveTargetPath());
@@ -129,7 +133,11 @@ class StreamTransport {
 
 	private resolveTargetPath(): string {
 		if (this.transport.rotation?.strategy === 'daily') {
-			this.currentDate = new Date().toISOString().slice(0, 10);
+			const now = new Date();
+			const yyyy = now.getUTCFullYear();
+			const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
+			const dd = String(now.getUTCDate()).padStart(2, '0');
+			this.currentDate = `${yyyy}_${mm}_${dd}`;
 			const ext = path.extname(this.transport.path);
 			const base = this.transport.path.slice(0, -ext.length);
 			return `${base}-${this.currentDate}${ext}`;
@@ -161,7 +169,14 @@ class StreamTransport {
 
 	private rotate(): void {
 		this.closeStream();
-		const ts = Date.now();
+		const now = new Date();
+		const yyyy = now.getUTCFullYear();
+		const mo = String(now.getUTCMonth() + 1).padStart(2, '0');
+		const dd = String(now.getUTCDate()).padStart(2, '0');
+		const HH = String(now.getUTCHours()).padStart(2, '0');
+		const MM = String(now.getUTCMinutes()).padStart(2, '0');
+		const SS = String(now.getUTCSeconds()).padStart(2, '0');
+		const ts = `${yyyy}_${mo}_${dd}_${HH}_${MM}_${SS}`;
 		const archived = this.transport.path.replace(/(\.[^.]+)$/, `-${ts}$1`);
 		try {
 			fs.renameSync(this.currentPath, archived);
@@ -179,7 +194,7 @@ class StreamTransport {
 		try {
 			fs.readdirSync(dir)
 				.filter(f => f.startsWith(stem) && f.endsWith(ext) && f !== baseName)
-				.map(f  => ({ name: f, mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
+				.map(f => ({ name: f, mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
 				.sort((a, b) => b.mtime - a.mtime)
 				.slice(maxFiles)
 				.forEach(({ name }) => {

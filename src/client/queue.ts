@@ -6,6 +6,7 @@ export class EventQueue {
 	private timer: ReturnType<typeof setTimeout> | null = null;
 	private opts: QueueOptions;
 	private sending = false;
+	private stopped = false;
 	private ws: WebSocket | null = null;
 	private wsReady = false;
 	private wsPending: TrackerEvent[] = [];
@@ -25,6 +26,21 @@ export class EventQueue {
 		this.ws = ws;
 
 		ws.addEventListener('open', () => {
+			/**
+			 * INFO The browser WebSocket API does not support custom HTTP headers
+			 * during the upgrade handshake.  Authenticate by sending the key
+			 * as the very first message so the server can verify it before
+			 * processing any ingest payloads.
+			 */
+			if (this.opts.apiKey) {
+				try {
+					ws.send(JSON.stringify({ type: 'auth', key: this.opts.apiKey }));
+				} catch {
+					// INFO force socket closing if authentication fails.
+					ws.close();
+					return;
+				}
+			}
 			this.wsReady = true
 			// INFO  flush buffered events accumulated during connection
 			if (this.wsPending.length > 0) {
@@ -32,11 +48,21 @@ export class EventQueue {
 			}
 		});
 
-		ws.addEventListener('close', () => {
+		ws.addEventListener('close', event => {
 			this.wsReady = false;
 			this.ws = null;
+
+			// Server close connection with 1008 (Policy Violation/Unauthorized)
+			if (event.code === 1008) {
+				console.error('[vite-plugin-monitor] Invalid API Key. Stopping reconnection.');
+				this.stop();
+				return;
+			}
+
 			// INFO reconnect after 3s - mirrors flushInterval cadence
-			setTimeout(() => this.connectWs(), 3000);
+			setTimeout(() => {
+				!this.stopped && this.connectWs();
+			}, 3000);
 		});
 
 		ws.addEventListener('error', () => {
@@ -46,11 +72,11 @@ export class EventQueue {
 	}
 
 	private sendViaWs(batch: TrackerEvent[]): void {
-		if(!this.ws || !this.wsReady) {
+		if (!this.ws || !this.wsReady) {
 			this.wsPending.push(...batch);
 			return;
 		}
-		const msg: IngestRequest = { events: batch };
+		const msg: IngestRequest = { type: 'ingest', events: batch };
 		try {
 			this.ws.send(JSON.stringify(msg));
 		} catch {
@@ -64,6 +90,9 @@ export class EventQueue {
 	}
 
 	enqueue(event: TrackerEvent) {
+		if (this.stopped) {
+			return;
+		}
 		this.queue.push(event);
 		if (this.queue.length >= this.opts.batchSize) {
 			this.flush();
@@ -91,7 +120,7 @@ export class EventQueue {
 			return;
 		}
 
-		const body = JSON.stringify({ events: batch } satisfies IngestRequest);
+		const body = JSON.stringify({ type: 'ingest', events: batch } satisfies IngestRequest);
 		const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 		if (this.opts.apiKey) {
 			headers['X-Tracker-Key'] = this.opts.apiKey;
@@ -101,7 +130,7 @@ export class EventQueue {
 			// INFO On page hide/unload, send the current batch AND any remaining events in one shot via sendBeacon so nothing is lost on tab close.
 			const remaining = this.queue.splice(0);
 			const allEvents = [...batch, ...remaining];
-			const beaconBody = JSON.stringify({ events: allEvents } satisfies IngestRequest);
+			const beaconBody = JSON.stringify({ type: 'ingest', events: allEvents } satisfies IngestRequest);
 			const blob = new Blob([beaconBody], { type: 'application/json' });
 			const sent = navigator.sendBeacon(this.opts.writeEndpoint, blob);
 			if (!sent) {
@@ -113,23 +142,47 @@ export class EventQueue {
 		}
 
 		fetch(this.opts.writeEndpoint, { method: 'POST', headers, body, keepalive: true })
-		.catch((err) => {
-			console.warn('[vite-plugin-monitor] Failed to send events, requeueing:', err);
-			this.queue.unshift(...batch);
-		})
-		.finally(() => {
-			this.sending = false;
-			this.scheduleFlush();
-		})
+			.then((res) => {
+				if (!res.ok) {
+					console.warn(`[vite-plugin-monitor] Server responded with ${res.status}, requeueing batch`);
+					this.queue.unshift(...batch);
+				}
+			})
+			.catch((err) => {
+				console.warn('[vite-plugin-monitor] Failed to send events, requeueing:', err);
+				this.queue.unshift(...batch);
+			})
+			.finally(() => {
+				this.sending = false;
+				this.scheduleFlush();
+			})
 	}
 
 	private scheduleFlush() {
-		if (this.timer) {
+		if (this.stopped || this.timer) {
 			return;
 		}
 		this.timer = setTimeout(() => {
 			this.timer = null;
 			this.flush();
 		}, this.opts.flushInterval);
+	}
+
+	/**
+	 * INFO
+	 * Permanently shut down the queue. Clears the flush timer and closes the
+	 * WebSocket connection. After this call, `enqueue()` is a no-op and
+	 * `scheduleFlush()` will never restart the timer.
+	 */
+	stop(): void {
+		this.stopped = true;
+		if (this.timer) {
+			clearTimeout(this.timer);
+			this.timer = null;
+		}
+		if (this.ws) {
+			this.ws.close();
+			this.ws = null;
+		}
 	}
 }

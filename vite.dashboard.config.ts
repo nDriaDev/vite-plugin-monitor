@@ -22,7 +22,7 @@ function injectDevConfig(): Plugin {
 				mode: 'standalone',
 				appId: 'dev',
 				writeEndpoint: 'http://localhost:4242/_tracker/events',
-				readEndpoint: 'http://localhost:4242/_tracker/events',
+				readEndpoint: 'http://localhost:4242/_tracker',
 				pingEndpoint: '',
 				wsEndpoint: '',
 				apiKey: '',

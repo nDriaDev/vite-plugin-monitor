@@ -37,7 +37,13 @@ function ensureWsConnected(): Promise<WebSocket> {
 		const ws = new WebSocket(wsEndpoint);
 		wsInstance = ws;
 
-		ws.addEventListener('open', () => resolve(ws), { once: true });
+		ws.addEventListener('open', () => {
+			const { apiKey } = getConfig();
+			if (apiKey) {
+				ws.send(JSON.stringify({ type: 'auth', key: apiKey }));
+			}
+			resolve(ws);
+		}, { once: true });
 		ws.addEventListener('error', () => {
 			wsInstance = null;
 			reject(new Error('[vite-plugin-monitor] WebSocket connection failed'));

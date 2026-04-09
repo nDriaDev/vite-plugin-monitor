@@ -536,12 +536,15 @@ export interface ErrorPayload {
 *
 * @remarks
 * Emitted by the navigation tracker on every client-side route change.
-* Four interceptors are installed at startup:
+* Six interceptors are installed at startup:
 *
 * 1. Monkey-patch of `history.pushState` and `history.replaceState`.
-* 2. `popstate` listener - browser back/forward button presses.
-* 3. `hashchange` listener - anchor-only URL changes.
-* 4. A single `load` listener - initial page load event.
+* 2. `popstate` listener — browser back/forward button presses.
+* 3. `hashchange` listener — anchor-only URL changes.
+* 4. Capture-phase `click` listener on `document` — saves the current route
+*    to sessionStorage before same-origin MPA navigations.
+* 5. Synchronous inline emit at setup time — the initial 'load' navigation
+*    event is fired immediately when the tracker installs, not via a DOM event.
 *
 * All interceptors are removed on `TrackerClient` teardown.
 *
@@ -551,7 +554,9 @@ export interface NavigationPayload {
 	* The URL `pathname + search` the user navigated **away from**.
 	*
 	* @remarks
-	* For the initial `'load'` event, `from` and `to` are identical.
+	* For the initial `'load'` event, `from` is the previous route when available
+	* (MPA navigation via sessionStorage, or same-origin referrer). Falls back to
+	* `to` when no previous route is known (e.g. direct navigation or first visit).
 	* Fragment (`#hash`) is excluded.
 	*
 	* @example `'/products?category=shoes&page=2'`
@@ -575,7 +580,7 @@ export interface NavigationPayload {
 	* | `'replaceState'`| `history.replaceState()` - silent URL rewrite            |
 	* | `'popstate'`    | Browser back / forward button or `history.go()`         |
 	* | `'hashchange'`  | Anchor `#fragment` change without full reload            |
-	* | `'load'`        | Initial page load; `from === to`                        |
+	* | `'load'`        | Initial page load; `from` equals `to` only when no previous route is known (direct navigation, first visit). When a previous MPA route is available via sessionStorage or referrer, `from` reflects the actual previous page.              |
 	*/
 	trigger: 'pushState' | 'replaceState' | 'popstate' | 'hashchange' | 'load'
 
@@ -583,8 +588,9 @@ export interface NavigationPayload {
 	* Milliseconds the user spent on the **previous** route.
 	*
 	* @remarks
-	* Calculated as `Date.now() - previousNavigationTimestamp`.
-	* Absent for the initial `'load'` event (no previous route exists).
+	* Calculated as `performance.now()` elapsed since the previous navigation.
+	* For the initial `'load'` event this value is near zero (measured from
+	* tracker setup time) and should not be interpreted as meaningful time-on-page.
 	*
 	* @example `4230` - user spent ~4.2 seconds on the previous page
 	*/
@@ -1112,14 +1118,14 @@ export interface HttpStorageOptions extends BaseHttpStorageOptions {
 	* - Method: `POST`
 	* - Content-Type: `application/json`
 	* - Header: `X-Tracker-Key: <apiKey>` (only when `apiKey` is configured)
-	* - Body: `{ "events": TrackerEvent[] }`  - see {@link IngestRequest}
+	* - Body: `{ "type": "ingest", "events": TrackerEvent[] }`  - see {@link IngestRequest}
 	*
 	* **Response** (server -> browser):
 	* - Any `2xx` status is treated as success - the response body is ignored.
 	* - Non-`2xx` responses cause the batch to be requeued and retried on the
 	*   next flush interval.
 	*
-	* @example `'https://api.myapp.com/monitor/events'`, `'/api/tracking/ingest'`
+	* @example `'https://api.myapp.com/monitor/events'`, `'/api/tracking/events'`
 	*/
 	writeEndpoint: string
 
@@ -1147,7 +1153,7 @@ export interface HttpStorageOptions extends BaseHttpStorageOptions {
 	*
 	* If omitted, defaults to `writeEndpoint` with the trailing `/events` removed.
 	*
-	* @example `'https://api.myapp.com/tracker/events'`
+	* @example `'https://api.myapp.com/tracker'`
 	*/
 	readEndpoint?: string
 
@@ -1177,7 +1183,7 @@ export interface HttpStorageOptions extends BaseHttpStorageOptions {
 * | Path                    | Purpose                                    |
 * |-------------------------|--------------------------------------------|
 * | `POST /_tracker/events` | Ingest events from the browser client      |
-* | `GET  /_tracker/events` | Dashboard query endpoint                   |
+* | `GET  /_tracker` | Dashboard query endpoint                   |
 * | `GET  /_tracker/ping`   | Dashboard health check                     |
 * | `ws   /_tracker/ws`     | WebSocket endpoint (`standalone` only)     |
 *
@@ -1284,7 +1290,7 @@ export interface AutoStorageOptions extends BaseHttpStorageOptions {
 	* Ignored during `vite dev` — the dashboard reads from the internal handler.
 	* If omitted, defaults to `writeEndpoint` with the trailing `/events` removed.
 	*
-	* @example `'https://api.myapp.com/tracker/events'`
+	* @example `'https://api.myapp.com/tracker'`
 	*/
 	readEndpoint?: string
 
@@ -1379,9 +1385,22 @@ export interface WsStorageOptions {
 	pingEndpoint?: string
 
 	/**
-	* API key sent as `X-Tracker-Key` on every request.
+	* API key used to authenticate the WebSocket connection.
 	*
 	* @remarks
+	* Because the browser WebSocket API does not support custom HTTP headers
+	* during the upgrade handshake, the key is **not** sent as an HTTP header.
+	* Instead, immediately after the connection is established, the client sends
+	* an authentication message as the very first WebSocket frame:
+	*
+	* ```json
+	* { "type": "auth", "key": "<apiKey>" }
+	* ```
+	*
+	* The server responds with `{ "type": "auth_ok" }` on success, or closes
+	* the socket with code `1008` and sends `{ "type": "error", "message": "Unauthorized" }`
+	* on failure.  No ingest messages are processed before this handshake completes.
+	*
 	* Omit to disable authentication - suitable for local development only.
 	*/
 	apiKey?: string
@@ -1444,6 +1463,18 @@ export type StorageOptions = AutoStorageOptions | HttpStorageOptions | ManagedSt
 *
 */
 export interface TrackerPluginOptions {
+	/**
+	 * Application build version string to attach to every event's `meta.buildVersion`.
+	 *
+	 * @remarks
+	 * Injected into `window.__TRACKER_CONFIG__` at build time. If omitted, the plugin
+	 * reads the `version` field from the consumer project's `package.json` automatically.
+	 * When both are absent, `buildVersion` is `undefined` on all events.
+	 *
+	 * @example `'1.4.2'`, `'2024-03-15-abc123f'`
+	 */
+	buildVersion?: string
+
 	/**
 	* Master switch for the plugin.
 	*
@@ -1582,7 +1613,8 @@ export interface TrackOptions {
 	*
 	* @remarks
 	* Intercepts `history.pushState`, `history.replaceState`, `popstate`,
-	* `hashchange`, and the initial `load` event. Compatible with all major
+	* `hashchange`, and emits a synthetic 'load' navigation synchronously at setup time.
+	* Compatible with all major
 	* SPA routers.
 	*
 	* @default false
@@ -2012,7 +2044,7 @@ export interface OverlayOptions {
 	* Show or hide the overlay widget.
 	*
 	* @remarks
-	* Defaults to `true` in dev/preview and `false` in production builds.
+	* Defaults to `false` in dev/preview and `false` in production builds.
 	* Must be explicitly set to `true` to appear in production - intentional
 	* friction to prevent accidental exposure.
 	*
@@ -2279,13 +2311,23 @@ export interface IDebugOverlay {
 * Content-Type: application/json
 * X-Tracker-Key: <apiKey>          (optional)
 *
-* { "events": TrackerEvent[] }
+* { "type": "ingest", "events": TrackerEvent[] }
 * ```
 *
 * The server must respond with any `2xx` status. The response body is ignored.
 * Non-`2xx` responses cause the batch to be requeued automatically.
 */
 export interface IngestRequest {
+	/**
+	* Discriminant field identifying this as an ingest message.
+	*
+	* @remarks
+	* Used by the WebSocket protocol to distinguish ingest messages from
+	* other message types (`'ack'`, `'push'`, `'events:query'`, etc.).
+	* Always set to `'ingest'`.
+	*/
+	type: 'ingest'
+
 	/**
 	* Batch of events collected since the previous flush.
 	*
@@ -2992,6 +3034,8 @@ export type ResolvedTrackerOptions = {
 	/** Whether the plugin is active. When `false` all hooks are no-ops. */
 	enabled: boolean
 	appId: string
+	/** Resolved build version string (from options or npm_package_version). */
+	buildVersion?: string
 	storage: ResolvedStorage
 	autoInit: boolean
 	track: {
@@ -3015,6 +3059,8 @@ interface TrackerConfigCommon {
 	apiKey: string
 	batchSize: number
 	flushInterval: number
+	/** Application build version injected at build time via `package.json` or `TrackerPluginOptions.buildVersion`. */
+	buildVersion?: string
 	track: {
 		clicks: boolean
 		http: boolean | HttpTrackOptions

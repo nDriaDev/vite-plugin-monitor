@@ -22,6 +22,7 @@ function clientDir(): string {
 function buildConfig(opts: ResolvedTrackerOptions): TrackerConfig {
 	const common = {
 		appId: opts.appId,
+		buildVersion: opts.buildVersion,
 		pingEndpoint: opts.storage.pingEndpoint,
 		apiKey: opts.storage.apiKey,
 		batchSize: opts.storage.batchSize,
@@ -84,7 +85,7 @@ export function generateAutoInitScript(opts: ResolvedTrackerOptions, isBuild: bo
 	const importPath = isBuild ? '@ndriadev/vite-plugin-monitor/client' : `/@fs/${clientDir()}/index.js`;
 
 	return `
-// vite-plugin-tracker - auto-generated init script
+// vite-plugin-monitor - auto-generated init script
 import { tracker } from '${importPath}';
 
 tracker.init(${userIdFn});
@@ -115,7 +116,7 @@ export function generateConfigScript(opts: ResolvedTrackerOptions): string {
 	const config = buildConfig(opts);
 
 	return `
-// vite-plugin-tracker - config injection (autoInit: false)
+// vite-plugin-monitor - config injection (autoInit: false)
 Object.defineProperty(window, '__TRACKER_CONFIG__', {
 	value:        Object.freeze(${JSON.stringify(config, null, 2)}),
 	writable:     false,

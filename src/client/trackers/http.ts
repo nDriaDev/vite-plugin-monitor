@@ -52,7 +52,7 @@ function redactBody(value: unknown, extraKeys: string[]): unknown {
 	if (typeof value === 'object') {
 		const out: Record<string, unknown> = {};
 		for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-			out[k] = isSensitiveKey(k, extraKeys) ? '[redacted]' : redactBody(v, extraKeys);
+			out[k] = isSensitiveKey(k, extraKeys) ? '[REDACTED]' : redactBody(v, extraKeys);
 		}
 		return out;
 	}
@@ -299,10 +299,16 @@ function patchXHR(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (pa
 		const result = originalOpen.apply(this, [method, url, ...rest]);
 
 		this.addEventListener('loadend', () => {
+			if (this.status === 0) {
+				return;
+			}
+
 			const xhrUrl = this.__tracker_url__ ?? '';
 			const xhrMethod = this.__tracker_method__ ?? 'GET';
 
-			if (ignoreUrls.some(p => xhrUrl.includes(p))) return;
+			if (ignoreUrls.some(p => xhrUrl.includes(p))) {
+				return;
+			}
 
 			const startTime = (this.__tracker_startTime__ as number | undefined) ?? performance.now();
 			const duration = Math.round(performance.now() - startTime);
@@ -358,7 +364,9 @@ function patchXHR(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (pa
 			const xhrUrl = this.__tracker_url__ ?? '';
 			const xhrMethod = this.__tracker_method__ ?? 'GET';
 
-			if (ignoreUrls.some(p => xhrUrl.includes(p))) return;
+			if (ignoreUrls.some(p => xhrUrl.includes(p))) {
+				return;
+			}
 
 			const startTime = (this.__tracker_startTime__ as number | undefined) ?? performance.now();
 			const duration = Math.round(performance.now() - startTime);

@@ -50,7 +50,17 @@ class TrackerClient implements ITrackerClient {
 	setupTrackers() {
 		const track = this.config.track;
 
+		const LEVELS: Record<string, number> = { debug: 0, info: 1, warn: 2, error: 3 };
+		const minLevel = LEVELS[track.level ?? 'info'] ?? 1;
+
 		const emit = (event: ReturnType<typeof this.session.createEvent>) => {
+			/**
+			 * INFO Client-side level filtering: discard automatic tracker events below track.level.
+			 * Does NOT apply to custom events from tracker.track() / tracker.timeEnd().
+			 */
+			if (LEVELS[event.level] < minLevel) {
+				return;
+			}
 			this.queue.enqueue(event);
 			this.overlay?.pushEvent(event);
 		}
@@ -152,12 +162,15 @@ class TrackerClient implements ITrackerClient {
 		this.queue.enqueue(event);
 	}
 
-	private emit(name: string, data: Record<string, unknown>, opts: TrackEventOptions = {}) {
+	private emit(name: string, data: Record<string, unknown>, opts: TrackEventOptions = {}, duration?: number) {
 		const level: LogLevel = opts.level ?? 'info';
 		const groupId: string | undefined = opts.groupId;
 		const extraCtx = opts.context;
 
-		const payload = { name, data: { ...data } };
+		const payload: { name: string; data: Record<string, unknown>; duration?: number } = { name, data: { ...data } };
+		if (duration !== undefined) {
+			payload.duration = duration;
+		}
 		const event = this.session.createEvent('custom', level, payload, groupId, extraCtx);
 		this.queue.enqueue(event);
 		return event;
@@ -189,7 +202,7 @@ class TrackerClient implements ITrackerClient {
 		}
 		this.timers.delete(label);
 		const duration = Math.round(performance.now() - start);
-		this.emit(label, { ...data, duration }, opts);
+		this.emit(label, data, opts, duration);
 		return duration;
 	}
 
@@ -254,6 +267,7 @@ class TrackerClient implements ITrackerClient {
 		this.overlay?.destroy();
 		this.timers.clear();
 		this.queue.flush();
+		this.queue.stop();
 	}
 }
 
@@ -298,8 +312,8 @@ export function setupTrackers(userIdFn?: () => string | null): void {
  * the consumer must call this manually at the appropriate point:
  *
  * ```ts
- * import { initTracker } from 'virtual:vite-tracker-client'
- * initTracker(config, () => store.getState().userId)
+ * import { tracker } from '@ndriadev/vite-plugin-monitor/client'
+ * tracker.init(() => store.getState().userId)
  * ```
  *
  * @param config    - Resolved plugin configuration serialized by the plugin.
@@ -377,5 +391,6 @@ export const tracker: Tracker = {
 	},
 	destroy() {
 		instance()?.destroy();
+		_instance = undefined;
 	}
 }

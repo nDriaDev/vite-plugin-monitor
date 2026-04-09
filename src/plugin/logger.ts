@@ -42,13 +42,13 @@ function workerScriptPath(): string {
 * The console logger (debug/info/warn/error) stays on the main thread
 * because it is used for Vite plugin messages, not event data.
 */
-export function createLogger(loggingOpts?: LoggingOptions): Logger {
+export function createLogger(appId: string, loggingOpts?: LoggingOptions): Logger {
 	const minLevel = LEVELS[loggingOpts?.level ?? 'info'];
 
 	const transports = loggingOpts?.transports ?? [
 		{
 			format:   'json' as const,
-			path:     './logs/tracker.log',
+			path:     `./logs/${appId}.log`,
 			rotation: { strategy: 'daily' as const, maxFiles: 30, compress: false },
 		}
 	];

@@ -44,6 +44,7 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 	return {
 		enabled: opts.enabled ?? true,
 		appId: opts.appId,
+		buildVersion: opts.buildVersion,
 		storage: isWs
 			? {
 				mode: 'websocket' as const,

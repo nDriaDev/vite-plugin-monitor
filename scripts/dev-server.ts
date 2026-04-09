@@ -21,7 +21,7 @@ const opts: ResolvedTrackerOptions = {
 	storage: {
 		mode: 'standalone',
 		writeEndpoint: 'http://localhost:4242/_tracker/events',
-		readEndpoint: 'http://localhost:4242/_tracker/events',
+		readEndpoint: 'http://localhost:4242/_tracker',
 		pingEndpoint: '',
 		wsEndpoint: '',
 		apiKey: '',

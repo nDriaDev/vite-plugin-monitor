@@ -32,7 +32,7 @@ const METHOD_LEVEL: Record<ConsoleMethod, LogLevel> = {
 	clear: 'info',
 };
 
-const DEFAULT_IGNORE_PATTERNS = ['[vite]', '[HMR]', '[tracker]', '[vue]'];
+const DEFAULT_IGNORE_PATTERNS = ['[vite]', '[HMR]', '[tracker]'];
 
 /**
 * Safely serialize a single console argument to a `SerializedArg`.
@@ -163,7 +163,7 @@ function extractMessage(args: unknown[]): string {
 			return 'undefined';
 		}
 		if (typeof first === 'object') {
-			return Array.isArray(first) ? '[Array]' : '[Object]';
+			return Array.isArray(first) ? `[Array(${first.length})]` : '[Object]';
 		}
 		return String(first);
 	}

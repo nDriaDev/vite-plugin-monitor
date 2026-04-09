@@ -109,8 +109,8 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				? opts.storage.readEndpoint
 				: opts.storage.writeEndpoint.replace(/\/events\/?$/, "")
 			: mode === "standalone"
-				? `http://localhost:${opts.storage.port}/_tracker/events`
-				: "/_tracker/events"; // INFO middleware
+				? `http://localhost:${opts.storage.port}/_tracker`
+				: "/_tracker"; // INFO middleware
 	}
 
 	/* v8 ignore start */
@@ -187,6 +187,8 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 					? `http://localhost:${opts.storage.port}/_tracker`
 					: mode === 'http'
 						? opts.storage.readEndpoint
+							? opts.storage.readEndpoint
+							: opts.storage.writeEndpoint.replace(/\/events\/?$/, "")
 						: mode === 'websocket'
 							? opts.storage.wsEndpoint
 							: `http://localhost:${port}${base}/_tracker`;
@@ -215,8 +217,26 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			isBuild = config.command === 'build';
 			mode = effectiveMode(opts, isBuild);
 
+			/**
+			 * INFO If buildVersion was not set explicitly, fall back to the consumer
+			 * project's package.json version. config.root is the reliable way to find
+			 * it — it is the Vite-resolved project root, independent of how Vite was invoked.
+			 */
+			if (!opts.buildVersion) {
+				try {
+					const pkgPath = path.join(config.root, 'package.json');
+					const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+					if (pkg.version) {
+						opts.buildVersion = pkg.version;
+					}
+				} catch {
+					// INFO package.json absent or unreadable: buildVersion fallback to X.X.X
+					opts.buildVersion = "X.X.X";
+				}
+			}
+
 			// INFO logger is created here so the worker inherits the correct CWD
-			logger = createLogger(opts.logging);
+			logger = createLogger(opts.appId, opts.logging);
 
 			// INFO resolve effective endpoints
 			opts.storage.wsEndpoint = resolvedWsEndpoint(mode);
