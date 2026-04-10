@@ -174,7 +174,7 @@ describe('setupClickTracker', () => {
 	describe('ignorePaths', () => {
 		it('click on path ignored does not emit event', () => {
 			const onEvent = vi.fn();
-			const teardown = setupClickTracker(onEvent, ['/']);
+			const teardown = setupClickTracker(onEvent, true, ['/']);
 			const div = document.createElement('div');
 			document.body.appendChild(div);
 			div.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
@@ -184,7 +184,7 @@ describe('setupClickTracker', () => {
 
 		it('click on path not ignored emits event', () => {
 			const onEvent = vi.fn();
-			const teardown = setupClickTracker(onEvent, ['/dashboard']);
+			const teardown = setupClickTracker(onEvent, true, ['/dashboard']);
 			const div = document.createElement('div');
 			document.body.appendChild(div);
 			div.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
@@ -194,7 +194,7 @@ describe('setupClickTracker', () => {
 
 		it('uses startsWith: matching prefix suppresses the click', () => {
 			const onEvent = vi.fn();
-			const teardown = setupClickTracker(onEvent, ['/']);
+			const teardown = setupClickTracker(onEvent, true, ['/']);
 			const btn = document.createElement('button');
 			document.body.appendChild(btn);
 			btn.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
@@ -204,7 +204,7 @@ describe('setupClickTracker', () => {
 
 		it('empty string in ignorePaths does not suppress the click', () => {
 			const onEvent = vi.fn();
-			const teardown = setupClickTracker(onEvent, ['']);
+			const teardown = setupClickTracker(onEvent, true, ['']);
 			const div = document.createElement('div');
 			document.body.appendChild(div);
 			div.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
@@ -374,6 +374,121 @@ describe('setupClickTracker', () => {
 
 			const payload = click(btn);
 			expect(payload.xpath).toBe('/html/body/div/button');
+		});
+	});
+
+	describe('ignoreSelectors', () => {
+		it('click on element matching a selector is suppressed', () => {
+			const onEvent = vi.fn();
+			const teardown = setupClickTracker(onEvent, { ignoreSelectors: ['[data-no-track]'] });
+			const btn = document.createElement('button');
+			btn.setAttribute('data-no-track', '');
+			document.body.appendChild(btn);
+			btn.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+			teardown();
+			expect(onEvent).not.toHaveBeenCalled();
+		});
+
+		it('click on child of a matching selector is suppressed (closest() walk)', () => {
+			const onEvent = vi.fn();
+			const teardown = setupClickTracker(onEvent, { ignoreSelectors: ['#cookie-banner'] });
+			const banner = document.createElement('div');
+			banner.id = 'cookie-banner';
+			const innerBtn = document.createElement('button');
+			banner.appendChild(innerBtn);
+			document.body.appendChild(banner);
+			innerBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+			teardown();
+			expect(onEvent).not.toHaveBeenCalled();
+		});
+
+		it('click on element NOT matching any selector is tracked normally', () => {
+			const onEvent = vi.fn();
+			const teardown = setupClickTracker(onEvent, { ignoreSelectors: ['[data-no-track]'] });
+			const btn = document.createElement('button');
+			document.body.appendChild(btn);
+			btn.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+			teardown();
+			expect(onEvent).toHaveBeenCalledOnce();
+		});
+
+		it('invalid CSS selector in ignoreSelectors does not throw — click is tracked', () => {
+			const onEvent = vi.fn();
+			const teardown = setupClickTracker(onEvent, { ignoreSelectors: ['[invalid selector!!!'] });
+			const btn = document.createElement('button');
+			document.body.appendChild(btn);
+			btn.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+			teardown();
+			// invalid selector is silently skipped, event should still be tracked
+			expect(onEvent).toHaveBeenCalledOnce();
+		});
+
+		it('class-based selector suppresses matching click', () => {
+			const onEvent = vi.fn();
+			const teardown = setupClickTracker(onEvent, { ignoreSelectors: ['.dev-toolbar'] });
+			const el = document.createElement('div');
+			el.className = 'dev-toolbar';
+			document.body.appendChild(el);
+			el.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+			teardown();
+			expect(onEvent).not.toHaveBeenCalled();
+		});
+
+		it('empty ignoreSelectors array does not suppress any click', () => {
+			const onEvent = vi.fn();
+			const teardown = setupClickTracker(onEvent, true, []);
+			const btn = document.createElement('button');
+			document.body.appendChild(btn);
+			btn.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+			teardown();
+			expect(onEvent).toHaveBeenCalledOnce();
+		});
+	});
+
+	describe('ignoreRoutes', () => {
+		it('string route: suppresses click when pathname equals the given string', () => {
+			vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, pathname: '/admin/settings' } as Location);
+			const onEvent = vi.fn();
+			const teardown = setupClickTracker(onEvent, true, ['/admin/settings']);
+			const btn = document.createElement('button');
+			document.body.appendChild(btn);
+			btn.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+			teardown();
+			expect(onEvent).not.toHaveBeenCalled();
+			vi.restoreAllMocks();
+		});
+
+		it('RegExp route: suppresses click when pattern matches', () => {
+			vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, pathname: '/user/42' } as Location);
+			const onEvent = vi.fn();
+			const teardown = setupClickTracker(onEvent, true, [/^\/user\/\d+/]);
+			const btn = document.createElement('button');
+			document.body.appendChild(btn);
+			btn.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+			teardown();
+			expect(onEvent).not.toHaveBeenCalled();
+			vi.restoreAllMocks();
+		});
+
+		it('click on a non-ignored route is tracked normally', () => {
+			const onEvent = vi.fn();
+			const teardown = setupClickTracker(onEvent, true, ['/admin']);
+			const btn = document.createElement('button');
+			document.body.appendChild(btn);
+			btn.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+			teardown();
+			// default jsdom pathname is '/', which doesn't start with '/admin'
+			expect(onEvent).toHaveBeenCalledOnce();
+		});
+
+		it('empty ignoreRoutes does not suppress any click', () => {
+			const onEvent = vi.fn();
+			const teardown = setupClickTracker(onEvent, true, []);
+			const btn = document.createElement('button');
+			document.body.appendChild(btn);
+			btn.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+			teardown();
+			expect(onEvent).toHaveBeenCalledOnce();
 		});
 	});
 });

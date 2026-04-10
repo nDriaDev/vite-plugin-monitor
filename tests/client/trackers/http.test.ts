@@ -57,7 +57,7 @@ describe('patchFetch', () => {
 		const { onEvent, events } = makeOnEvent();
 		const mockFetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
 		vi.stubGlobal('fetch', mockFetch);
-		teardown = setupHttpTracker(['/_tracker'], true, onEvent);
+		teardown = setupHttpTracker(['/_tracker/events'], true, onEvent);
 		await window.fetch('/_tracker/events');
 		await flushPromises();
 
@@ -126,6 +126,21 @@ describe('patchFetch', () => {
 		expect(events[0].payload.requestHeaders).toBeDefined();
 		expect(events[0].payload.requestHeaders!['content-type']).toBe('application/json');
 		expect(events[0].payload.requestHeaders!['x-custom']).toBe('value');
+		vi.unstubAllGlobals();
+	});
+
+	it('ignore method omit onEvent', async () => {
+		const { onEvent, events } = makeOnEvent();
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
+		teardown = setupHttpTracker([], {
+			ignoreMethods: ["GET"],
+		}, onEvent);
+		await window.fetch('/api/data', {
+			headers: { 'Content-Type': 'application/json', 'X-Custom': 'value' },
+		});
+		await flushPromises();
+
+		expect(events[0]).not.toBeDefined();
 		vi.unstubAllGlobals();
 	});
 
@@ -572,9 +587,21 @@ describe('patchXHR', () => {
 		expect(typeof events[0].payload.duration).toBe('number');
 	});
 
+	it('intercepts open() and send() but ignore method', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupHttpTracker([], {ignoreMethods: ["GET"]}, onEvent);
+
+		const xhr = new XMLHttpRequest();
+		xhr.open('GET', '/api/data');
+		Object.defineProperty(xhr, 'status', { configurable: true, get: () => 200 });
+		xhr.dispatchEvent(new ProgressEvent('loadend', { bubbles: true }));
+
+		expect(events).toHaveLength(0);
+	});
+
 	it('URLs in ignoreUrls bypass the XHR tracker', () => {
 		const { onEvent, events } = makeOnEvent();
-		teardown = setupHttpTracker(['/_tracker'], true, onEvent);
+		teardown = setupHttpTracker([/^\/_tracker\/events/], true, onEvent);
 
 		const xhr = new XMLHttpRequest();
 		xhr.open('GET', '/_tracker/events');
@@ -690,7 +717,7 @@ describe('patchXHR', () => {
 
 	it('"error" event with captureRequestHeaders: true includes headers in the payload', () => {
 		const { onEvent, events } = makeOnEvent();
-		teardown = setupHttpTracker([], { captureRequestHeaders: true }, onEvent);
+		teardown = setupHttpTracker([""], { captureRequestHeaders: true }, onEvent);
 
 		const xhr = new XMLHttpRequest();
 		xhr.open('GET', '/api/down');
@@ -701,9 +728,33 @@ describe('patchXHR', () => {
 		expect(events[0].payload.requestHeaders!['x-trace']).toBe('trace-id-123');
 	});
 
+	it('"error" event with ignore url opt', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupHttpTracker([], { ignoreUrls: ["/api/down"] }, onEvent);
+
+		const xhr = new XMLHttpRequest();
+		xhr.open('GET', '/api/down');
+		xhr.setRequestHeader('X-Trace', 'trace-id-123');
+		xhr.dispatchEvent(new ProgressEvent('error', { bubbles: true }));
+
+		expect(events[0]).not.toBeDefined();
+	});
+
+	it('"error" event with ignore method', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupHttpTracker([], { ignoreMethods: ["GET"] }, onEvent);
+
+		const xhr = new XMLHttpRequest();
+		xhr.open('GET', '/api/down');
+		xhr.setRequestHeader('X-Trace', 'trace-id-123');
+		xhr.dispatchEvent(new ProgressEvent('error', { bubbles: true }));
+
+		expect(events[0]).not.toBeDefined();
+	});
+
 	it('"error" event on ignored URL does not emit', () => {
 		const { onEvent, events } = makeOnEvent();
-		teardown = setupHttpTracker(['/_tracker'], true, onEvent);
+		teardown = setupHttpTracker([], {ignoreMethods: ["GET"]}, onEvent);
 
 		const xhr = new XMLHttpRequest();
 		xhr.open('GET', '/_tracker/events');
@@ -714,7 +765,20 @@ describe('patchXHR', () => {
 
 	it('send() on ignored URL bypasses the tracker and does not register startTime', () => {
 		const { onEvent, events } = makeOnEvent();
-		teardown = setupHttpTracker(['/_tracker'], true, onEvent);
+		teardown = setupHttpTracker(['/_tracker/events'], true, onEvent);
+
+		const xhr = new XMLHttpRequest() as any;
+		xhr.open('POST', '/_tracker/events');
+		xhr.send('payload');
+		expect(xhr.__tracker_startTime__).toBeUndefined();
+		Object.defineProperty(xhr, 'status', { configurable: true, get: () => 200 });
+		xhr.dispatchEvent(new ProgressEvent('loadend', { bubbles: true }));
+		expect(events).toHaveLength(0);
+	});
+
+	it('send() on ignored ignore method', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupHttpTracker([], {ignoreMethods: ["POST"]}, onEvent);
 
 		const xhr = new XMLHttpRequest() as any;
 		xhr.open('POST', '/_tracker/events');

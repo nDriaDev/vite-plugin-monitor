@@ -136,8 +136,7 @@ describe('setupTrackers()', () => {
 				errors: false,
 				navigation: false,
 				console: false,
-				level: 'info',
-				ignoreUrls: []
+				level: 'info'
 			}
 		});
 		overrideTrackerConfig(configWithTrackers);
@@ -157,8 +156,7 @@ describe('setupTrackers()', () => {
 				errors: false,
 				navigation: false,
 				console: false,
-				level: 'info',
-				ignoreUrls: []
+				level: 'info'
 			}
 		});
 		overrideTrackerConfig(configWithTrackers);
@@ -180,8 +178,7 @@ describe('setupTrackers()', () => {
 				errors: true,
 				navigation: true,
 				console: true,
-				level: 'info',
-				ignoreUrls: []
+				level: 'info'
 			}
 		});
 		overrideTrackerConfig(fullConfig);
@@ -225,10 +222,9 @@ describe('setupTrackers()', () => {
 				clicks: true,
 				http: false,
 				errors: false,
-				navigation: true,
+				navigation: false,
 				console: false,
-				level: 'info',
-				ignoreUrls: []
+				level: 'info'
 			}
 		});
 		overrideTrackerConfig(configWithDashboard);
@@ -236,15 +232,11 @@ describe('setupTrackers()', () => {
 		setupTrackers();
 
 		const { setupClickTracker } = await import('../../src/client/trackers/clicks');
-		const { setupNavigationTracker } = await import('../../src/client/trackers/navigation');
 
 		expect(setupClickTracker).toHaveBeenCalledWith(
 			expect.any(Function),
-			expect.arrayContaining(['/_dashboard'])
-		);
-		expect(setupNavigationTracker).toHaveBeenCalledWith(
-			expect.any(Function),
-			expect.arrayContaining(['/_dashboard'])
+			true,
+			expect.arrayContaining([/^\/_dashboard/])
 		);
 	});
 
@@ -269,8 +261,7 @@ describe('setupTrackers()', () => {
 				errors: false,
 				navigation: false,
 				console: true,
-				level: 'warn',
-				ignoreUrls: []
+				level: 'warn'
 			}
 		}));
 
@@ -306,8 +297,7 @@ describe('setupTrackers()', () => {
 				errors: false,
 				navigation: false,
 				console: false,
-				level: 'error',
-				ignoreUrls: []
+				level: 'error'
 			}
 		}));
 
@@ -365,8 +355,7 @@ describe('tracker.init()', () => {
 				errors: false,
 				navigation: false,
 				console: false,
-				level: 'info',
-				ignoreUrls: []
+				level: 'info'
 			}
 		});
 		overrideTrackerConfig(configWithTrackers);
@@ -804,8 +793,7 @@ describe('tracker.destroy()', () => {
 				errors: false,
 				navigation: false,
 				console: false,
-				level: 'info',
-				ignoreUrls: []
+				level: 'info'
 			}
 		});
 		overrideTrackerConfig(configWithTrackers);
@@ -1074,8 +1062,7 @@ describe('emit with active overlay — overlay.pushEvent() (lines 57-59)', () =>
 					errors: false,
 					navigation: false,
 					console: false,
-					level: 'info',
-					ignoreUrls: []
+					level: 'info'
 				}
 			}));
 
@@ -1280,5 +1267,51 @@ describe('callback onUserIdChange dell\'overlay (righe 246-256)', () => {
 				freshMod.tracker.destroy();
 			} catch { }
 		}
+	});
+
+	it('emits an error event with level "error" via the setupErrorTracker callback', async () => {
+		vi.resetModules();
+
+		let capturedEmit: any = null;
+
+		vi.doMock('../../src/client/trackers/errors', () => ({
+			setupErrorTracker: vi.fn().mockImplementation((cb) => {
+				capturedEmit = cb;
+				return () => { };
+			})
+		}));
+
+		vi.doMock('../../src/client/trackers/clicks', () => ({ setupClickTracker: vi.fn().mockReturnValue(() => { }) }));
+		vi.doMock('../../src/client/trackers/console', () => ({ setupConsoleTracker: vi.fn().mockReturnValue(() => { }) }));
+		vi.doMock('../../src/client/trackers/http', () => ({ setupHttpTracker: vi.fn().mockReturnValue(() => { }) }));
+		vi.doMock('../../src/client/trackers/navigation', () => ({ setupNavigationTracker: vi.fn().mockReturnValue(() => { }) }));
+		vi.doMock('../../src/client/overlay', () => ({ DebugOverlay: vi.fn() }));
+
+		const mod = await import('../../src/client/index');
+
+		overrideTrackerConfig(makeMiddlewareConfig({
+			track: {
+				clicks: false,
+				http: false,
+				errors: true,
+				navigation: false,
+				console: false,
+				level: 'info'
+			}
+		}));
+
+		mod.setupTrackers();
+		mod.tracker.init();
+
+		capturedEmit({ message: 'something broke', stack: 'Error: ...' });
+
+		vi.advanceTimersByTime(3100);
+		await flushPromises();
+
+		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+		const evt = body.events.find((e: any) => e.type === 'error');
+		expect(evt).toBeDefined();
+		expect(evt.level).toBe('error');
+		expect(evt.payload.message).toBe('something broke');
 	});
 });

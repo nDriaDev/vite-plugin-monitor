@@ -90,6 +90,16 @@ describe('setupErrorTracker', () => {
 			expect(payload.errorType).toBe('Error');
 		});
 
+		it('error ignored by ignored message', () => {
+			const err = new Error('generic');
+			teardown = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0], {ignoreMessages: [/^generic/]});
+
+			window.dispatchEvent(makeErrorEvent({ message: 'generic', error: err }));
+
+			const payload = onEvent.mock.calls[0];
+			expect(payload).toBeUndefined();
+		});
+
 		it('fallback message to "Unknown error" when e.message is an empty string', () => {
 			teardown = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0]);
 
@@ -133,7 +143,7 @@ describe('setupErrorTracker', () => {
 		});
 
 		it('reject with a string -> message as String(reason)', () => {
-			teardown = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0]);
+			teardown = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0], {ignoreMessages: [""]});
 
 			window.dispatchEvent(makeRejectionEvent('something bad happened'));
 
@@ -141,6 +151,15 @@ describe('setupErrorTracker', () => {
 			expect(payload.message).toBe('something bad happened');
 			expect(payload.stack).toBeUndefined();
 			expect(payload.errorType).toBe('UnhandledRejection');
+		});
+
+		it('reject ignored by string', () => {
+			teardown = setupErrorTracker(onEvent as Parameters<typeof setupErrorTracker>[0], {ignoreMessages: ["something bad happened"]});
+
+			window.dispatchEvent(makeRejectionEvent('something bad happened'));
+
+			const payload = onEvent.mock.calls[0];
+			expect(payload).toBeUndefined();
 		});
 
 		it('reject with a number -> message as String(reason)', () => {

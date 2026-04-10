@@ -279,7 +279,7 @@ describe('ignorePaths', () => {
 
 	it('navigation to ignored path -> suppressed', () => {
 		const { onEvent, events } = makeOnEvent();
-		teardown = setupNavigationTracker(onEvent, ['/_dashboard']);
+		teardown = setupNavigationTracker(onEvent, true, ['/_dashboard']);
 
 		const afterLoad = events.length;
 
@@ -290,7 +290,7 @@ describe('ignorePaths', () => {
 
 	it('navigation from ignored path -> suppressed', () => {
 		const { onEvent, events } = makeOnEvent();
-		teardown = setupNavigationTracker(onEvent, ['/_dashboard']);
+		teardown = setupNavigationTracker(onEvent, true, ['/_dashboard']);
 
 		history.pushState({}, '', '/_dashboard');
 		const afterDashboard = events.length;
@@ -301,7 +301,7 @@ describe('ignorePaths', () => {
 
 	it('navigation between non-ignored paths with ignorePaths configured -> emitted', () => {
 		const { onEvent, events } = makeOnEvent();
-		teardown = setupNavigationTracker(onEvent, ['/_dashboard']);
+		teardown = setupNavigationTracker(onEvent, true, ['/_dashboard']);
 
 		const before = events.length;
 		history.pushState({}, '', '/pagina-normale');
@@ -312,7 +312,7 @@ describe('ignorePaths', () => {
 
 	it('empty ignorePaths -> no suppression', () => {
 		const { onEvent, events } = makeOnEvent();
-		teardown = setupNavigationTracker(onEvent, []);
+		teardown = setupNavigationTracker(onEvent, true, []);
 
 		const before = events.length;
 		history.pushState({}, '', '/qualsiasi');
@@ -321,7 +321,7 @@ describe('ignorePaths', () => {
 
 	it('ignorePaths with empty string suppresses nothing', () => {
 		const { onEvent, events } = makeOnEvent();
-		teardown = setupNavigationTracker(onEvent, ['']);
+		teardown = setupNavigationTracker(onEvent, true, ['']);
 
 		const before = events.length;
 		history.pushState({}, '', '/qualsiasi-empty-string');
@@ -549,5 +549,107 @@ describe('teardown', () => {
 
 		expect(sessionStorage.getItem(MPA_FROM_KEY)).toBeNull();
 		a.remove();
+	});
+});
+
+describe('ignoreRoutes', () => {
+	it('string route: navigation to a matching path is suppressed', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupNavigationTracker(onEvent, true, ['/admin/users']);
+		const before = events.length;
+		history.pushState({}, '', '/admin/users');
+		expect(events.length).toBe(before);
+	});
+
+	it('string route: navigation from a matching path is suppressed', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupNavigationTracker(onEvent, true, ['/admin']);
+		history.pushState({}, '', '/admin');
+		const before = events.length;
+		history.pushState({}, '', '/app');
+		expect(events.length).toBe(before);
+	});
+
+	it('RegExp route: navigation to a matching dynamic path is suppressed', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupNavigationTracker(onEvent, true, [/^\/user\/\d+/]);
+		const before = events.length;
+		history.pushState({}, '', '/user/42');
+		expect(events.length).toBe(before);
+	});
+
+	it('navigation between non-matching routes is NOT suppressed', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupNavigationTracker(onEvent, true, ['/admin']);
+		const before = events.length;
+		history.pushState({}, '', '/dashboard');
+		expect(events.length).toBe(before + 1);
+	});
+
+	it('empty ignoreRoutes array suppresses nothing', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupNavigationTracker(onEvent, true, []);
+		const before = events.length;
+		history.pushState({}, '', '/any-page');
+		expect(events.length).toBe(before + 1);
+	});
+
+	it('ignoreRoutes is checked against the search string too (RegExp)', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupNavigationTracker(onEvent, true, [/\/products\?category=shoes/]);
+		const before = events.length;
+		history.pushState({}, '', '/products?category=shoes');
+		expect(events.length).toBe(before);
+	});
+});
+
+describe('ignoreTypes', () => {
+	it('hashchange is suppressed when in ignoreTypes', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupNavigationTracker(onEvent, { ignoreTypes: ['hashchange']});
+		const before = events.length;
+		window.dispatchEvent(new HashChangeEvent('hashchange', { bubbles: true }));
+		expect(events.length).toBe(before);
+	});
+
+	it('replaceState is suppressed when in ignoreTypes', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupNavigationTracker(onEvent, { ignoreTypes: ['replaceState']});
+		const before = events.length;
+		history.replaceState({}, '', '/replaced-path');
+		expect(events.length).toBe(before);
+	});
+
+	it('pushState is NOT suppressed when not in ignoreTypes', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupNavigationTracker(onEvent, { ignoreTypes: ['hashchange']});
+		const before = events.length;
+		history.pushState({}, '', '/pushed-page');
+		expect(events.length).toBe(before + 1);
+	});
+
+	it('popstate is suppressed when in ignoreTypes', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupNavigationTracker(onEvent, { ignoreTypes: ['popstate']});
+		const before = events.length;
+		window.dispatchEvent(new PopStateEvent('popstate', { bubbles: true }));
+		expect(events.length).toBe(before);
+	});
+
+	it('load event is NEVER suppressed even if included in ignoreTypes is not possible (load is not in the union)', () => {
+		// The initial load navigation should always fire regardless of ignoreTypes.
+		const { events } = makeOnEvent();
+		// ignoreTypes only accepts 'pushState' | 'replaceState' | 'popstate' | 'hashchange'
+		// so load cannot be in the array. Just verify the initial load still fires.
+		teardown = setupNavigationTracker(events.push.bind(events) as any, { ignoreTypes: ['hashchange', 'replaceState'] });
+		expect(events.some(e => e.trigger === 'load')).toBe(true);
+	});
+
+	it('empty ignoreTypes suppresses nothing', () => {
+		const { onEvent, events } = makeOnEvent();
+		teardown = setupNavigationTracker(onEvent, { ignoreTypes: [] });
+		const before = events.length;
+		window.dispatchEvent(new HashChangeEvent('hashchange', { bubbles: true }));
+		expect(events.length).toBe(before + 1);
 	});
 });

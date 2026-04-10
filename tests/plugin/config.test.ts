@@ -101,11 +101,6 @@ describe('resolveOptions()', () => {
 			expect(r.track.level).toBe('info');
 		});
 
-		it('track.ignoreUrls is [] by default', () => {
-			const r = resolveOptions(baseOpts());
-			expect(r.track.ignoreUrls).toEqual([]);
-		});
-
 		it('logging.level is "info" by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.logging.level).toBe('info');
@@ -291,9 +286,9 @@ describe('resolveOptions()', () => {
 			expect(r.track.level).toBe('debug');
 		});
 
-		it('track.ignoreUrls is propagated', () => {
-			const r = resolveOptions(baseOpts({ track: { ignoreUrls: ['/health'] } as any }));
-			expect(r.track.ignoreUrls).toEqual(['/health']);
+		it('track.http.ignoreUrls is propagated through http options', () => {
+			const r = resolveOptions(baseOpts({ track: { http: { ignoreUrls: ['/health'] } } }));
+			expect((r.track.http as import('../../src/types').HttpTrackOptions).ignoreUrls).toEqual(['/health']);
 		});
 
 		it('passed userId fn is preserved', () => {

@@ -145,14 +145,14 @@ describe('setupConsoleTracker', () => {
 
 		it('custom patterns via ignorePatterns suppress the message', () => {
 			const events = capture(
-				{ methods: ['log'], ignorePatterns: ['SUPPRESSED'] },
+				{ methods: ['log'], ignorePatterns: ['SUPPRESSED message'] },
 				() => console.log('SUPPRESSED message')
 			);
 			expect(events).toHaveLength(0);
 		});
 
 		it('custom patterns are added to the predefined ones — both work', () => {
-			const cfg: ConsoleTrackOptions = { methods: ['log'], ignorePatterns: ['CUSTOM'] };
+			const cfg: ConsoleTrackOptions = { methods: ['log'], ignorePatterns: ["", 'CUSTOM pattern'] };
 
 			const e1 = capture(cfg, () => console.log('[vite] built-in pattern'));
 			const e2 = capture(cfg, () => console.log('CUSTOM pattern'));
