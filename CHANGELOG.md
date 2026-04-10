@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.3.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.3.0) - 2026-04-10
+
+### Features
+
+- add ignore options to tracker event types ([8578418](https://github.com/nDriaDev/vite-plugin-monitor/commit/8578418))
+
+### Bug Fixes
+
+- linting ([73f90cc](https://github.com/nDriaDev/vite-plugin-monitor/commit/73f90cc))
+
+### Documentation
+
+- update documentation for previous added features ([1c217d3](https://github.com/nDriaDev/vite-plugin-monitor/commit/1c217d3))
+
+### Chores
+
+- build config ([0b8d339](https://github.com/nDriaDev/vite-plugin-monitor/commit/0b8d339))
+- build config ([86c0dcf](https://github.com/nDriaDev/vite-plugin-monitor/commit/86c0dcf))
+- fix exports + refactor verify-build script ([6ef3fd8](https://github.com/nDriaDev/vite-plugin-monitor/commit/6ef3fd8))
+
+### Other Changes
+
+- update test for previous feat added ([198730f](https://github.com/nDriaDev/vite-plugin-monitor/commit/198730f))
+
 ## [1.2.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.2.0) - 2026-04-09
 
 ### Bug Fixes

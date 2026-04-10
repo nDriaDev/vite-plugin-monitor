@@ -1,6 +1,6 @@
 {
 	"name": "@ndriadev/vite-plugin-monitor",
-	"version": "1.2.0",
+	"version": "1.3.0",
 	"description": "Automatic User Interaction Tracking, Real-Time Dashboard & File Logging for Vite",
 	"type": "module",
 	"main": "./dist/index.cjs",
