@@ -21,5 +21,32 @@ export default defineConfig([
 		sourcemap: true,
 		minify: true,
 		clean: false,  // INFO must NOT clean: first config's output (index.*, plugin/*) is already in dist/
+		outExtensions() {
+			return { dts: ".d.ts" }
+		}
 	},
+	{
+		entry: { 'client/index': 'src/client/index.ts' },
+		format: ['esm'],
+		platform: 'browser',
+		dts: true,
+		sourcemap: true,
+		minify: true,
+		clean: false,  // INFO must NOT clean: first config's output (index.*, plugin/*) is already in dist/
+		outExtensions() {
+			return { dts: ".d.mts" }
+		}
+	},
+	{
+		entry: { 'client/index': 'src/client/index.ts' },
+		format: ['cjs'],
+		platform: 'browser',
+		dts: true,
+		sourcemap: true,
+		minify: true,
+		clean: false,  // INFO must NOT clean: first config's output (index.*, plugin/*) is already in dist/
+		outExtensions() {
+			return { dts: ".d.cts" }
+		}
+	}
 ])
