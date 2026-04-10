@@ -1,143 +1,156 @@
 #!/usr/bin/env node
 /* eslint-disable no-undef */
 
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+
+import { readFileSync, existsSync, statSync } from 'fs';
+import { join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
-const distDir = join(rootDir, 'dist');
 
-const colors = {
+const c = {
 	reset: '\x1b[0m',
 	bright: '\x1b[1m',
 	red: '\x1b[31m',
 	green: '\x1b[32m',
 	yellow: '\x1b[33m',
 	blue: '\x1b[34m',
+	dim: '\x1b[2m',
 };
 
-function log(message, color = 'reset') {
-	console.log(`${colors[color]}${message}${colors.reset}`);
+const log = (msg, color = 'reset') => console.log(`${c[color]}${msg}${c.reset}`);
+const pass = (msg) => log(`  ✅ ${msg}`, 'green');
+const fail = (msg) => log(`  ❌ ${msg}`, 'red');
+const hr = () => log('━'.repeat(62), 'blue');
+
+/**
+ * Recursively collect every leaf string value in a nested object,
+ * paired with the dot-path that leads to it.
+ *
+ * Example:
+ *   { import: { types: './dist/index.d.mts', default: './dist/index.mjs' } }
+ *   → [ ['import.types', './dist/index.d.mts'], ['import.default', './dist/index.mjs'] ]
+ */
+function collectLeafPaths(obj, prefix = '') {
+	const results = [];
+	for (const [key, value] of Object.entries(obj ?? {})) {
+		const path = prefix ? `${prefix}.${key}` : key;
+		if (value !== null && typeof value === 'object') {
+			results.push(...collectLeafPaths(value, path));
+		} else if (typeof value === 'string') {
+			results.push([path, value]);
+		}
+	}
+	return results;
 }
 
-function checkFile(filename, description) {
-	const filepath = join(distDir, filename);
-	const exists = existsSync(filepath);
-
-	if (exists) {
-		const stats = readFileSync(filepath, 'utf-8');
-		const size = (stats.length / 1024).toFixed(2);
-		log(`  ✅ ${description}: ${filename} (${size} KB)`, 'green');
-		return true;
-	} else {
-		log(`  ❌ ${description}: ${filename} NOT FOUND`, 'red');
-		return false;
-	}
+/** Resolve a package.json-relative path to an absolute filesystem path. */
+function resolveField(value) {
+	return resolve(rootDir, value.replace(/^\.\//, ''));
 }
 
-function verifyPackageJson() {
-	const packageJson = JSON.parse(readFileSync(join(rootDir, 'package.json'), 'utf-8'));
+/** Human-readable file size in KB. */
+function fileSize(absPath) {
+	return (statSync(absPath).size / 1024).toFixed(2);
+}
 
-	log('\n📦 Package.json Verification:', 'blue');
+/**
+ * Returns a Map<absPath, label> of every file path declared in package.json.
+ *
+ * Inspected fields:
+ *   - top-level: "main", "module", "types"
+ *   - every leaf string inside "exports" that starts with "./"
+ *
+ * Duplicate paths (same file referenced by multiple fields) are deduplicated —
+ * the first label encountered wins.
+ */
+function collectDeclaredFiles(pkg) {
+	const files = new Map(); // absPath → label
 
-	const checks = [
-		{ field: 'main', expected: './dist/index.cjs', description: 'CommonJS entry' },
-		{ field: 'module', expected: './dist/index.js', description: 'ESM entry' },
-		{ field: 'types', expected: './dist/index.d.ts', description: 'TypeScript types' },
-	];
+	const addFile = (absPath, label) => {
+		if (!files.has(absPath)) files.set(absPath, label);
+	};
 
-	let allGood = true;
-
-	checks.forEach(({ field, expected }) => {
-		const actual = packageJson[field];
-		if (actual === expected) {
-			log(`  ✅ ${field}: ${actual}`, 'green');
-		} else {
-			log(`  ❌ ${field}: ${actual} (expected: ${expected})`, 'red');
-			allGood = false;
+	for (const field of ['main', 'module', 'types']) {
+		if (typeof pkg[field] === 'string') {
+			addFile(resolveField(pkg[field]), `${field}: "${pkg[field]}"`);
 		}
-	});
-
-	// Check exports
-	if (packageJson.exports && packageJson.exports['.']) {
-		const exp = packageJson.exports['.'];
-		log(`  ✅ exports configuration present`, 'green');
-
-		if (exp.types === './dist/index.d.ts') {
-			log(`    ✅ types: ${exp.types}`, 'green');
-		} else {
-			log(`    ❌ types: ${exp.types} (expected: ./dist/index.d.ts)`, 'red');
-			allGood = false;
-		}
-
-		if (exp.import === './dist/index.js') {
-			log(`    ✅ import: ${exp.import}`, 'green');
-		} else {
-			log(`    ❌ import: ${exp.import} (expected: ./dist/index.js)`, 'red');
-			allGood = false;
-		}
-
-		if (exp.require === './dist/index.cjs') {
-			log(`    ✅ require: ${exp.require}`, 'green');
-		} else {
-			log(`    ❌ require: ${exp.require} (expected: ./dist/index.cjs)`, 'red');
-			allGood = false;
-		}
-	} else {
-		log(`  ❌ exports configuration missing`, 'red');
-		allGood = false;
 	}
 
-	return allGood;
+	if (pkg.exports && typeof pkg.exports === 'object') {
+		for (const [exportKey, exportValue] of Object.entries(pkg.exports)) {
+			const subtree = typeof exportValue === 'string'
+				? { default: exportValue }
+				: exportValue;
+
+			for (const [dotPath, value] of collectLeafPaths(subtree)) {
+				if (typeof value === 'string' && value.startsWith('./')) {
+					addFile(
+						resolveField(value),
+						`exports["${exportKey}"].${dotPath}: "${value}"`
+					);
+				}
+			}
+		}
+	}
+
+	return files;
 }
 
 function main() {
-	log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'blue');
-	log('🔍 Build Verification Script', 'bright');
-	log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n', 'blue');
+	hr();
+	log('🔍 Build Verification', 'bright');
+	hr();
 
-	if (!existsSync(distDir)) {
-		log('❌ dist/ directory not found!', 'red');
-		log('\nPlease run: pnpm build', 'yellow');
+	const pkgPath = join(rootDir, 'package.json');
+	if (!existsSync(pkgPath)) {
+		fail('package.json not found in project root');
 		process.exit(1);
 	}
 
-	log('📁 Checking Build Output Files:', 'blue');
+	const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+	const declaredFiles = collectDeclaredFiles(pkg);
 
-	let allFilesExist = true;
-
-	allFilesExist &= checkFile('index.cjs', 'CommonJS build');
-	allFilesExist &= checkFile('index.js', 'ESM build');
-	allFilesExist &= checkFile('index.d.ts', 'TypeScript declarations');
-	allFilesExist &= checkFile('plugin/logger-worker.js', 'Logger worker (ESM)');
-	allFilesExist &= checkFile('plugin/logger-worker.cjs', 'Logger worker (CJS)');
-	allFilesExist &= checkFile('client/index.js', 'Browser client');
-	allFilesExist &= checkFile('client/index.d.ts', 'Browser client types');
-	allFilesExist &= checkFile('dashboard/index.html', 'Dashboard SPA');
-
-	const packageJsonOk = verifyPackageJson();
-
-	log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'blue');
-
-	if (allFilesExist && packageJsonOk) {
-		log('✅ Build verification PASSED!', 'green');
-		log('\nYour package is ready for publishing! 🚀', 'green');
-		log('\nSupported usage patterns:', 'blue');
-		log('  • CommonJS: require("@ndriadev/vite-plugin-monitor")', 'yellow');
-		log('  • ESM: import mockApi from "@ndriadev/vite-plugin-monitor"', 'yellow');
-		log('  • TypeScript: Full type support ✨', 'yellow');
-		log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n', 'blue');
+	if (declaredFiles.size === 0) {
+		log('\n⚠️  No output files found in package.json (checked: main, module, types, exports)', 'yellow');
+		log('   Nothing to verify.\n', 'yellow');
 		process.exit(0);
+	}
+
+	log(`\n📁 Checking ${declaredFiles.size} file(s) declared in package.json:`, 'blue');
+
+	let allOk = true;
+
+	for (const [absPath, label] of declaredFiles) {
+		if (existsSync(absPath)) {
+			pass(`${label}  (${fileSize(absPath)} KB)`);
+		} else {
+			fail(`${label}  — FILE NOT FOUND`);
+			allOk = false;
+		}
+	}
+
+	log('');
+	hr();
+
+	if (allOk) {
+		log('✅ Build verification PASSED!', 'green');
+		log('');
+		log(`All ${declaredFiles.size} declared file(s) are present. Ready to publish 🚀`, 'green');
 	} else {
 		log('❌ Build verification FAILED!', 'red');
-		log('\nPlease fix the issues above before publishing.', 'yellow');
-		log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n', 'blue');
-		process.exit(1);
+		log('');
+		log('One or more files declared in package.json are missing.', 'yellow');
+		log('Run the build command and try again.', 'yellow');
 	}
+
+	hr();
+	log('');
+
+	process.exit(allOk ? 0 : 1);
 }
 
 main();
