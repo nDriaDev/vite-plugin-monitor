@@ -185,7 +185,6 @@ export default defineConfig({
         navigation: false,
         console:    true,
         level:      'info',
-        ignoreUrls: [],
       },
 
       storage: {

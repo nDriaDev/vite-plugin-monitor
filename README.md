@@ -13,9 +13,9 @@
 [![npm downloads](https://img.shields.io/npm/dt/%40ndriadev/vite-plugin-monitor?label=DOWNLOADS&style=for-the-badge&color=red)](https://www.npmjs.com/package/%40ndriadev/vite-plugin-monitor)
 [![License: MIT](https://img.shields.io/badge/LICENSE-MIT-blue.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-![Statements](https://img.shields.io/badge/statements-99.66%25-brightgreen.svg?style=for-the-badge)
-![Branches](https://img.shields.io/badge/branches-91.88%25-green.svg?style=for-the-badge)
-![Functions](https://img.shields.io/badge/functions-98.11%25-green.svg?style=for-the-badge)
+![Statements](https://img.shields.io/badge/statements-99.73%25-brightgreen.svg?style=for-the-badge)
+![Branches](https://img.shields.io/badge/branches-92.25%25-green.svg?style=for-the-badge)
+![Functions](https://img.shields.io/badge/functions-98.41%25-green.svg?style=for-the-badge)
 ![Lines](https://img.shields.io/badge/lines-100%25-brightgreen.svg?style=for-the-badge)
 
 *Built with:*
@@ -295,15 +295,18 @@ trackerPlugin({
 track: {
   /**
    * Enable click tracking.
+   * true              → enable with default settings.
+   * false             → disabled entirely.
+   * ClickTrackOptions → filter by route or CSS selector (see below).
    * Single passive delegated listener on document.
    * @default false
    */
-  clicks?: boolean;
+  clicks?: boolean | ClickTrackOptions;
 
   /**
    * Enable HTTP request tracking.
-   * true  → method, URL, status, duration. No headers/bodies.
-   * false → disabled entirely.
+   * true             → method, URL, status, duration. No headers/bodies.
+   * false            → disabled entirely.
    * HttpTrackOptions → full control (see below).
    * @default false
    */
@@ -311,19 +314,25 @@ track: {
 
   /**
    * Enable unhandled error tracking.
+   * true               → capture all unhandled errors and promise rejections.
+   * false              → disabled entirely.
+   * ErrorTrackOptions  → filter specific error messages (see below).
    * Hooks window.onerror and unhandledrejection.
    * try/catch errors are NOT captured automatically.
    * @default false
    */
-  errors?: boolean;
+  errors?: boolean | ErrorTrackOptions;
 
   /**
    * Enable client-side navigation tracking.
+   * true                    → enable with default settings.
+   * false                   → disabled entirely.
+   * NavigationTrackOptions  → filter by route or trigger type (see below).
    * Patches history.pushState, replaceState, popstate,
    * hashchange, and emits a synthetic 'load' navigation synchronously at setup time.
    * @default false
    */
-  navigation?: boolean;
+  navigation?: boolean | NavigationTrackOptions;
 
   /**
    * Enable console method interception.
@@ -345,17 +354,75 @@ track: {
    * Minimum log level for automatically-tracked events.
    * Events below this threshold are discarded before enqueueing.
    * Does not affect tracker.track() custom events.
+   * Navigation and Click trackers are always emitted at 'info' level.
    * @default 'info'
    */
   level?: 'debug' | 'info' | 'warn' | 'error';
+}
+```
+
+#### `ClickTrackOptions` (fine-grained click filtering)
+
+```typescript
+clicks: {
+  /**
+   * Route patterns where click tracking is suppressed.
+   * Checked against window.location.pathname at click-time.
+   * Accepts plain strings (strict equality) or RegExp objects.
+   * The dashboard route is always injected automatically.
+   * @default []
+   * @example ['/admin', /^\/user\/\d+/, '/checkout']
+   */
+  ignoreRoutes?: (string | RegExp)[];
 
   /**
-   * URL substrings that disable HTTP tracking for matching requests.
-   * Case-sensitive substring match on the full absolute URL.
+   * CSS selectors whose matching elements (or ancestors) suppress click tracking.
+   * Uses Element.closest() walking up the DOM from the event target.
+   * The overlay host selector [data-tracker-overlay] is always injected automatically.
    * @default []
-   * @example ['/_dashboard', '/health', 'analytics.google.com']
+   * @example ['[data-no-track]', '#cookie-banner', '.dev-toolbar']
    */
-  ignoreUrls?: string[];
+  ignoreSelectors?: string[];
+}
+```
+
+#### `ErrorTrackOptions` (fine-grained error filtering)
+
+```typescript
+errors: {
+  /**
+   * Patterns matched against the error message.
+   * Errors whose message matches any entry are silently dropped.
+   * String entries use strict equality; RegExp entries are tested against the full message.
+   * Classic use-case: suppressing browser extension noise.
+   * @default []
+   * @example ['ResizeObserver loop limit exceeded', /^Script error\.?$/]
+   */
+  ignoreMessages?: (string | RegExp)[];
+}
+```
+
+#### `NavigationTrackOptions` (fine-grained navigation filtering)
+
+```typescript
+navigation: {
+  /**
+   * Route patterns where navigation tracking is suppressed.
+   * Suppressed when either the `from` OR the `to` path matches.
+   * Accepts plain strings (strict equality) or RegExp objects.
+   * The dashboard route is always injected automatically.
+   * @default []
+   * @example ['/admin', /^\/user\/\d+/, '/checkout']
+   */
+  ignoreRoutes?: (string | RegExp)[];
+
+  /**
+   * Navigation trigger types to suppress.
+   * Note: 'load' (initial page load) cannot be suppressed via this option.
+   * @default []
+   * @example ['hashchange', 'replaceState']
+   */
+  ignoreTypes?: Array<'pushState' | 'replaceState' | 'popstate' | 'hashchange'>;
 }
 ```
 
@@ -410,6 +477,24 @@ http: {
    * @default 2048
    */
   maxBodySize?: number;
+
+  /**
+   * HTTP methods to exclude from tracking (case-insensitive).
+   * Useful for suppressing high-frequency noise like CORS preflight OPTIONS requests.
+   * @default []
+   * @example ['OPTIONS', 'HEAD']
+   */
+  ignoreMethods?: string[];
+
+  /**
+   * URLs that disable HTTP tracking for matching requests.
+   * Accepts plain strings (strict equality) or RegExp objects.
+   * Case-sensitive match against the full absolute URL.
+   * Applied before any capture or redaction logic.
+   * @default []
+   * @example ['/_dashboard', '/health', /analytics\.google\.com/]
+   */
+  ignoreUrls?: (string | RegExp)[];
 }
 ```
 
@@ -446,11 +531,16 @@ console: {
   captureStackOnError?: boolean;
 
   /**
-   * Substring patterns — calls whose first argument matches any are ignored.
+   * Patterns matched against the first argument of each console call.
+   * Calls whose first argument matches any entry are silently dropped.
+   * String entries use strict equality; RegExp entries are tested against
+   * the string representation of the first argument.
+   * The built-in patterns '[vite]', '[HMR]', '[tracker]' are always prepended.
    * Applied before serialization: zero overhead for ignored calls.
    * @default ['[vite]', '[HMR]', '[tracker]']
+   * @example ['[vite]', '[HMR]', '[tracker]', /^\[react-query\]/, 'Stripe.js']
    */
-  ignorePatterns?: string[];
+  ignorePatterns?: (string | RegExp)[];
 }
 ```
 
@@ -914,8 +1004,9 @@ trackerPlugin({
       excludeHeaders:         ['x-internal-trace-id'],
       redactKeys:             ['fiscalCode', 'vatNumber', 'nationalId'],
       maxBodySize:            4096,
+      ignoreMethods:          ['OPTIONS', 'HEAD'],
+      ignoreUrls:             ['/_dashboard', '/ping', '/health', /cdn\.myapp\.com/],
     },
-    ignoreUrls: ['/_dashboard', '/ping', '/health', 'cdn.myapp.com'],
   },
 })
 ```
@@ -933,8 +1024,8 @@ trackerPlugin({
       methods:              ['error', 'warn'],
       // Capture stack trace on console.error calls
       captureStackOnError:  true,
-      // Ignore noisy internal patterns
-      ignorePatterns:       ['[vite]', '[HMR]', '[tracker]'],
+      // Ignore noisy internal patterns (strings use strict equality, RegExp for fuzzy match)
+      ignorePatterns:       ['[vite]', '[HMR]', '[tracker]', /^\[react-query\]/],
       maxArgLength:         1024,
     },
   },
@@ -1271,10 +1362,10 @@ The `dashboard.auth` credentials are HMAC-hashed with `appId` and stored in `win
 
 ### Dashboard Self-Exclusion
 
-The dashboard route is automatically injected into `ignoreUrls` for the click tracker and into `ignorePaths` for the navigation tracker. Dashboard UI interactions are never self-tracked.
+The dashboard route is automatically injected into `ignoreRoutes` for both the click tracker and the navigation tracker. Dashboard UI interactions are never self-tracked. Dashboard UI interactions are never self-tracked.
 
 ### Endpoints Self-Exclusion
-The tracker's own `writeEndpoint`, `readEndpoint`, `pingEndpoint` are automatically added to `ignoreUrls` to prevent infinite recursion (tracking the tracking requests).
+The tracker's own `writeEndpoint`, `readEndpoint`, `pingEndpoint` are automatically added to `http.ignoreUrls` to prevent infinite recursion (tracking the tracking requests).
 
 ### `includeInBuild` Requires a Prior `pnpm build:dashboard`
 

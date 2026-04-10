@@ -13,7 +13,6 @@ trackerPlugin({
     console:    true, // default
     userId:     () => localStorage.getItem('userId'),
     level:      'info',
-    ignoreUrls: [],
   },
 })
 ```
@@ -28,13 +27,12 @@ trackerPlugin({
 | `navigation` | `false` |
 | `console` | `true` |
 | `level` | `'info'` |
-| `ignoreUrls` | `[]` |
 
 ---
 
 ## `track.clicks`
 
-**Type:** `boolean` · **Default:** `false`
+**Type:** `boolean | ClickTrackOptions` · **Default:** `false`
 
 Enables click tracking via a single passive delegated listener on `document`. No per-element binding — zero DOM overhead.
 
@@ -46,10 +44,50 @@ Enables click tracking via a single passive delegated listener on `document`. No
 - `xpath`
 - `coordinates`
 
+**Simple enable:**
+
 ```typescript
 track: {
   clicks: true,
 }
+```
+
+**Fine-grained control with `ClickTrackOptions`:**
+
+```typescript
+track: {
+  clicks: {
+    ignoreRoutes:    ['/admin', /^\/user\/\d+/],
+    ignoreSelectors: ['[data-no-track]', '#cookie-banner'],
+  },
+}
+```
+
+### `ClickTrackOptions` Reference
+
+#### `ignoreRoutes`
+**Type:** `(string | RegExp)[]` · **Default:** `[]`
+
+Route patterns where click tracking is suppressed. Checked against `window.location.pathname` at click-time.
+
+- Plain strings are matched via **strict equality**.
+- `RegExp` objects are tested against the full pathname.
+
+The dashboard route is **always** injected automatically — you do not need to add it here. Query parameters are not included in the pathname check; use `ignoreSelectors` to filter by DOM attributes instead.
+
+```typescript
+ignoreRoutes: ['/admin', /^\/user\/\d+/, '/checkout']
+```
+
+#### `ignoreSelectors`
+**Type:** `string[]` · **Default:** `[]`
+
+CSS selectors whose matching elements (or their ancestors) suppress click tracking. At click-time the tracker walks up the DOM from the event target using `Element.closest()`.
+
+The overlay host selector `[data-tracker-overlay]` is **always** injected automatically — you do not need to add it here.
+
+```typescript
+ignoreSelectors: ['[data-no-track]', '#cookie-banner', '.dev-toolbar']
 ```
 
 ::: info Dashboard self-exclusion
@@ -144,7 +182,7 @@ Maximum byte length of the stored body string after redaction. Bodies exceeding 
 
 ## `track.errors`
 
-**Type:** `boolean` · **Default:** `false`
+**Type:** `boolean | ErrorTrackOptions` · **Default:** `false`
 
 Hooks into two global browser error handlers:
 
@@ -161,17 +199,52 @@ The error tracker only captures **unhandled** errors. If you wrap your code in `
 - Source file, line number, column number (synchronous errors only)
 - Error type (`TypeError`, `ReferenceError`, `UnhandledRejection`, etc.)
 
+**Simple enable:**
+
 ```typescript
 track: {
   errors: true,
 }
 ```
 
+**Fine-grained control with `ErrorTrackOptions`:**
+
+```typescript
+track: {
+  errors: {
+    ignoreMessages: [
+      'ResizeObserver loop limit exceeded',
+      /^Script error\.?$/,
+    ],
+  },
+}
+```
+
+### `ErrorTrackOptions` Reference
+
+#### `ignoreMessages`
+**Type:** `(string | RegExp)[]` · **Default:** `[]`
+
+Patterns matched against the error message. Errors whose message matches any entry are silently dropped before being enqueued.
+
+- Plain strings are matched via **strict equality**.
+- `RegExp` objects are tested against the full message string.
+
+Classic use-case: suppressing noise from browser extensions.
+
+```typescript
+ignoreMessages: [
+  'ResizeObserver loop limit exceeded',
+  'Script error.',
+  /^ChunkLoadError:/,
+]
+```
+
 ---
 
 ## `track.navigation`
 
-**Type:** `boolean` · **Default:** `false`
+**Type:** `boolean | NavigationTrackOptions` · **Default:** `false`
 
 Intercepts all client-side navigation triggers. Compatible with all major SPA routers (React Router, Vue Router, TanStack Router, etc.).
 
@@ -192,10 +265,59 @@ Intercepts all client-side navigation triggers. Compatible with all major SPA ro
 - `trigger` — what caused the navigation
 - `duration` — time spent on the previous route (ms)
 
+**Simple enable:**
+
 ```typescript
 track: {
   navigation: true,
 }
+```
+
+**Fine-grained control with `NavigationTrackOptions`:**
+
+```typescript
+track: {
+  navigation: {
+    ignoreRoutes: ['/admin', /^\/user\/\d+/],
+    ignoreTypes:  ['hashchange', 'replaceState'],
+  },
+}
+```
+
+### `NavigationTrackOptions` Reference
+
+#### `ignoreRoutes`
+**Type:** `(string | RegExp)[]` · **Default:** `[]`
+
+Route patterns where navigation tracking is suppressed. A navigation is suppressed when **either** the `from` **or** the `to` path matches one of these patterns.
+
+- Plain strings are matched via **strict equality**.
+- `RegExp` objects are tested against the full path including search string (e.g. `/users?page=2`).
+
+The dashboard route is **always** injected automatically — you do not need to add it here.
+
+```typescript
+ignoreRoutes: ['/admin', /^\/user\/\d+/, '/checkout']
+```
+
+#### `ignoreTypes`
+**Type:** `Array<'pushState' | 'replaceState' | 'popstate' | 'hashchange'>` · **Default:** `[]`
+
+Navigation trigger types to suppress. Only navigation events whose `trigger` is **not** in this list are tracked.
+
+::: info `'load'` cannot be suppressed
+The initial page load event (`trigger: 'load'`) is always emitted regardless of this option.
+:::
+
+| Value | Cause |
+|-------|-------|
+| `'pushState'` | `history.pushState()` — typical SPA link click |
+| `'replaceState'` | `history.replaceState()` — silent URL rewrite |
+| `'popstate'` | Browser back/forward button |
+| `'hashchange'` | Anchor `#fragment` change |
+
+```typescript
+ignoreTypes: ['hashchange', 'replaceState']
 ```
 
 ---
@@ -317,28 +439,6 @@ track: {
 
 ::: info Does not affect `tracker.track()`
 The `level` filter applies only to automatic trackers (clicks, HTTP, errors, navigation, console). Custom events emitted via `tracker.track()` bypass this filter and are always sent regardless of level.
-:::
 
----
-
-## `track.ignoreUrls`
-
-**Type:** `string[]` · **Default:** `[]`
-
-URL substrings that disable HTTP tracking for matching requests. Applied as a **case-sensitive substring match** on the full absolute URL.
-
-```typescript
-track: {
-  ignoreUrls: [
-    '/_dashboard',         // dashboard API calls
-    '/health',             // health check endpoints
-    '/ping',               // ping endpoints
-    'analytics.google.com', // third-party analytics
-    'cdn.myapp.com',       // CDN asset requests
-  ],
-}
-```
-
-::: info `writeEndpoint` is always excluded
-The tracker's own `writeEndpoint`, `readEndpoint`, `pingEndpoint` are automatically added to `ignoreUrls` to prevent infinite recursion (tracking the tracking requests).
+Click and Navigation trackers always emit at `info` level.
 :::
