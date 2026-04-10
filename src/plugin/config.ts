@@ -56,7 +56,7 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 				port: 4242,
 				batchSize: wsOpts!.batchSize ?? 25,
 				flushInterval: wsOpts!.flushInterval ?? 3000,
-				maxBufferSize: 500000,
+				maxBufferSize: 500000
 			}
 			: {
 				mode,
@@ -68,7 +68,7 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 				port: (autoOpts ?? managedOpts)?.port ?? 4242,
 				batchSize: anyOpts?.batchSize ?? 25,
 				flushInterval: anyOpts?.flushInterval ?? 3000,
-				maxBufferSize: (autoOpts ?? managedOpts)?.maxBufferSize ?? 500000,
+				maxBufferSize: (autoOpts ?? managedOpts)?.maxBufferSize ?? 500000
 			},
 		track: {
 			clicks: opts.track?.clicks ?? false,
@@ -77,8 +77,7 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 			navigation: opts.track?.navigation ?? false,
 			console: opts.track?.console ?? true,
 			userId: opts.track?.userId ?? (() => null),
-			level: opts.track?.level ?? 'info',
-			ignoreUrls: opts.track?.ignoreUrls ?? [],
+			level: opts.track?.level ?? 'info'
 		},
 		logging: {
 			level: opts.logging?.level ?? 'info',
@@ -87,19 +86,19 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 					format: 'json',
 					path: `./logs/${opts.appId}.log`,
 					rotation: { strategy: 'daily', maxFiles: 30, compress: false },
-				},
-			],
+				}
+			]
 		},
 		dashboard: {
 			enabled: opts.dashboard?.enabled ?? false,
 			route: opts.dashboard?.route ?? '/_dashboard',
 			auth,
 			includeInBuild: opts.dashboard?.includeInBuild ?? false,
-			pollInterval: opts.dashboard?.pollInterval ?? 3000,
+			pollInterval: opts.dashboard?.pollInterval ?? 3000
 		},
 		overlay: {
 			enabled: opts.overlay?.enabled ?? false,
-			position: opts.overlay?.position ?? 'bottom-right',
+			position: opts.overlay?.position ?? 'bottom-right'
 		},
 		autoInit: opts.autoInit ?? true
 	}

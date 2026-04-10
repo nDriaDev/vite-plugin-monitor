@@ -33,8 +33,7 @@ function buildConfig(opts: ResolvedTrackerOptions): TrackerConfig {
 			errors: opts.track.errors,
 			navigation: opts.track.navigation,
 			console: opts.track.console as boolean | Record<string, unknown>,
-			level: opts.track.level,
-			ignoreUrls: opts.track.ignoreUrls
+			level: opts.track.level
 		},
 		dashboard: {
 			enabled: opts.dashboard.enabled,

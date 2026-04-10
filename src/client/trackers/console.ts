@@ -32,7 +32,7 @@ const METHOD_LEVEL: Record<ConsoleMethod, LogLevel> = {
 	clear: 'info',
 };
 
-const DEFAULT_IGNORE_PATTERNS = ['[vite]', '[HMR]', '[tracker]'];
+const DEFAULT_IGNORE_PATTERNS = [/\[vite\]/, /\[HMR\]/, /\[tracker\]/];
 
 /**
 * Safely serialize a single console argument to a `SerializedArg`.
@@ -189,6 +189,22 @@ function extractMessage(args: unknown[]): string {
 	})
 }
 
+/**
+ * Returns true if `path` matches any of the given patterns.
+ * String patterns use `strict equality`; RegExp patterns are tested against the full message.
+ */
+function matchesPatterns(path: string, patterns: (string | RegExp)[]): boolean {
+	return patterns.some(p => {
+		if (!p) {
+			return false;
+		}
+		if (p instanceof RegExp) {
+			return p.test(path);
+		}
+		return path === p as string;
+	});
+}
+
 function resolveConsoleOpts(raw: boolean | ConsoleTrackOptions): ResolvedConsoleOpts {
 	const opts = raw === true ? {} : raw as ConsoleTrackOptions;
 	return {
@@ -232,7 +248,7 @@ export function setupConsoleTracker(consoleConfig: boolean | ConsoleTrackOptions
 			}
 
 			const firstStr = effectiveArgs.length > 0 ? String(effectiveArgs[0]) : '';
-			if (opts.ignorePatterns.some(p => firstStr.includes(p))) {
+			if (opts.ignorePatterns.length > 0 && matchesPatterns(firstStr, opts.ignorePatterns)) {
 				return;
 			}
 

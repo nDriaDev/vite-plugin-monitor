@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable no-undef */
-import type { ClickPayload } from "@tracker/types";
+import type { ClickPayload, ClickTrackOptions } from "@tracker/types";
 
 function getXPath(el: Element, maxDepth = 8): string {
 	const parts: string[] = []
@@ -25,14 +25,48 @@ function getXPath(el: Element, maxDepth = 8): string {
 }
 
 /**
- * @param onEvent     - Callback invoked for every tracked click.
- * @param ignorePaths - Route prefixes where click tracking is suppressed.
- *                     Checked against `window.location.pathname` at click-time,
- *                     so it reacts to runtime navigations without re-registration.
- *                     The dashboard route is automatically injected here by TrackerClient
- *                     so the dashboard's own UI interactions are never self-tracked.
+ * Returns true if `path` matches any of the given route patterns.
+ * String patterns use `strict equality`; RegExp patterns are tested against the full path.
  */
-export function setupClickTracker(onEvent: (payload: ClickPayload) => void, ignorePaths: string[] = []): () => void {
+function matchesRoute(path: string, patterns: (string | RegExp)[]): boolean {
+	return patterns.some(p => {
+		if (!p) {
+			return false;
+		}
+		if (p instanceof RegExp) {
+			return p.test(path);
+		}
+		return path === p;
+	});
+}
+
+/**
+ * @param onEvent          - Callback invoked for every tracked click.
+ * @param ignoreUrls      - Internal route prefixes where click tracking is suppressed
+ *                           (used to inject the dashboard route). String prefix match only.
+ * @param ignoreSelectors  - CSS selectors; clicks on matching elements (or their ancestors)
+ *                           are suppressed. Checked via `Element.closest()` at click-time.
+ * @param ignoreRoutes     - User-configurable route patterns (string prefix or RegExp).
+ *                           Checked against `window.location.pathname` at click-time.
+ */
+export function setupClickTracker(onEvent: (payload: ClickPayload) => void, opts: true | ClickTrackOptions = true, ignoreUrls: (string | RegExp)[] = []): () => void {
+	if (typeof window === 'undefined') {
+		return () => { };
+	}
+
+	const clickOpts = typeof opts === 'object' ? opts : {};
+	/**
+	 * INFO Inject the overlay selector automatically so overlay interactions
+	 * are never tracked, regardless of user config (fixes the overlay click bug).
+	 */
+	const ignoreSelectors = ['[data-tracker-overlay]', ...(clickOpts.ignoreSelectors || [])];
+	/**
+	 * INFO Inject the ignoreUrls derived from other config (e.g. the dashboard itself)
+	 * so interactions in this routes are never tracked.
+	 */
+	const ignoreRoutes = [...ignoreUrls, ...(clickOpts.ignoreRoutes || [])];
+
+
 	function onClick(e: MouseEvent) {
 		const target = e.target as Element;
 		if (!target?.tagName) {
@@ -40,11 +74,28 @@ export function setupClickTracker(onEvent: (payload: ClickPayload) => void, igno
 		}
 
 		/**
-		 * INFO Skip clicks while the user is on an ignored route (e.g. the dashboard itself).
-		 * Evaluated at click-time so it adapts to runtime navigation without re-registration.
+		 * INFO Skip clicks on user-configured ignored routes (supports RegExp).
 		 */
 		const currentPath = window.location.pathname;
-		if (ignorePaths.some(p => p && currentPath.startsWith(p))) {
+		if (ignoreRoutes.length > 0 && matchesRoute(currentPath, ignoreRoutes)) {
+			return;
+		}
+
+		/**
+		 * INFO Skip clicks on elements matching any of the ignored CSS selectors.
+		 * Uses closest() to walk up the DOM so that clicks on children of
+		 * ignored elements (e.g. an icon inside a cookie-banner button) are
+		 * also suppressed. This also fixes the overlay click-tracking bug:
+		 * the overlay host `[data-tracker-overlay]` is injected into
+		 * ignoreSelectors by TrackerClient so overlay interactions are never tracked.
+		 */
+		if (ignoreSelectors.length > 0 && ignoreSelectors.some(sel => {
+			try {
+				return target.closest(sel) !== null;
+			} catch {
+				return false;
+			}
+		})) {
 			return;
 		}
 

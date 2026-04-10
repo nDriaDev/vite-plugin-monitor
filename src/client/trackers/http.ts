@@ -136,7 +136,23 @@ function headersToRecord(headers: HeadersInit | undefined | null): Record<string
 	return { ...(headers as Record<string, string>) };
 }
 
-function resolveHttpOpts(raw: boolean | HttpTrackOptions | undefined): ResolvedHttpOpts {
+/**
+ * Returns true if `path` matches any of the given URL patterns.
+ * String patterns use `strict equality`; RegExp patterns are tested against the full URL.
+ */
+function matchesUrl(path: string, patterns: (string | RegExp)[]): boolean {
+	return patterns.some(p => {
+		if (!p) {
+			return false;
+		}
+		if (p instanceof RegExp) {
+			return p.test(path);
+		}
+		return path === p;
+	});
+}
+
+function resolveHttpOpts(defaultIgnoreUrls: (string|RegExp)[], raw: boolean | HttpTrackOptions | undefined): ResolvedHttpOpts {
 	if (!raw || raw === true) {
 		return {
 			captureRequestHeaders: false,
@@ -146,6 +162,8 @@ function resolveHttpOpts(raw: boolean | HttpTrackOptions | undefined): ResolvedH
 			excludeHeaders: [],
 			redactKeys: [],
 			maxBodySize: DEFAULT_MAX_BODY,
+			ignoreMethods: [],
+			ignoreUrls: defaultIgnoreUrls,
 		};
 	}
 	return {
@@ -156,6 +174,8 @@ function resolveHttpOpts(raw: boolean | HttpTrackOptions | undefined): ResolvedH
 		excludeHeaders: raw.excludeHeaders ?? [],
 		redactKeys: raw.redactKeys ?? [],
 		maxBodySize: raw.maxBodySize ?? DEFAULT_MAX_BODY,
+		ignoreMethods: (raw.ignoreMethods ?? []).map(m => m.toUpperCase()),
+		ignoreUrls: [...defaultIgnoreUrls, ...(raw.ignoreUrls || [])]
 	};
 }
 
@@ -185,7 +205,7 @@ async function cloneBody(body: BodyInit | null | undefined, isStream?: boolean):
 	return '';
 }
 
-function patchFetch(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (payload: HttpPayload, level: LogLevel) => void): () => void {
+function patchFetch(httpOpts: ResolvedHttpOpts, onEvent: (payload: HttpPayload, level: LogLevel) => void): () => void {
 	const originalFetch = window.fetch;
 
 	window.fetch = async function (input: RequestInfo | URL, init?: RequestInit) {
@@ -196,7 +216,11 @@ function patchFetch(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (
 				: (input as Request).url;
 		const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
 
-		if (ignoreUrls.some(p => url.includes(p))) {
+		if (httpOpts.ignoreUrls.length > 0 && matchesUrl(url, httpOpts.ignoreUrls)) {
+			return originalFetch.call(this, input, init);
+		}
+
+		if (httpOpts.ignoreMethods.length > 0 && httpOpts.ignoreMethods.includes(method)) {
 			return originalFetch.call(this, input, init);
 		}
 
@@ -282,7 +306,7 @@ function patchFetch(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (
 	return () => { window.fetch = originalFetch };
 }
 
-function patchXHR(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (payload: HttpPayload, level: LogLevel) => void): () => void {
+function patchXHR(httpOpts: ResolvedHttpOpts, onEvent: (payload: HttpPayload, level: LogLevel) => void): () => void {
 	const OriginalXHR = window.XMLHttpRequest;
 	const originalOpen = OriginalXHR.prototype.open;
 	const originalSend = OriginalXHR.prototype.send;
@@ -306,7 +330,11 @@ function patchXHR(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (pa
 			const xhrUrl = this.__tracker_url__ ?? '';
 			const xhrMethod = this.__tracker_method__ ?? 'GET';
 
-			if (ignoreUrls.some(p => xhrUrl.includes(p))) {
+			if (httpOpts.ignoreUrls.length > 0 && matchesUrl(xhrUrl, httpOpts.ignoreUrls)) {
+				return;
+			}
+
+			if (httpOpts.ignoreMethods.length > 0 && httpOpts.ignoreMethods.includes(xhrMethod)) {
 				return;
 			}
 
@@ -364,7 +392,11 @@ function patchXHR(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (pa
 			const xhrUrl = this.__tracker_url__ ?? '';
 			const xhrMethod = this.__tracker_method__ ?? 'GET';
 
-			if (ignoreUrls.some(p => xhrUrl.includes(p))) {
+			if (httpOpts.ignoreUrls.length > 0 && matchesUrl(xhrUrl, httpOpts.ignoreUrls)) {
+				return;
+			}
+
+			if (httpOpts.ignoreMethods.length > 0 && httpOpts.ignoreMethods.includes(xhrMethod)) {
 				return;
 			}
 
@@ -389,8 +421,13 @@ function patchXHR(ignoreUrls: string[], httpOpts: ResolvedHttpOpts, onEvent: (pa
 
 	OriginalXHR.prototype.send = function (this: TrackedXHR, body?: Document | XMLHttpRequestBodyInit | null) {
 		const url: string = this.__tracker_url__ ?? '';
+		const xhrMethod = this.__tracker_method__ ?? 'GET';
 
-		if (ignoreUrls.some(p => url.includes(p))) {
+		if (httpOpts.ignoreUrls.length > 0 && matchesUrl(url, httpOpts.ignoreUrls)) {
+			return originalSend.apply(this, [body]);
+		}
+
+		if (httpOpts.ignoreMethods.length > 0 && httpOpts.ignoreMethods.includes(xhrMethod)) {
 			return originalSend.apply(this, [body]);
 		}
 
@@ -418,10 +455,10 @@ function levelFromStatus(status: number): LogLevel {
 	return 'info';
 }
 
-export function setupHttpTracker(ignoreUrls: string[], httpConfig: boolean | HttpTrackOptions | undefined, onEvent: (payload: HttpPayload, level: LogLevel) => void): () => void {
-	const httpOpts = resolveHttpOpts(httpConfig);
-	const teardownFetch = patchFetch(ignoreUrls, httpOpts, onEvent);
-	const teardownXHR = patchXHR(ignoreUrls, httpOpts, onEvent);
+export function setupHttpTracker(defaultIgnoreUrls: (string|RegExp)[], httpConfig: boolean | HttpTrackOptions | undefined, onEvent: (payload: HttpPayload, level: LogLevel) => void): () => void {
+	const httpOpts = resolveHttpOpts(defaultIgnoreUrls, httpConfig);
+	const teardownFetch = patchFetch(httpOpts, onEvent);
+	const teardownXHR = patchXHR(httpOpts, onEvent);
 	return () => {
 		teardownFetch();
 		teardownXHR();

@@ -1576,14 +1576,18 @@ export interface TrackerPluginOptions {
 */
 export interface TrackOptions {
 	/**
-	* Enable or disable click tracking.
+	* Enable or disable click tracking, with optional fine-grained filter settings.
 	*
 	* @remarks
+	* - `true` - enable with default settings.
+	* - `false` - disable entirely.
+	* - {@link ClickTrackOptions} - full control over route and selector filtering.
+	*
 	* Adds a single passive `click` listener to `document` via event delegation.
 	*
 	* @default false
 	*/
-	clicks?: boolean
+	clicks?: boolean | ClickTrackOptions
 
 	/**
 	* Enable HTTP request tracking, with optional fine-grained capture settings.
@@ -1598,28 +1602,35 @@ export interface TrackOptions {
 	http?: boolean | HttpTrackOptions
 
 	/**
-	* Enable unhandled JavaScript error tracking.
+	* Enable unhandled JavaScript error tracking, with optional filtering.
 	*
 	* @remarks
+	* - `true` - capture all unhandled errors and promise rejections.
+	* - `false` - disable entirely.
+	* - {@link ErrorTrackOptions} - filter specific error messages.
+	*
 	* Captures `window.onerror` (synchronous) and `unhandledrejection` (promise).
 	* Errors caught by `try/catch` are not captured automatically.
 	*
 	* @default false
 	*/
-	errors?: boolean
+	errors?: boolean | ErrorTrackOptions
 
 	/**
-	* Enable client-side navigation tracking.
+	* Enable client-side navigation tracking, with optional fine-grained filter settings.
 	*
 	* @remarks
+	* - `true` - enable with default settings.
+	* - `false` - disable entirely.
+	* - {@link NavigationTrackOptions} - full control over route and trigger filtering.
+	*
 	* Intercepts `history.pushState`, `history.replaceState`, `popstate`,
 	* `hashchange`, and emits a synthetic 'load' navigation synchronously at setup time.
-	* Compatible with all major
-	* SPA routers.
+	* Compatible with all major SPA routers.
 	*
 	* @default false
 	*/
-	navigation?: boolean
+	navigation?: boolean | NavigationTrackOptions
 
 	/**
 	* Enable console method interception.
@@ -1659,21 +1670,133 @@ export interface TrackOptions {
 	* Events below this threshold are discarded before being enqueued.
 	* Does not affect custom events from `tracker.track()`.
 	*
+	* `Navigation` and `Click` trackes are setted as __`info`__ level.
+	*
 	* @default 'info'
 	*/
 	level?: LogLevel
+}
 
+/**
+* Fine-grained filter options for click tracking.
+*
+* @remarks
+* Used when `track.clicks` is an object. All fields are optional.
+*
+*/
+export interface ClickTrackOptions {
 	/**
-	* URL substrings that disable HTTP tracking for matching requests.
+	* Route patterns where click tracking is suppressed.
 	*
 	* @remarks
-	* Case-sensitive substring match against the full absolute URL.
-	* Applied before any capture or redaction logic.
+	* Checked against `window.location.pathname` at click-time.
+	* Accepts plain strings (matched via `strict equality`) or RegExp objects
+	* (tested against the full pathname). Use RegExp for dynamic routes such as
+	* `/user/*` or to ignore an entire family of paths.
+	*
+	* The dashboard route is **always** injected automatically — you do not need
+	* to add it here.
+	*
+	* Query parameters are **not** included in the pathname check. To filter by
+	* query params use `ignoreSelectors` instead.
 	*
 	* @default []
-	* @example `['/_dashboard', '/health', '/ping', 'analytics.google.com']`
+	* @example `['/admin', /^\/user\/\d+/, '/checkout']`
 	*/
-	ignoreUrls?: string[]
+	ignoreRoutes?: (string | RegExp)[]
+
+	/**
+	* CSS selectors whose matching elements (or ancestors) suppress click tracking.
+	*
+	* @remarks
+	* At click-time the tracker walks up the DOM from the event target using
+	* `Element.closest()` and suppresses the event if any selector matches.
+	* This makes it straightforward to exclude overlays, cookie banners, dev
+	* toolbars, or any element annotated with a custom data attribute.
+	*
+	* The overlay host selector `[data-tracker-overlay]` is **always** injected
+	* automatically — you do not need to add it here.
+	*
+	* @default []
+	* @example `['[data-no-track]', '#cookie-banner', '.dev-toolbar']`
+	*/
+	ignoreSelectors?: string[]
+}
+
+/**
+* Fine-grained filter options for error tracking.
+*
+* @remarks
+* Used when `track.errors` is an object. All fields are optional.
+*
+*/
+export interface ErrorTrackOptions {
+	/**
+	* Patterns matched against the error message. Errors whose message matches
+	* any entry are silently dropped before being enqueued.
+	*
+	* @remarks
+	* String entries are matched via `strict equality`.
+	* RegExp entries are tested against the full message string.
+	*
+	* Classic use-case: suppressing noise from browser extensions:
+	* `'ResizeObserver loop limit exceeded'`, `'Script error.'`
+	*
+	* @default []
+	* @example `['ResizeObserver loop limit exceeded', /^Script error\.?$/]`
+	*/
+	ignoreMessages?: (string | RegExp)[]
+}
+
+/**
+* Fine-grained filter options for navigation tracking.
+*
+* @remarks
+* Used when `track.navigation` is an object. All fields are optional.
+*
+*/
+export interface NavigationTrackOptions {
+	/**
+	* Route patterns where navigation tracking is suppressed.
+	*
+	* @remarks
+	* A navigation is suppressed when either the `from` **or** the `to` path
+	* matches one of these patterns. Accepts plain strings (matched via
+	* `strict equality`) or RegExp objects (tested against the full path including
+	* search string, e.g. `/users?page=2`).
+	*
+	* Use RegExp for dynamic routes such as `/user/*` or to ignore an entire
+	* family of paths.
+	*
+	* The dashboard route is **always** injected automatically — you do not need
+	* to add it here.
+	*
+	* @default []
+	* @example `['/admin', /^\/user\/\d+/, '/checkout']`
+	*/
+	ignoreRoutes?: (string | RegExp)[]
+
+	/**
+	* Navigation trigger types to suppress.
+	*
+	* @remarks
+	* When provided, only navigation events whose `trigger` is **not** in this
+	* list are tracked. Useful for excluding `hashchange` events from
+	* anchor-only in-page navigation, or `replaceState` silent URL rewrites.
+	*
+	* | Value           | Cause                                              |
+	* |-----------------|----------------------------------------------------|
+	* | `'pushState'`   | `history.pushState()` — typical SPA link click     |
+	* | `'replaceState'`| `history.replaceState()` — silent URL rewrite       |
+	* | `'popstate'`    | Browser back/forward button                        |
+	* | `'hashchange'`  | Anchor `#fragment` change                          |
+	*
+	* Note: `'load'` (initial page load) cannot be suppressed via this option.
+	*
+	* @default []
+	* @example `['hashchange', 'replaceState']`
+	*/
+	ignoreTypes?: Array<'pushState' | 'replaceState' | 'popstate' | 'hashchange'>
 }
 
 /**
@@ -1730,16 +1853,21 @@ export interface ConsoleTrackOptions {
 	captureStackOnError?: boolean
 
 	/**
-	* Substring patterns; console calls whose first argument contains any of them are ignored.
+	* Patterns matched against the first argument of each console call.
+	* Calls whose first argument matches any entry are silently dropped.
 	*
 	* @remarks
-	* Applied before serialization - zero overhead for ignored calls.
-	* Case-sensitive.
+	* Applied before serialization — zero overhead for ignored calls.
+	* String entries are matched via `strict equality`.
+	* RegExp entries are tested against the string representation of the first argument.
+	*
+	* The built-in patterns `'[vite]'`, `'[HMR]'`, and `'[tracker]'` are **always**
+	* prepended automatically and cannot be removed.
 	*
 	* @default `['[vite]', '[HMR]', '[tracker]']`
-	* @example `['[vite]', '[HMR]', '[tracker]', 'Stripe.js']`
+	* @example `['[vite]', '[HMR]', '[tracker]', /^\[react-query\]/, 'Stripe.js']`
 	*/
-	ignorePatterns?: string[]
+	ignorePatterns?: (string | RegExp)[]
 }
 
 /**
@@ -1832,6 +1960,32 @@ export interface HttpTrackOptions {
 	* @default 2048
 	*/
 	maxBodySize?: number
+
+	/**
+	* HTTP methods to exclude from tracking (case-insensitive).
+	*
+	* @remarks
+	* Requests whose method matches any entry are silently dropped before any
+	* capture or redaction logic. Useful for suppressing high-frequency noise
+	* such as CORS preflight `OPTIONS` requests.
+	*
+	* @default []
+	* @example `['OPTIONS', 'HEAD']`
+	*/
+	ignoreMethods?: string[]
+
+	/**
+	* URL that disable HTTP tracking for matching requests.
+	* Accepts plain strings (matched via `strict equality`) or RegExp objects.
+	*
+	* @remarks
+	* Case-sensitive substring match against the full absolute URL.
+	* Applied before any capture or redaction logic.
+	*
+	* @default []
+	* @example `['/_dashboard', '/health', '/ping', 'analytics.google.com']`
+	*/
+	ignoreUrls?: (string | RegExp)[]
 }
 
 /**
@@ -3039,14 +3193,13 @@ export type ResolvedTrackerOptions = {
 	storage: ResolvedStorage
 	autoInit: boolean
 	track: {
-		clicks: boolean
+		clicks: boolean | ClickTrackOptions
 		http: boolean | HttpTrackOptions
-		errors: boolean
-		navigation: boolean
+		errors: boolean | ErrorTrackOptions
+		navigation: boolean | NavigationTrackOptions
 		console: boolean | ConsoleTrackOptions | false
 		userId: () => string | null
 		level: LogLevel
-		ignoreUrls: string[]
 	}
 	logging: NonNullable<TrackerPluginOptions['logging']>
 	dashboard: Required<NonNullable<TrackerPluginOptions['dashboard']>>
@@ -3062,13 +3215,12 @@ interface TrackerConfigCommon {
 	/** Application build version injected at build time via `package.json` or `TrackerPluginOptions.buildVersion`. */
 	buildVersion?: string
 	track: {
-		clicks: boolean
+		clicks: boolean | ClickTrackOptions
 		http: boolean | HttpTrackOptions
-		errors: boolean
-		navigation: boolean
+		errors: boolean | ErrorTrackOptions
+		navigation: boolean | NavigationTrackOptions
 		console: boolean | ConsoleTrackOptions
 		level: string
-		ignoreUrls: string[]
 	}
 	dashboard: {
 		enabled: boolean
@@ -3125,6 +3277,8 @@ export interface ResolvedHttpOpts {
 	excludeHeaders: string[]
 	redactKeys: string[]
 	maxBodySize: number
+	ignoreMethods: string[]
+	ignoreUrls: (string | RegExp)[]
 }
 
 /**
@@ -3150,7 +3304,7 @@ export interface ResolvedConsoleOpts {
 	maxArgLength: number
 	maxArgs: number
 	captureStackOnError: boolean
-	ignorePatterns: string[]
+	ignorePatterns: (string | RegExp)[]
 }
 
 /**

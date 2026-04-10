@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-import type { NavigationPayload } from "@tracker/types";
+import type { NavigationPayload, NavigationTrackOptions } from "@tracker/types";
 
 /**
  *  INFO Storage key for MPA cross-page navigation
@@ -86,6 +86,22 @@ function setupMpaLinkInterceptor(): () => void {
 }
 
 /**
+ * Returns true if `path` matches any of the given route patterns.
+ * String patterns use `strict equality`; RegExp patterns are tested against the full path.
+ */
+function matchesRoute(path: string, patterns: (string | RegExp)[]): boolean {
+	return patterns.some(p => {
+		if (!p) {
+			return false;
+		}
+		if (p instanceof RegExp) {
+			return p.test(path);
+		}
+		return path === p as string;
+	});
+}
+
+/**
  * @param onEvent     - Callback invoked for every tracked navigation.
  * @param ignorePaths - Route prefixes that should not be tracked as navigation
  *                     destinations OR origins (e.g. the dashboard route).
@@ -93,13 +109,17 @@ function setupMpaLinkInterceptor(): () => void {
  *                     starts with one of these prefixes.
  */
 // eslint-disable-next-line no-unused-vars
-export function setupNavigationTracker(onEvent: (payload: NavigationPayload) => void, ignorePaths: string[] = []): () => void {
+export function setupNavigationTracker(onEvent: (payload: NavigationPayload) => void, opts: true | NavigationTrackOptions = true, ignoreUrls: (string | RegExp)[] = []): () => void {
 	let currentRoute = window.location.pathname + window.location.search;
 	let routeStart = performance.now();
 
-	function isIgnored(path: string): boolean {
-		return ignorePaths.some(p => p && path.startsWith(p));
-	}
+	const navOpts = typeof opts === 'object' ? opts : {};
+	const ignoreTypes = navOpts.ignoreTypes ?? [];
+	/**
+	 * INFO Inject the ignoreUrls derived from other config (e.g. the dashboard itself)
+	 * so interactions in this routes are never tracked.
+	 */
+	const ignoreRoutes = [...ignoreUrls, ...(navOpts.ignoreRoutes || [])];
 
 	function navigate(to: string, trigger: NavigationPayload['trigger'], fromOverride?: string) {
 		const from = fromOverride ?? currentRoute;
@@ -109,11 +129,12 @@ export function setupNavigationTracker(onEvent: (payload: NavigationPayload) => 
 		if (from === to && (trigger === 'replaceState' || trigger === 'pushState')) {
 			return;  // INFO ignore no-op SPA state updates (same path, only state object changed)
 		}
-		/**
-		 * INFO Suppress navigations that involve the dashboard route on either end.
-		 * This prevents the dashboard's own SPA routing from polluting the tracked events.
-		 */
-		if (isIgnored(from) || isIgnored(to)) {
+
+		if (ignoreRoutes.length > 0 && (matchesRoute(from, ignoreRoutes) || matchesRoute(to, ignoreRoutes))) {
+			return;
+		}
+
+		if (trigger !== 'load' && ignoreTypes.length > 0 && ignoreTypes.includes(trigger)) {
 			return;
 		}
 		onEvent({ from, to, trigger, duration });

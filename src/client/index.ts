@@ -77,20 +77,21 @@ class TrackerClient implements ITrackerClient {
 		 * INFO The dashboard route is injected as an ignored path into click and navigation
 		 * trackers so the dashboard's own UI interactions are never self-tracked.
 		 */
-		const ignorePaths: string[] = this.config.dashboard.enabled
-			? [this.config.dashboard.route]
+		const ignoreUrls: RegExp[] = this.config.dashboard.enabled
+			? [new RegExp(`^${this.config.dashboard.route}`)]
 			: [];
 
 		if (track.clicks) {
 			this.teardowns.push(
 				setupClickTracker(
 					(payload) => emit(this.session.createEvent('click', 'info', payload)),
-					ignorePaths
+					track.clicks,
+					ignoreUrls
 				)
 			);
 		}
 		if (track.http) {
-			const ignoreUrls = [this.config.writeEndpoint, this.config.readEndpoint, this.config.pingEndpoint, ...(track.ignoreUrls ?? [])].filter(Boolean);
+			const ignoreUrls = [new RegExp(`^${this.config.writeEndpoint}`), new RegExp(`^${this.config.readEndpoint}`), new RegExp(`^${this.config.pingEndpoint}`)];
 			this.teardowns.push(
 				setupHttpTracker(
 					ignoreUrls,
@@ -100,13 +101,19 @@ class TrackerClient implements ITrackerClient {
 			);
 		}
 		if (track.errors) {
-			this.teardowns.push(setupErrorTracker((payload) => emit(this.session.createEvent('error', 'error', payload))));
+			this.teardowns.push(
+				setupErrorTracker(
+					(payload) => emit(this.session.createEvent('error', 'error', payload)),
+					track.errors,
+				)
+			);
 		}
 		if (track.navigation) {
 			this.teardowns.push(
 				setupNavigationTracker(
 					(payload) => emit(this.session.createEvent('navigation', 'info', payload)),
-					ignorePaths
+					track.navigation,
+					ignoreUrls
 				)
 			);
 		}
