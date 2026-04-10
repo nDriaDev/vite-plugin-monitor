@@ -17,8 +17,7 @@ const BASE_CONFIG: TrackerConfig = {
 		errors: false,
 		navigation: false,
 		console: false,
-		level: 'info',
-		ignoreUrls: []
+		level: 'info'
 	},
 	dashboard: {
 		enabled: true,
