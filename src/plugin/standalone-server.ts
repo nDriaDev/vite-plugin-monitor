@@ -1,14 +1,14 @@
 import type { EventsResponse, Logger, ResolvedTrackerOptions, TrackerEvent } from "@tracker/types";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Connect } from "vite";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
-import path from "node:path";
 import { version } from '../../package.json';
 import { WebSocketServer } from "ws";
 
 /**
 * Ring buffer
+* Implemented as a true circular buffer with a head pointer so that
+* push() is O(1) regardless of capacity
 *
 * @remarks
 * Keeps the last N events in memory for fast dashboard queries.
@@ -16,20 +16,33 @@ import { WebSocketServer } from "ws";
 * Capacity is controlled by {@link HttpStorageOptions.maxBufferSize}.
 */
 class RingBuffer {
-	private buf: TrackerEvent[] = [];
+	private buf: (TrackerEvent | undefined)[];
+	private head = 0;    // INFO index of the oldest slot (next to be overwritten)
+	private count = 0;   // INFO number of valid entries currently stored
 	private readonly cap: number;
 
 	constructor(maxSize: number) {
 		this.cap = maxSize;
+		this.buf = new Array(maxSize);
 	}
 
 	push(events: TrackerEvent[]) {
 		for (const e of events) {
-			this.buf.push(e);
+			this.buf[this.head] = e;
+			this.head = (this.head + 1) % this.cap;
+			if (this.count < this.cap) this.count++;
 		}
-		if (this.buf.length > this.cap) {
-			this.buf = this.buf.slice(this.buf.length - this.cap);
+	}
+
+	private toArray(): TrackerEvent[] {
+		if (this.count < this.cap) {
+			return this.buf.slice(0, this.count) as TrackerEvent[];
 		}
+		// INFO head linked to the next slot to write = the oldest
+		return [
+			...this.buf.slice(this.head) as TrackerEvent[],
+			...this.buf.slice(0, this.head) as TrackerEvent[],
+		];
 	}
 
 	/**
@@ -43,7 +56,7 @@ class RingBuffer {
 	 * without round-trips.
 	 */
 	query(filters: { since?: string; until?: string; after?: string; limit: number; page: number }): { events: TrackerEvent[]; total: number } {
-		let result = [...this.buf];
+		let result = this.toArray();
 
 		if (filters.since) {
 			result = result.filter(e => e.timestamp >= filters.since!);
@@ -55,7 +68,7 @@ class RingBuffer {
 			result = result.filter(e => e.timestamp > filters.after!);
 		}
 		// INFO newest first
-		result = result.slice().reverse();
+		result = result.reverse();
 
 		const total = result.length;
 		const start = (filters.page - 1) * filters.limit;
@@ -65,64 +78,8 @@ class RingBuffer {
 		}
 	}
 
-	// all(): TrackerEvent[] {
-	// 	return [...this.buf];
-	// }
-
 	size(): number {
-		return this.buf.length;
-	}
-}
-
-/**
-* Log file reader
-*
-* @remarks
-* On startup, replay existing log files into the ring buffer so the dashboard
-* shows history even after a Vite restart.
-*/
-function loadFromLogFiles(opts: ResolvedTrackerOptions, buffer: RingBuffer, logger: Logger) {
-	const transports = opts.logging?.transports ?? [];
-	for (const transport of transports) {
-		if (transport.format !== 'json') {
-			continue;
-		}
-		// INFO only JSON is machine-readable
-		const dir = path.dirname(transport.path);
-		if (!existsSync(dir)) {
-			continue;
-		}
-		const base = path.basename(transport.path);
-		const ext = path.extname(base);
-		const stem = base.slice(0, -ext.length);
-
-		try {
-			// INFO Find all rotated files for this transport, sorted oldest->newest
-			const files = readdirSync(dir)
-				.filter(f => f.startsWith(stem) && f.endsWith(ext))
-				.sort();  // INFO lexicographic = chronological for dated filenames
-
-			let loaded = 0;
-			for (const file of files) {
-				const content = readFileSync(path.join(dir, file), 'utf8');
-				const events: TrackerEvent[] = [];
-				for (const line of content.split('\n')) {
-					if (!line.trim()) {
-						continue;
-					}
-					try {
-						events.push(JSON.parse(line));
-					} catch { /* skip malformed */ }
-				}
-				buffer.push(events);
-				loaded += events.length;
-			}
-			if (loaded > 0) {
-				logger.info(`Loaded ${loaded} events from log files`);
-			}
-		} catch (err) {
-			logger.warn(`Could not read log files: ${err}`);
-		}
+		return this.count;
 	}
 }
 
@@ -233,7 +190,23 @@ export function createStandaloneServer(opts: ResolvedTrackerOptions, logger: Log
 	const buffer = new RingBuffer(opts.storage.maxBufferSize);
 	const handler = createRequestHandler(opts, buffer, logger);
 
-	loadFromLogFiles(opts, buffer, logger);
+	logger.startHydration(
+		(events) => buffer.push(events),
+		({ loaded, skippedMalformed, skippedInvalid, limitReached }) => {
+			if (loaded > 0) {
+				logger.info(`Hydrated ${loaded} events from log files`);
+			}
+			if (skippedMalformed > 0) {
+				logger.warn(`Skipped ${skippedMalformed} malformed JSON lines`);
+			}
+			if (skippedInvalid > 0) {
+				logger.warn(`Skipped ${skippedInvalid} structurally invalid events`);
+			}
+			if (limitReached) {
+				logger.warn(`Hydration byte limit reached — oldest log files skipped`);
+			}
+		}
+	);
 
 	// eslint-disable-next-line @typescript-eslint/no-misused-promises
 	const server = createServer(async (req, res) => {
@@ -333,7 +306,23 @@ export function createMiddleware(opts: ResolvedTrackerOptions, logger: Logger): 
 	const buffer = new RingBuffer(opts.storage.maxBufferSize);
 	const handler = createRequestHandler(opts, buffer, logger);
 
-	loadFromLogFiles(opts, buffer, logger);
+	logger.startHydration(
+		(events) => buffer.push(events),
+		({ loaded, skippedMalformed, skippedInvalid, limitReached }) => {
+			if (loaded > 0) {
+				logger.info(`Hydrated ${loaded} events from log files`);
+			}
+			if (skippedMalformed > 0) {
+				logger.warn(`Skipped ${skippedMalformed} malformed JSON lines`);
+			}
+			if (skippedInvalid > 0) {
+				logger.warn(`Skipped ${skippedInvalid} structurally invalid events`);
+			}
+			if (limitReached) {
+				logger.warn(`Hydration byte limit reached — oldest log files skipped`);
+			}
+		}
+	);
 
 	// eslint-disable-next-line @typescript-eslint/no-misused-promises
 	return async function trackerMiddleware(req: IncomingMessage, res: ServerResponse, next: Connect.NextFunction) {

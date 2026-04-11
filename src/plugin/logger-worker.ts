@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 /**
 * logger-worker.ts - Worker thread that owns all file I/O.
 *
@@ -7,28 +8,40 @@
 * event loop entirely.
 *
 * Message protocol (main -> worker):
-*   { type: 'write',   event: TrackerEvent,  transportIdx: number }
-*   { type: 'destroy' }   - flush + close all streams, then exit
+*   { type: 'write',   event: TrackerEvent, transportIdx?: number }
+*   { type: 'hydrate', maxBytesPerTransport: number, batchSize: number }
+*       Triggers a background read of all JSON log files. Events are streamed
+*       back to the main thread in batches via 'hydrate:batch' messages so the
+*       RingBuffer is populated progressively without waiting for all files.
+*   { type: 'destroy' }
+*       Flush + close all streams, then exit.
 *
 * Message protocol (worker -> main):
-*   { type: 'error', message: string }
 *   { type: 'ready' }
+*   { type: 'hydrate:batch', events: TrackerEvent[] }
+*   { type: 'hydrate:done',  loaded: number, skippedMalformed: number,
+*                            skippedInvalid: number, limitReached: boolean }
+*   { type: 'error', message: string }
 */
 
-import { parentPort, workerData } from 'node:worker_threads'
-import fs from 'node:fs'
-import path from 'node:path'
-import type { TrackerEvent, LogTransport } from '../types.js'
+import { parentPort, workerData } from 'node:worker_threads';
+import fs from 'node:fs';
+import readline from 'node:readline';
+import path from 'node:path';
+import type { TrackerEvent, LogTransport } from '../types.js';
 
 // INFO Types re-declared locally (worker has no access to the parent module graph)
 
 interface WorkerInit {
-	transports: LogTransport[]
-	minLevel: number  // INFO numeric threshold (0=debug,1=info,2=warn,3=error)
+	transports: LogTransport[];
+	minLevel: number;  // INFO numeric threshold (0=debug,1=info,2=warn,3=error)
 }
 
 const LEVEL_NUM: Record<string, number> = {
-	debug: 0, info: 1, warn: 2, error: 3,
+	debug: 0,
+	info: 1,
+	warn: 2,
+	error: 3,
 }
 
 // INFO Formatters
@@ -192,12 +205,27 @@ class StreamTransport {
 		const ext = path.extname(baseName);
 		const stem = baseName.slice(0, -ext.length);
 		try {
+			/**
+			 * FIX: the previous implementation called fs.statSync() on every
+			 * rotated file to obtain mtime for sorting. With many archived files
+			 * this caused O(n) blocking syscalls during a write, adding backpressure
+			 * to the pending[] queue in the worker.
+			 *
+			 * The rotation logic already embeds a UTC timestamp in the archived
+			 * filename (e.g. appId-2024_03_15_10_30_00.log). Lexicographic order on
+			 * these names is identical to chronological order, so statSync is
+			 * entirely unnecessary — we sort by name instead.
+			 *
+			 * Only rotated (archived) files are considered; the live file (whose
+			 * name equals baseName exactly) is excluded from the count and never
+			 * deleted.
+			 */
 			fs.readdirSync(dir)
 				.filter(f => f.startsWith(stem) && f.endsWith(ext) && f !== baseName)
-				.map(f => ({ name: f, mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
-				.sort((a, b) => b.mtime - a.mtime)
-				.slice(maxFiles)
-				.forEach(({ name }) => {
+				.sort()           // INFO lexicographic = chronological for timestamped names
+				.reverse()        // INFO newest first
+				.slice(maxFiles)  // INFO keep the newest maxFiles, collect the rest
+				.forEach(name => {
 					try {
 						fs.unlinkSync(path.join(dir, name));
 					} catch { /* ignore */ }
@@ -222,7 +250,145 @@ const minLevel = init.minLevel;
 
 parentPort?.postMessage({ type: 'ready' });
 
-parentPort?.on('message', (msg: { type: string; event?: TrackerEvent; transportIdx?: number }) => {
+/**
+ * Minimal structural guard — mirrors isValidEvent in standalone-server.ts.
+ * Re-declared here because the worker has no access to the parent module graph.
+ */
+function isValidEvent(value: unknown): value is TrackerEvent {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+		return false;
+	}
+	const e = value as Record<string, unknown>;
+	return (
+		typeof e['timestamp'] === 'string' && e['timestamp'].length > 0 &&
+		typeof e['type'] === 'string' && e['type'].length > 0 &&
+		typeof e['level'] === 'string' && e['level'].length > 0 &&
+		typeof e['appId'] === 'string' && e['appId'].length > 0 &&
+		typeof e['sessionId'] === 'string' &&
+		typeof e['userId'] === 'string' &&
+		typeof e['payload'] === 'object' && e['payload'] !== null &&
+		typeof e['meta'] === 'object' && e['meta'] !== null
+	);
+}
+
+/**
+ * Read all JSON log files for every transport, stream parsed events back to
+ * the main thread in batches, then report summary statistics.
+ *
+ * Design notes:
+ *  - Uses readline + createReadStream so the worker's event loop is never
+ *    blocked while reading (the worker also handles 'write' messages
+ *    concurrently during hydration).
+ *  - Events are batched (batchSize) before postMessage to avoid flooding the
+ *    IPC channel with one message per line.
+ *  - A per-transport byte cap (maxBytesPerTransport) prevents unbounded
+ *    memory accumulation when log directories are very large.
+ *  - Only JSON-format transports are read (pretty format is not machine-readable).
+ */
+async function hydrateFromLogs(maxBytesPerTransport: number, batchSize: number): Promise<void> {
+	let totalLoaded = 0;
+	let totalMalformed = 0;
+	let totalInvalid = 0;
+	let limitReached = false;
+
+	for (const transport of init.transports) {
+		if (transport.format !== 'json') {
+			continue;
+		}
+
+		const dir = path.dirname(transport.path);
+		if (!fs.existsSync(dir)) {
+			continue;
+		}
+
+		const base = path.basename(transport.path);
+		const ext = path.extname(base);
+		const stem = base.slice(0, -ext.length);
+
+		let files: string[];
+		try {
+			files = fs.readdirSync(dir)
+				.filter(f => f.startsWith(stem) && f.endsWith(ext))
+				.sort(); // INFO lexicographic = chronological for timestamped names
+		} catch (err) {
+			parentPort?.postMessage({ type: 'error', message: `hydrate: cannot list ${dir}: ${err}` });
+			continue;
+		}
+
+		let bytesRead = 0;
+
+		for (const file of files) {
+			if (bytesRead >= maxBytesPerTransport) {
+				limitReached = true;
+				break;
+			}
+
+			const filePath = path.join(dir, file);
+			let batch: TrackerEvent[] = [];
+
+			try {
+				await new Promise<void>((resolve, reject) => {
+					const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
+					const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+
+					rl.on('line', (line) => {
+						bytesRead += Buffer.byteLength(line, 'utf8') + 1; // INFO +1 for '\n'
+
+						if (!line.trim()) {
+							return;
+						}
+
+						let parsed: unknown;
+						try {
+							parsed = JSON.parse(line);
+						} catch {
+							totalMalformed++;
+							return;
+						}
+
+						if (!isValidEvent(parsed)) {
+							totalInvalid++;
+							return;
+						}
+
+						batch.push(parsed);
+						totalLoaded++;
+
+						// INFO Flush batch when it reaches the target size
+						if (batch.length >= batchSize) {
+							parentPort?.postMessage({ type: 'hydrate:batch', events: batch });
+							batch = [];
+						}
+					});
+
+					rl.on('close', () => {
+						// INFO Flush any remaining events in the last partial batch
+						if (batch.length > 0) {
+							parentPort?.postMessage({ type: 'hydrate:batch', events: batch });
+							batch = [];
+						}
+						resolve();
+					});
+
+					rl.on('error', reject);
+					stream.on('error', reject);
+				});
+			} catch (err) {
+				parentPort?.postMessage({ type: 'error', message: `hydrate: cannot read ${file}: ${err}` });
+			}
+		}
+	}
+
+	parentPort?.postMessage({
+		type: 'hydrate:done',
+		loaded: totalLoaded,
+		skippedMalformed: totalMalformed,
+		skippedInvalid: totalInvalid,
+		limitReached,
+	});
+}
+
+parentPort?.on('message', (msg: { type: string, event?: TrackerEvent, transportIdx?: number, maxBytesPerTransport?: number, batchSize?: number }) => {
 	if (msg.type === 'write' && msg.event) {
 		if (LEVEL_NUM[msg.event.level] < minLevel) {
 			return;
@@ -243,11 +409,22 @@ parentPort?.on('message', (msg: { type: string; event?: TrackerEvent; transportI
 		return;
 	}
 
+	if (msg.type === 'hydrate') {
+		/**
+		 * Run asynchronously so write messages can still be processed while
+		 * hydration is in progress (the worker event loop is not blocked).
+		 */
+		hydrateFromLogs(
+			msg.maxBytesPerTransport ?? 50 * 1024 * 1024,
+			msg.batchSize ?? 200,
+		);
+		return;
+	}
+
 	if (msg.type === 'destroy') {
 		for (const t of transports) {
 			t.destroy();
 		}
-		// eslint-disable-next-line no-undef
 		process.exit(0);
 	}
 });

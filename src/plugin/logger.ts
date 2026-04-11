@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 /* eslint-disable no-undef */
 import { Worker } from 'node:worker_threads';
 import path from 'node:path';
@@ -6,8 +7,8 @@ import type { Logger, LoggingOptions, LogLevel, TrackerEvent } from '../types';
 
 const LEVELS: Record<LogLevel, number> = {
 	debug: 0,
-	info:  1,
-	warn:  2,
+	info: 1,
+	warn: 2,
 	error: 3,
 }
 
@@ -17,14 +18,14 @@ const LEVELS: Record<LogLevel, number> = {
 * Works for both CJS (__dirname) and ESM (import.meta.url)
 * tsdown compiles to both targets, so we try ESM first.
 */
-function workerScriptPath(): string {
+const WORKER_SCRIPT_PATH: string = (() => {
 	try {
 		const __filename = fileURLToPath(import.meta.url);
 		return path.join(path.dirname(__filename), 'plugin', 'logger-worker.js');
 	} catch {
 		return path.join(__dirname, 'plugin', 'logger-worker.cjs');
 	}
-}
+})();
 /* v8 ignore stop */
 
 /**
@@ -47,15 +48,18 @@ export function createLogger(appId: string, loggingOpts?: LoggingOptions): Logge
 
 	const transports = loggingOpts?.transports ?? [
 		{
-			format:   'json' as const,
-			path:     `./logs/${appId}.log`,
+			format: 'json' as const,
+			path: `./logs/${appId}.log`,
 			rotation: { strategy: 'daily' as const, maxFiles: 30, compress: false },
 		}
 	];
 
 	let worker: Worker | null = null;
 	let workerReady = false;
-	let pendingEvents: TrackerEvent[] = [];  // INFO buffered while worker is starting
+	let pendingEvents: TrackerEvent[] = [];
+
+	let hydrationOnBatch: ((events: TrackerEvent[]) => void) | null = null;
+	let hydrationOnDone: ((stats: { loaded: number; skippedMalformed: number; skippedInvalid: number; limitReached: boolean }) => void) | null = null;
 
 	/**
 	 * INFO Worker lifecycle
@@ -67,14 +71,13 @@ export function createLogger(appId: string, loggingOpts?: LoggingOptions): Logge
 			return worker;
 		}
 
-		worker = new Worker(workerScriptPath(), {
+		worker = new Worker(WORKER_SCRIPT_PATH, {
 			workerData: { transports, minLevel },
 		});
 
-		worker.on('message', (msg: { type: string; message?: string }) => {
+		worker.on('message', (msg: { type: string, message?: string, events?: TrackerEvent[], loaded?: number, skippedMalformed?: number, skippedInvalid?: number, limitReached?: boolean }) => {
 			if (msg.type === 'ready') {
 				workerReady = true;
-				// INFO Drain any events that arrived before the worker was ready
 				for (const event of pendingEvents) {
 					worker!.postMessage({ type: 'write', event });
 				}
@@ -82,6 +85,21 @@ export function createLogger(appId: string, loggingOpts?: LoggingOptions): Logge
 			}
 			if (msg.type === 'error') {
 				console.error('[vite-plugin-monitor] Logger worker error:', msg.message);
+			}
+			if (msg.type === 'hydrate:batch' && msg.events && hydrationOnBatch) {
+				hydrationOnBatch(msg.events);
+			}
+			if (msg.type === 'hydrate:done') {
+				if (hydrationOnDone) {
+					hydrationOnDone({
+						loaded: msg.loaded ?? 0,
+						skippedMalformed: msg.skippedMalformed ?? 0,
+						skippedInvalid: msg.skippedInvalid ?? 0,
+						limitReached: msg.limitReached ?? false,
+					});
+				}
+				hydrationOnBatch = null;
+				hydrationOnDone = null;
 			}
 		});
 
@@ -115,7 +133,6 @@ export function createLogger(appId: string, loggingOpts?: LoggingOptions): Logge
 			return;
 		}
 
-		// INFO postMessage is async and zero-copy for plain JSON objects. The structured-clone algorithm runs in the background - no blocking here.
 		w.postMessage({ type: 'write', event });
 	}
 
@@ -145,14 +162,57 @@ export function createLogger(appId: string, loggingOpts?: LoggingOptions): Logge
 		await new Promise<void>((resolve) => {
 			worker!.once('exit', resolve);
 			setTimeout(resolve, 3000);  // INFO safety - don't hang Vite shutdown
-		})
+		});
 
 		worker = null;
 		workerReady = false;
 	}
 
-	// INFO Console logger (plugin messages, not event data)
-	const prefix = '\x1b[36m[vite-plugin-monitor]\x1b[0m'
+	function destroyForHmr(): void {
+		if (!worker) {
+			return;
+		}
+		if (pendingEvents.length > 0) {
+			for (const event of pendingEvents) {
+				worker.postMessage({ type: 'write', event });
+			}
+			pendingEvents = [];
+		}
+		worker.postMessage({ type: 'destroy' });
+		worker = null;
+		workerReady = false;
+	}
+
+	function startHydration(
+		onBatch: (events: TrackerEvent[]) => void,
+		onDone: (stats: { loaded: number; skippedMalformed: number; skippedInvalid: number; limitReached: boolean }) => void,
+		maxBytesPerTransport = 50 * 1024 * 1024,
+		batchSize = 200
+	): void {
+		hydrationOnBatch = onBatch;
+		hydrationOnDone = onDone;
+
+		const w = spawnWorker();
+		const send = () => w.postMessage({ type: 'hydrate', maxBytesPerTransport, batchSize });
+
+		if (workerReady) {
+			send();
+		} else {
+			const intervalId = setInterval(() => {
+				// INFO Worker was destroyed before becoming ready (e.g. very fast HMR) — bail out cleanly.
+				if (!worker) {
+					clearInterval(intervalId);
+					return;
+				}
+				if (workerReady) {
+					clearInterval(intervalId);
+					send();
+				}
+			}, 8);
+		}
+	}
+
+	const prefix = '\x1b[36m[vite-plugin-monitor]\x1b[0m';
 	return {
 		debug: (msg: string) => minLevel <= LEVELS.debug && console.debug(`${prefix} ${msg}`),
 		info: (msg: string) => minLevel <= LEVELS.info && console.info(`${prefix} ${msg}`),
@@ -160,5 +220,7 @@ export function createLogger(appId: string, loggingOpts?: LoggingOptions): Logge
 		error: (msg: string) => minLevel <= LEVELS.error && console.error(`${prefix} ${msg}`),
 		writeEvent,
 		destroy,
+		destroyForHmr,
+		startHydration,
 	}
 }
