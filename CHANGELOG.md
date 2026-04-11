@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.4.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.4.0) - 2026-04-11
+
+### Features
+
+- move reading logs logic into worker thread ([dcf513a](https://github.com/nDriaDev/vite-plugin-monitor/commit/dcf513a))
+
+### Performance Improvements
+
+- remove uncaughtexcpetion listener on process ([d263a53](https://github.com/nDriaDev/vite-plugin-monitor/commit/d263a53))
+- caching dashboard e injected script ([476d442](https://github.com/nDriaDev/vite-plugin-monitor/commit/476d442))
+
+### Documentation
+
+- update documentations ([239cb50](https://github.com/nDriaDev/vite-plugin-monitor/commit/239cb50))
+
+### Other Changes
+
+- update test for previous change ([4940458](https://github.com/nDriaDev/vite-plugin-monitor/commit/4940458))
+
 ## [1.3.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.3.0) - 2026-04-10
 
 ### Features
