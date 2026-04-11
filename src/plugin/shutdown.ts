@@ -28,25 +28,6 @@ function installHandlers(): void {
 			runShutdown(signal).catch(() => process.exit(1));
 		});
 	}
-
-	/**
-	 * INFO Handle uncaught fatal errors
-	 * attempt a best-effort flush before crashing. NOT swallow the error but re-throw after cleanup.
-	 */
-	process.on('uncaughtException', async (err) => {
-		console.error('[vite-plugin-monitor] Uncaught exception - flushing logs before crash:', err);
-		const hooks = getHooks();
-		await Promise.allSettled(
-			hooks.map(fn => {
-				try {
-					return Promise.resolve(fn());
-				} catch {
-					return Promise.resolve();
-				}
-			})
-		).catch(() => { });
-		throw err  // INFO re-throw so Node exits with code 1 and the error is visible
-	});
 }
 
 /**
