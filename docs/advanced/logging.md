@@ -157,6 +157,19 @@ logger.writeEvent(event)
                                                   stream.write(line)
                                                   cleanup old archives if needed
 
+logger.startHydration(onBatch, onDone)
+  └── spawnWorker() (lazy, once)
+  └── postMessage({ type: 'hydrate' })       →  read all JSONL transport files
+                                                  parse each line as TrackerEvent
+                                                  skip malformed / invalid lines
+                                                  postMessage({ type: 'hydrate:batch',
+                                                    events })  ──────────────────────→  onBatch(events)
+                                                                                         buffer.push(events)
+                                                  (repeat per batch until EOF)
+                                                  postMessage({ type: 'hydrate:done',
+                                                    loaded, skippedMalformed,        →  onDone(stats)
+                                                    skippedInvalid, limitReached })
+
 logger.destroy()
   └── postMessage({ type: 'destroy' })  →  flush all streams
                                             close all WriteStreams
@@ -164,4 +177,6 @@ logger.destroy()
   └── await worker exit (3s timeout)
 ```
 
-The worker is spawned **lazily** on the first event write. Events arriving before the worker signals `'ready'` are buffered in the main thread and drained once the worker is initialized.
+The worker is spawned **lazily** on the first event write or hydration request. Events arriving before the worker signals `'ready'` are buffered in the main thread and drained once the worker is initialized.
+
+Hydration reads only `format: 'json'` (JSONL) transports — `format: 'pretty'` logs are skipped. Each transport is capped at `maxBytesPerTransport` (default 50 MB) to prevent unbounded memory use on large log directories; if the cap is hit, the oldest files are skipped and `limitReached: true` is reported in `onDone`.

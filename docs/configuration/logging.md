@@ -178,22 +178,37 @@ Log replay reads all `.log` / `.jsonl` files matching the configured transport p
 All file I/O is delegated to a dedicated `worker_threads` worker to avoid blocking the Vite dev server's event loop.
 
 ```
-Main thread (Vite)           Worker thread (logger-worker)
-──────────────────────       ──────────────────────────────
-Logger.writeEvent(event) ──→  postMessage({ type: 'write', event })
-                                  ├─ Level check
-                                  ├─ Format (JSON or pretty)
-                                  ├─ Rotation check
-                                  ├─ fs.WriteStream.write()
-                                  └─ Archive cleanup if needed
+Main thread (Vite)                Worker thread (logger-worker)
+──────────────────────────        ──────────────────────────────────────
+Logger.writeEvent(event)     ──→  postMessage({ type: 'write', event })
+                                      ├─ Level check
+                                      ├─ Format (JSON or pretty)
+                                      ├─ Rotation check
+                                      ├─ fs.WriteStream.write()
+                                      └─ Archive cleanup if needed
 
-Logger.destroy()         ──→  postMessage({ type: 'destroy' })
-                                  ├─ Flush all streams
-                                  ├─ Close all WriteStreams
-                                  └─ worker exit(0)
+Logger.startHydration(       ──→  postMessage({ type: 'hydrate' })
+  onBatch, onDone)                    ├─ Read all JSONL transport files
+                                      ├─ Parse each line as TrackerEvent
+                                      ├─ Skip malformed / invalid lines
+                                      ├─ postMessage({ type: 'hydrate:batch',
+                             ←──          events })  →  onBatch(events)
+                                      │                  buffer.push(events)
+                                      │  (repeat per batch until EOF)
+                                      └─ postMessage({ type: 'hydrate:done',
+                             ←──          loaded, skippedMalformed,
+                                          skippedInvalid, limitReached })
+                                                         →  onDone(stats)
+
+Logger.destroy()             ──→  postMessage({ type: 'destroy' })
+                                      ├─ Flush all streams
+                                      ├─ Close all WriteStreams
+                                      └─ worker exit(0)
 ```
 
-The worker is **spawned lazily** on the first `writeEvent()` call. Events arriving before the worker is ready are buffered and drained once the worker sends a `'ready'` message. On plugin shutdown, `destroy()` waits up to 3 seconds for the worker to flush and exit cleanly.
+The worker is **spawned lazily** on the first `writeEvent()` or `startHydration()` call. Events arriving before the worker is ready are buffered and drained once the worker sends a `'ready'` message. On plugin shutdown, `destroy()` waits up to 3 seconds for the worker to flush and exit cleanly.
+
+Hydration reads only `format: 'json'` (JSONL) transports — `format: 'pretty'` logs are skipped. Each transport is capped at `maxBytesPerTransport` (default 50 MB) to prevent unbounded memory use on large log directories; if the cap is hit, the oldest files are skipped and `limitReached: true` is reported via `onDone`.
 
 ---
 
