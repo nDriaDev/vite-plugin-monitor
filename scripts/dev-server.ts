@@ -37,8 +37,7 @@ const opts: ResolvedTrackerOptions = {
 		navigation: true,
 		console: false,
 		userId: () => null,
-		level: 'info',
-		ignoreUrls: []
+		level: 'info'
 	},
 	logging: {
 		level: 'info',
@@ -72,7 +71,14 @@ const logger = {
 	warn: (msg: string) => console.warn(`\x1b[36m[vite-plugin-monitor]\x1b[0m ${msg}`),
 	error: (msg: string) => console.error(`\x1b[36m[vite-plugin-monitor]\x1b[0m ${msg}`),
 	writeEvent: (_event: TrackerEvent) => { /* no file logging in dev */ },
-	destroy: async () => { }
+	destroy: async () => { },
+	destroyForHmr: () => { },
+	startHydration: (
+		_onBatch: (events: TrackerEvent[]) => void,
+		onDone: (stats: { loaded: number; skippedMalformed: number; skippedInvalid: number; limitReached: boolean }) => void,
+	) => {
+		onDone({ loaded: 0, skippedMalformed: 0, skippedInvalid: 0, limitReached: false });
+	},
 };
 const server = createStandaloneServer(opts, logger);
 
@@ -297,23 +303,23 @@ function seedEvents() {
 	const sessionEvents: TrackerEvent[] = [
 		// INFO Session 0: alice - init, then login (userId change), then page close
 		ev(90, 'info', 'session', 0, 4, { action: 'start', trigger: 'init' }, '/'),
-		ev(70, 'info', 'session', 0, 4, { action: 'end',   trigger: 'userId-change', previousUserId: USERS[4] }, '/products/42'),
+		ev(70, 'info', 'session', 0, 4, { action: 'end', trigger: 'userId-change', previousUserId: USERS[4] }, '/products/42'),
 		ev(70, 'info', 'session', 0, 0, { action: 'start', trigger: 'userId-change', newUserId: USERS[0] }, '/products/42'),
-		ev(54, 'info', 'session', 0, 0, { action: 'end',   trigger: 'unload' }, '/checkout'),
+		ev(54, 'info', 'session', 0, 0, { action: 'end', trigger: 'unload' }, '/checkout'),
 		// INFO Session 1: bob - init and close
 		ev(86, 'info', 'session', 1, 1, { action: 'start', trigger: 'init' }, '/'),
-		ev(57, 'info', 'session', 1, 1, { action: 'end',   trigger: 'unload' }, '/cart'),
+		ev(57, 'info', 'session', 1, 1, { action: 'end', trigger: 'unload' }, '/cart'),
 		// INFO Session 2: carol - init and explicit destroy
 		ev(71, 'info', 'session', 2, 2, { action: 'start', trigger: 'init' }, '/'),
-		ev(44, 'info', 'session', 2, 2, { action: 'end',   trigger: 'destroy' }, '/account/orders'),
+		ev(44, 'info', 'session', 2, 2, { action: 'end', trigger: 'destroy' }, '/account/orders'),
 		// INFO Session 3: dave - init, then logout (userId change to anon)
 		ev(52, 'info', 'session', 3, 3, { action: 'start', trigger: 'init' }, '/'),
-		ev(39, 'info', 'session', 3, 3, { action: 'end',   trigger: 'userId-change', previousUserId: USERS[3] }, '/checkout/confirm'),
+		ev(39, 'info', 'session', 3, 3, { action: 'end', trigger: 'userId-change', previousUserId: USERS[3] }, '/checkout/confirm'),
 		ev(39, 'info', 'session', 3, 4, { action: 'start', trigger: 'userId-change', newUserId: USERS[4] }, '/checkout/confirm'),
-		ev(35, 'info', 'session', 3, 4, { action: 'end',   trigger: 'unload' }, '/checkout/confirm'),
+		ev(35, 'info', 'session', 3, 4, { action: 'end', trigger: 'unload' }, '/checkout/confirm'),
 		// INFO Session 4: anon - quick bounce
 		ev(31, 'info', 'session', 4, 4, { action: 'start', trigger: 'init' }, '/'),
-		ev(27, 'info', 'session', 4, 4, { action: 'end',   trigger: 'unload' }, '/'),
+		ev(27, 'info', 'session', 4, 4, { action: 'end', trigger: 'unload' }, '/'),
 		// INFO Session 5: anon - init and still active (no end event = current session)
 		ev(21, 'info', 'session', 5, 5, { action: 'start', trigger: 'init' }, '/'),
 	];

@@ -45,9 +45,15 @@ function makeOpts(overrides: Partial<Parameters<typeof resolveOptions>[0]> = {})
 
 function makeLogger() {
 	return {
-		debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(),
-		writeEvent: vi.fn(), destroy: vi.fn().mockResolvedValue(undefined),
-	};
+		debug: vi.fn(),
+		info: vi.fn(),
+		warn: vi.fn(),
+		error: vi.fn(),
+		writeEvent: vi.fn(),
+		destroy: vi.fn().mockResolvedValue(undefined),
+		destroyForHmr: vi.fn(),
+		startHydration: vi.fn(),
+	}
 }
 
 function makeEvent(overrides: Partial<TrackerEvent> = {}): TrackerEvent {
@@ -331,6 +337,73 @@ describe('createStandaloneServer()', () => {
 
 			expect(response.response.events).toHaveLength(1);
 			expect(response.response.events[0].payload.name).toBe('new');
+		});
+	});
+
+	describe('hydration callbacks (createStandaloneServer)', () => {
+		it('calls logger.startHydration() when the server is created', () => {
+			const logger = makeLogger();
+			createStandaloneServer(makeOpts(), logger);
+			expect(logger.startHydration).toHaveBeenCalledOnce();
+		});
+
+		it('onBatch pushes events into the buffer (visible via events:query)', () => {
+			const logger = makeLogger();
+			createStandaloneServer(makeOpts(), logger);
+			const [onBatch] = logger.startHydration.mock.calls[0];
+			const ev = makeEvent({ timestamp: '2024-01-01T00:00:00.000Z' });
+			onBatch([ev]);
+
+			const client = makeFakeWsClient();
+			mockWss.emit('connection', client);
+			client.emit('message', Buffer.from(JSON.stringify({
+				type: 'events:query',
+				reqId: 'r1',
+				query: {},
+			})));
+
+			const response = JSON.parse(client.send.mock.calls[0][0]);
+			expect(response.response.total).toBe(1);
+		});
+
+		it('onDone logs info when events were loaded', () => {
+			const logger = makeLogger();
+			createStandaloneServer(makeOpts(), logger);
+			const [, onDone] = logger.startHydration.mock.calls[0];
+			onDone({ loaded: 10, skippedMalformed: 0, skippedInvalid: 0, limitReached: false });
+			expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('10'));
+		});
+
+		it('onDone logs warning for skippedMalformed', () => {
+			const logger = makeLogger();
+			createStandaloneServer(makeOpts(), logger);
+			const [, onDone] = logger.startHydration.mock.calls[0];
+			onDone({ loaded: 0, skippedMalformed: 2, skippedInvalid: 0, limitReached: false });
+			expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('malformed'));
+		});
+
+		it('onDone logs warning for skippedInvalid', () => {
+			const logger = makeLogger();
+			createStandaloneServer(makeOpts(), logger);
+			const [, onDone] = logger.startHydration.mock.calls[0];
+			onDone({ loaded: 0, skippedMalformed: 0, skippedInvalid: 3, limitReached: false });
+			expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('invalid'));
+		});
+
+		it('onDone logs warning when limitReached', () => {
+			const logger = makeLogger();
+			createStandaloneServer(makeOpts(), logger);
+			const [, onDone] = logger.startHydration.mock.calls[0];
+			onDone({ loaded: 0, skippedMalformed: 0, skippedInvalid: 0, limitReached: true });
+			expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('limit'));
+		});
+
+		it('onDone does not log info when loaded is 0', () => {
+			const logger = makeLogger();
+			createStandaloneServer(makeOpts(), logger);
+			const [, onDone] = logger.startHydration.mock.calls[0];
+			onDone({ loaded: 0, skippedMalformed: 0, skippedInvalid: 0, limitReached: false });
+			expect(logger.info).not.toHaveBeenCalledWith(expect.stringContaining('Hydrated'));
 		});
 	});
 });

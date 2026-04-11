@@ -347,4 +347,153 @@ describe('createLogger()', () => {
 			expect(workerData.transports[0].path).toContain('test-app.log');
 		});
 	});
+
+	describe('destroyForHmr()', () => {
+		it('does nothing when no worker has been spawned', () => {
+			const logger = createLogger("test-app", { level: 'info' });
+			expect(() => logger.destroyForHmr()).not.toThrow();
+			expect(MockWorker.instances).toHaveLength(0);
+		});
+
+		it('sends { type: "destroy" } to the worker and detaches references', () => {
+			const logger = createLogger("test-app", { level: 'info' });
+			logger.writeEvent(makeEvent());
+			const worker = MockWorker.latest()!;
+			worker.simulateReady();
+
+			logger.destroyForHmr();
+
+			expect(worker.postMessage).toHaveBeenCalledWith({ type: 'destroy' });
+		});
+
+		it('drains pending events before sending destroy', () => {
+			const logger = createLogger("test-app", { level: 'info' });
+			const ev = makeEvent();
+			logger.writeEvent(ev);
+			logger.destroyForHmr();
+			const worker = MockWorker.latest()!;
+
+			expect(worker.postMessage).toHaveBeenCalledWith({ type: 'write', event: ev });
+			expect(worker.postMessage).toHaveBeenCalledWith({ type: 'destroy' });
+		});
+
+		it('after destroyForHmr, a new writeEvent spawns a fresh worker', () => {
+			const logger = createLogger("test-app", { level: 'info' });
+			logger.writeEvent(makeEvent());
+			MockWorker.latest()!.simulateReady();
+
+			logger.destroyForHmr();
+			logger.writeEvent(makeEvent());
+
+			expect(MockWorker.instances).toHaveLength(2);
+		});
+	});
+
+	describe('startHydration()', () => {
+		it('spawns the worker if not already running', () => {
+			const logger = createLogger("test-app", { level: 'info' });
+			logger.startHydration(vi.fn(), vi.fn());
+			expect(MockWorker.instances).toHaveLength(1);
+		});
+
+		it('sends the hydrate message immediately when worker is ready', () => {
+			const logger = createLogger("test-app", { level: 'info' });
+			logger.writeEvent(makeEvent());
+			const worker = MockWorker.latest()!;
+			worker.simulateReady();
+			worker.postMessage.mockClear();
+
+			logger.startHydration(vi.fn(), vi.fn());
+
+			expect(worker.postMessage).toHaveBeenCalledWith(
+				expect.objectContaining({ type: 'hydrate' })
+			);
+		});
+
+		it('calls onBatch when a hydrate:batch message is received', () => {
+			const logger = createLogger("test-app", { level: 'info' });
+			logger.writeEvent(makeEvent());
+			const worker = MockWorker.latest()!;
+			worker.simulateReady();
+
+			const onBatch = vi.fn();
+			logger.startHydration(onBatch, vi.fn());
+
+			const events = [makeEvent()];
+			worker.emit('message', { type: 'hydrate:batch', events });
+
+			expect(onBatch).toHaveBeenCalledWith(events);
+		});
+
+		it('calls onDone with stats when hydrate:done is received', () => {
+			const logger = createLogger("test-app", { level: 'info' });
+			logger.writeEvent(makeEvent());
+			const worker = MockWorker.latest()!;
+			worker.simulateReady();
+
+			const onDone = vi.fn();
+			logger.startHydration(vi.fn(), onDone);
+
+			worker.emit('message', {
+				type: 'hydrate:done',
+				loaded: 5,
+				skippedMalformed: 1,
+				skippedInvalid: 2,
+				limitReached: false,
+			});
+
+			expect(onDone).toHaveBeenCalledWith({
+				loaded: 5,
+				skippedMalformed: 1,
+				skippedInvalid: 2,
+				limitReached: false,
+			});
+		});
+
+		it('detaches callbacks after hydrate:done so subsequent messages are ignored', () => {
+			const logger = createLogger("test-app", { level: 'info' });
+			logger.writeEvent(makeEvent());
+			const worker = MockWorker.latest()!;
+			worker.simulateReady();
+
+			const onBatch = vi.fn();
+			logger.startHydration(onBatch, vi.fn());
+
+			worker.emit('message', { type: 'hydrate:done', loaded: 0, skippedMalformed: 0, skippedInvalid: 0, limitReached: false });
+			worker.emit('message', { type: 'hydrate:batch', events: [makeEvent()] });
+
+			expect(onBatch).not.toHaveBeenCalled();
+		});
+
+		it('clears the polling interval and does not send hydrate if worker is destroyed before ready', async () => {
+			vi.useFakeTimers();
+			const logger = createLogger("test-app", { level: 'info' });
+			logger.startHydration(vi.fn(), vi.fn());
+			const worker = MockWorker.latest()!;
+			logger.destroyForHmr();
+
+			await vi.advanceTimersByTimeAsync(100);
+			expect(worker.postMessage).not.toHaveBeenCalledWith(
+				expect.objectContaining({ type: 'hydrate' })
+			);
+
+			vi.useRealTimers();
+		});
+
+		it('sends hydrate via interval when worker is not yet ready at startHydration time', async () => {
+			vi.useFakeTimers();
+			const logger = createLogger("test-app", { level: 'info' });
+			logger.startHydration(vi.fn(), vi.fn());
+			const worker = MockWorker.latest()!;
+			worker.simulateReady();
+			worker.postMessage.mockClear();
+			await vi.advanceTimersByTimeAsync(16);
+
+			expect(worker.postMessage).toHaveBeenCalledWith(
+				expect.objectContaining({ type: 'hydrate' })
+			);
+
+			vi.useRealTimers();
+		});
+	});
 });

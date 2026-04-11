@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createRequestHandler, createMiddleware } from '../../src/plugin/standalone-server';
+import { createRequestHandler, createMiddleware, createStandaloneServer } from '../../src/plugin/standalone-server';
 import { resolveOptions } from '../../src/plugin/config';
 import type { ResolvedTrackerOptions, TrackerEvent } from '../../src/types';
 import { IncomingMessage, ServerResponse } from 'node:http';
@@ -21,7 +21,9 @@ function makeLogger() {
 		warn: vi.fn(),
 		error: vi.fn(),
 		writeEvent: vi.fn(),
-		destroy: vi.fn().mockResolvedValue(undefined)
+		destroy: vi.fn().mockResolvedValue(undefined),
+		destroyForHmr: vi.fn(),
+		startHydration: vi.fn(),
 	}
 }
 
@@ -34,6 +36,7 @@ function makeEvent(overrides: Partial<TrackerEvent> = {}): TrackerEvent {
 		sessionId: 'sess_abc',
 		userId: 'anon_test',
 		payload: { message: 'test' },
+		meta: { userAgent: 'test', route: '/', viewport: '1920x1080', language: 'en' },
 		...overrides,
 	} as TrackerEvent;
 }
@@ -471,80 +474,86 @@ describe('RingBuffer (via createMiddleware)', () => {
 	});
 });
 
-describe('loadFromLogFiles() (via createMiddleware)', () => {
-	afterEach(() => vi.resetAllMocks());
-
-	function makeOptsWithTransport(logPath: string, format = 'json'): ResolvedTrackerOptions {
-		const opts = makeOpts();
-		(opts as any).logging = { transports: [{ format, path: logPath }] };
-		return opts;
-	}
-
-	it('ignores transports with format other than json', () => {
-		createMiddleware(makeOptsWithTransport('/logs/app.log', 'text'), makeLogger());
-		expect(vi.mocked(readdirSync)).not.toHaveBeenCalled();
-	});
-
-	it('skips the directory if it does not exist', () => {
-		vi.mocked(existsSync).mockReturnValue(false);
-		createMiddleware(makeOptsWithTransport('/non/existent/app.log.json'), makeLogger());
-		expect(vi.mocked(readdirSync)).not.toHaveBeenCalled();
-	});
-
-	it('loads events from JSON files and inserts them into the buffer', async () => {
-		const ev = makeEvent({ timestamp: '2024-01-01T00:00:00.000Z' });
-		vi.mocked(existsSync).mockReturnValue(true);
-		vi.mocked(readdirSync).mockReturnValue(['app.log.json'] as any);
-		vi.mocked(readFileSync).mockReturnValue(JSON.stringify(ev) + '\n' as any);
-
+describe('hydration via logger.startHydration() (createMiddleware)', () => {
+	it('calls logger.startHydration() when the middleware is created', () => {
 		const logger = makeLogger();
-		const mw = createMiddleware(makeOptsWithTransport('/logs/app.log.json'), logger) as Connect.NextHandleFunction;
+		createMiddleware(makeOpts(), logger);
+		expect(logger.startHydration).toHaveBeenCalledOnce();
+	});
+
+	it('passes onBatch and onDone callbacks to startHydration', () => {
+		const logger = makeLogger();
+		createMiddleware(makeOpts(), logger);
+		const [onBatch, onDone] = logger.startHydration.mock.calls[0];
+		expect(typeof onBatch).toBe('function');
+		expect(typeof onDone).toBe('function');
+	});
+
+	it('onBatch pushes events into the buffer (visible in subsequent GET)', async () => {
+		const logger = makeLogger();
+		const mw = createMiddleware(makeOpts(), logger) as Connect.NextHandleFunction;
 		const next = vi.fn();
+
+		const [onBatch] = logger.startHydration.mock.calls[0];
+		const ev = makeEvent({ timestamp: '2024-01-01T00:00:00.000Z' });
+		onBatch([ev]);
 
 		const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker?limit=100&page=1' });
 		await mw(req, res, next);
 
 		expect((res as any).getBody().total).toBe(1);
-		expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Loaded 1 events'));
 	});
 
-	it('loads and sorts multiple log files chronologically', async () => {
-		const ev1 = makeEvent({ timestamp: '2024-01-01T00:00:00.000Z' });
-		const ev2 = makeEvent({ timestamp: '2024-06-01T00:00:00.000Z' });
-
-		vi.mocked(existsSync).mockReturnValue(true);
-		// I file arrivano in ordine invertito: devono essere ordinati lessicograficamente
-		vi.mocked(readdirSync).mockReturnValue(['app.log.2024-06-01.json', 'app.log.2024-01-01.json'] as any);
-		vi.mocked(readFileSync)
-			.mockReturnValueOnce(JSON.stringify(ev2) + '\n' as any)
-			.mockReturnValueOnce(JSON.stringify(ev1) + '\n' as any);
-
+	it('onDone logs info when events were loaded', () => {
 		const logger = makeLogger();
-		const mw = createMiddleware(makeOptsWithTransport('/logs/app.log.json'), logger) as Connect.NextHandleFunction;
-		const next = vi.fn();
-
-		const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker?limit=100&page=1' });
-		await mw(req, res, next);
-
-		expect((res as any).getBody().total).toBe(2);
-		expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Loaded 2 events'));
+		createMiddleware(makeOpts(), logger);
+		const [, onDone] = logger.startHydration.mock.calls[0];
+		onDone({ loaded: 42, skippedMalformed: 0, skippedInvalid: 0, limitReached: false });
+		expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('42'));
 	});
 
-	it('skips malformed JSON lines without throwing exceptions', () => {
-		vi.mocked(existsSync).mockReturnValue(true);
-		vi.mocked(readdirSync).mockReturnValue(['app.log.json'] as any);
-		vi.mocked(readFileSync).mockReturnValue('not-json\n{broken\n\n' as any);
-
-		expect(() => createMiddleware(makeOptsWithTransport('/logs/app.log.json'), makeLogger())).not.toThrow();
-	});
-
-	it('logs a warning when readdirSync throws an error', () => {
-		vi.mocked(existsSync).mockReturnValue(true);
-		vi.mocked(readdirSync).mockImplementation(() => { throw new Error('EPERM: permission denied'); });
-
+	it('onDone logs warning when skippedMalformed > 0', () => {
 		const logger = makeLogger();
-		createMiddleware(makeOptsWithTransport('/logs/app.log.json'), logger);
+		createMiddleware(makeOpts(), logger);
+		const [, onDone] = logger.startHydration.mock.calls[0];
+		onDone({ loaded: 0, skippedMalformed: 3, skippedInvalid: 0, limitReached: false });
+		expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('malformed'));
+	});
 
-		expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Could not read log files'));
+	it('onDone logs warning when skippedInvalid > 0', () => {
+		const logger = makeLogger();
+		createMiddleware(makeOpts(), logger);
+		const [, onDone] = logger.startHydration.mock.calls[0];
+		onDone({ loaded: 0, skippedMalformed: 0, skippedInvalid: 2, limitReached: false });
+		expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('invalid'));
+	});
+
+	it('onDone logs warning when limitReached is true', () => {
+		const logger = makeLogger();
+		createMiddleware(makeOpts(), logger);
+		const [, onDone] = logger.startHydration.mock.calls[0];
+		onDone({ loaded: 0, skippedMalformed: 0, skippedInvalid: 0, limitReached: true });
+		expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('limit'));
+	});
+
+	it('onDone does not log info when loaded is 0', () => {
+		const logger = makeLogger();
+		createMiddleware(makeOpts(), logger);
+		const [, onDone] = logger.startHydration.mock.calls[0];
+		onDone({ loaded: 0, skippedMalformed: 0, skippedInvalid: 0, limitReached: false });
+		expect(logger.info).not.toHaveBeenCalledWith(expect.stringContaining('Hydrated'));
+	});
+
+	it('calls startHydration also for createStandaloneServer', () => {
+		const logger = makeLogger();
+		const opts = makeOpts();
+		opts.storage.maxBufferSize = 10;
+		const { start } = (createMiddleware as any).__proto__
+			? { start: vi.fn() }
+			: { start: vi.fn() };
+
+		expect(logger.startHydration).not.toHaveBeenCalled();
+		createMiddleware(opts, logger);
+		expect(logger.startHydration).toHaveBeenCalledOnce();
 	});
 });

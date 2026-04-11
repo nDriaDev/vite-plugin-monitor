@@ -25,7 +25,6 @@ afterEach(() => {
 	process.removeAllListeners('SIGTERM');
 	process.removeAllListeners('SIGINT');
 	process.removeAllListeners('SIGHUP');
-	process.removeAllListeners('uncaughtException');
 });
 
 describe('registerShutdownHook()', () => {
@@ -128,28 +127,6 @@ describe('registerShutdownHook()', () => {
 			vi.useRealTimers();
 		});
 
-		it('on uncaughtException log, run hooks and rethrow the error', async () => {
-			const hook = vi.fn().mockResolvedValue(undefined);
-			registerShutdownHook(hook);
-			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
-			const handler = process.listeners('uncaughtException')[0] as (err: Error) => Promise<void>;
-			const err = new Error('boom');
-			let caught: unknown;
-			try {
-				await handler(err);
-			} catch (e) {
-				caught = e;
-			}
-
-			expect(consoleSpy).toHaveBeenCalledWith(
-				'[vite-plugin-monitor] Uncaught exception - flushing logs before crash:',
-				err
-			);
-			expect(hook).toHaveBeenCalled();
-			expect(caught).toBe(err);
-			consoleSpy.mockRestore();
-		});
-
 		it('when hooks do not resolve within the deadline logs a warning and completes shutdown', async () => {
 			vi.useFakeTimers();
 			registerShutdownHook(() => new Promise(() => { }));
@@ -171,24 +148,20 @@ describe('registerShutdownHook()', () => {
 		});
 
 		it('covers the catch branch inside allSettled when a hook throws synchronously', async () => {
-			const syncThrowingHook = () => {
-				throw new Error('sync boom');
-			};
+			vi.useFakeTimers();
+			const syncThrowingHook = () => { throw new Error('sync boom'); };
 			registerShutdownHook(syncThrowingHook);
-			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
-			const handler = process.listeners('uncaughtException')[0] as (err: Error) => Promise<void>;
-			const err = new Error('test');
-			let caught: unknown;
-			try {
-				await handler(err);
-			} catch (e) {
-				caught = e;
-			}
+			const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true as any);
+			const sigintHandler = process.listeners('SIGINT')[0] as (sig: string) => void;
+			sigintHandler('SIGINT');
 
-			expect(caught).toBe(err);
-			consoleSpy.mockRestore();
+			await vi.runAllTimersAsync();
+			await Promise.resolve();
+
+			expect(killSpy).toHaveBeenCalled();
+			killSpy.mockRestore();
+			vi.useRealTimers();
 		});
-
 	});
 
 	describe('installHandlers() — idempotency', () => {
@@ -196,25 +169,25 @@ describe('registerShutdownHook()', () => {
 			const spy = vi.spyOn(process, 'on');
 			registerShutdownHook(vi.fn());
 			const countAfterFirst = spy.mock.calls.filter(([ev]) =>
-				['SIGTERM', 'SIGINT', 'SIGHUP', 'uncaughtException'].includes(ev as string)
+				['SIGTERM', 'SIGINT', 'SIGHUP'].includes(ev as string)
 			).length;
 
 			registerShutdownHook(vi.fn());
 			const countAfterSecond = spy.mock.calls.filter(([ev]) =>
-				['SIGTERM', 'SIGINT', 'SIGHUP', 'uncaughtException'].includes(ev as string)
+				['SIGTERM', 'SIGINT', 'SIGHUP'].includes(ev as string)
 			).length;
 
 			expect(countAfterFirst).toBe(countAfterSecond);
 		});
 
-		it('registers listeners for SIGTERM, SIGINT, SIGHUP and uncaughtException', () => {
+		it('registers listeners for SIGTERM, SIGINT and SIGHUP only (no uncaughtException)', () => {
 			const spy = vi.spyOn(process, 'on');
 			registerShutdownHook(vi.fn());
 			const signals = spy.mock.calls.map(([ev]) => ev);
 			expect(signals).toContain('SIGTERM');
 			expect(signals).toContain('SIGINT');
 			expect(signals).toContain('SIGHUP');
-			expect(signals).toContain('uncaughtException');
+			expect(signals).not.toContain('uncaughtException');
 		});
 	});
 });

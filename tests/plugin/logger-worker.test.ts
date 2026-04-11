@@ -1,3 +1,4 @@
+import { PassThrough } from 'node:stream';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { TrackerEvent, LogTransport } from '../../src/types';
 import { EventEmitter } from 'node:events';
@@ -26,6 +27,7 @@ function makeEvent(overrides: Partial<TrackerEvent> = {}): TrackerEvent {
 		sessionId: 'sess_test',
 		userId: null,
 		payload: { message: 'hello' },
+		meta: {},
 		...overrides,
 	} as TrackerEvent;
 }
@@ -70,6 +72,26 @@ async function loadWorker(opts: { transports: LogTransport[], minLevel: number, 
 	}));
 
 	return import('../../src/plugin/logger-worker');
+}
+
+function makeValidLine(overrides: Partial<TrackerEvent> = {}, makeInvalid = false): string {
+	return makeInvalid ? "null" as unknown as string : JSON.stringify(makeEvent({ userId: 'user-test', ...overrides }));
+}
+
+/**
+ * Creates a fake readline + stream pair that emits the given lines and then
+ * closes. Mirrors what `readline.createInterface` returns in production.
+ */
+function makeFakeRl(lines: string[]) {
+	const rl = new EventEmitter() as EventEmitter & { close?: () => void };
+	const emit = () => {
+		for (const line of lines) {
+			rl.emit('line', line);
+		}
+		rl.emit('close');
+	};
+
+	return { rl, emit };
 }
 
 afterEach(() => {
@@ -646,5 +668,723 @@ describe('logger-worker — buffering during drain', () => {
 		drainCallback!();
 
 		expect(stream.write).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe('logger-worker — hydrate message handler', () => {
+	it('skips transports whose format is not "json"', async () => {
+		const port = new FakeParentPort();
+
+		vi.resetModules();
+		vi.doMock('node:worker_threads', () => ({
+			parentPort: port,
+			workerData: {
+				transports: [makeTransport({ format: 'pretty', path: './logs/pretty.log' })],
+				minLevel: 0,
+			},
+		}));
+
+		const createReadStream = vi.fn();
+		vi.doMock('node:fs', () => ({
+			default: {
+				existsSync: vi.fn().mockReturnValue(true),
+				mkdirSync: vi.fn(),
+				createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+				renameSync: vi.fn(),
+				readdirSync: vi.fn().mockReturnValue([]),
+				statSync: vi.fn(),
+				unlinkSync: vi.fn(),
+				createReadStream,
+			},
+			existsSync: vi.fn().mockReturnValue(true),
+			mkdirSync: vi.fn(),
+			createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+			createReadStream,
+			readdirSync: vi.fn().mockReturnValue([]),
+			statSync: vi.fn(),
+			unlinkSync: vi.fn(),
+		}));
+
+		await import('../../src/plugin/logger-worker');
+
+		port.emit('message', { type: 'hydrate', maxBytesPerTransport: 1024, batchSize: 10 });
+
+		await new Promise(r => setTimeout(r, 10));
+
+		expect(createReadStream).not.toHaveBeenCalled();
+		expect(port.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: 'hydrate:done',
+				loaded: 0,
+				skippedMalformed: 0,
+				skippedInvalid: 0,
+				limitReached: false,
+			})
+		);
+	});
+
+	it('emits hydrate:done with zeros when log directory does not exist', async () => {
+		const port = new FakeParentPort();
+
+		vi.resetModules();
+		vi.doMock('node:worker_threads', () => ({
+			parentPort: port,
+			workerData: {
+				transports: [makeTransport({ path: './logs/test.log' })],
+				minLevel: 0,
+			},
+		}));
+
+		vi.doMock('node:fs', () => ({
+			default: {
+				existsSync: vi.fn().mockReturnValue(false),
+				mkdirSync: vi.fn(),
+				createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+				renameSync: vi.fn(),
+				readdirSync: vi.fn().mockReturnValue([]),
+				statSync: vi.fn(),
+				unlinkSync: vi.fn(),
+				createReadStream: vi.fn(),
+			},
+			existsSync: vi.fn().mockReturnValue(false),
+			mkdirSync: vi.fn(),
+			createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+			createReadStream: vi.fn(),
+			readdirSync: vi.fn().mockReturnValue([]),
+			statSync: vi.fn(),
+			unlinkSync: vi.fn(),
+		}));
+
+		await import('../../src/plugin/logger-worker');
+
+		port.emit('message', { type: 'hydrate', maxBytesPerTransport: 1024, batchSize: 10 });
+		await new Promise(r => setTimeout(r, 10));
+
+		expect(port.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({ type: 'hydrate:done', loaded: 0 })
+		);
+	});
+
+	it('sends hydrate:error when readdirSync throws', async () => {
+		const port = new FakeParentPort();
+
+		vi.resetModules();
+		vi.doMock('node:worker_threads', () => ({
+			parentPort: port,
+			workerData: {
+				transports: [makeTransport({ path: './logs/test.log' })],
+				minLevel: 0,
+			},
+		}));
+
+		vi.doMock('node:fs', () => ({
+			default: {
+				existsSync: vi.fn().mockReturnValue(true),
+				mkdirSync: vi.fn(),
+				createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+				renameSync: vi.fn(),
+				readdirSync: vi.fn().mockImplementation(() => { throw new Error('EACCES'); }),
+				statSync: vi.fn(),
+				unlinkSync: vi.fn(),
+				createReadStream: vi.fn(),
+			},
+			existsSync: vi.fn().mockReturnValue(true),
+			mkdirSync: vi.fn(),
+			createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+			createReadStream: vi.fn(),
+			readdirSync: vi.fn().mockImplementation(() => { throw new Error('EACCES'); }),
+			statSync: vi.fn(),
+			unlinkSync: vi.fn(),
+		}));
+
+		await import('../../src/plugin/logger-worker');
+
+		port.emit('message', { type: 'hydrate', maxBytesPerTransport: 1024, batchSize: 10 });
+		await new Promise(r => setTimeout(r, 10));
+
+		expect(port.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({ type: 'error', message: expect.stringContaining('EACCES') })
+		);
+	});
+});
+
+describe('logger-worker — hydrateFromLogs', () => {
+	it('streams valid events back in hydrate:batch messages', async () => {
+		const port = new FakeParentPort();
+		const event1 = makeValidLine({ type: 'click' });
+		const event2 = makeValidLine({ type: 'navigation' });
+
+		vi.resetModules();
+		vi.doMock('node:worker_threads', () => ({
+			parentPort: port,
+			workerData: {
+				transports: [makeTransport({ path: './logs/test.log' })],
+				minLevel: 0,
+			},
+		}));
+
+		vi.doMock('node:fs', () => {
+			const createWriteStream = vi.fn().mockReturnValue(makeFakeStream());
+			const createReadStream = vi.fn().mockReturnValue(new EventEmitter());
+			return {
+				default: { existsSync: vi.fn().mockReturnValue(true), mkdirSync: vi.fn(), createWriteStream, renameSync: vi.fn(), readdirSync: vi.fn().mockReturnValue(['test.log']), statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }), unlinkSync: vi.fn(), createReadStream },
+				existsSync: vi.fn().mockReturnValue(true), mkdirSync: vi.fn(), createWriteStream, createReadStream, readdirSync: vi.fn().mockReturnValue(['test.log']), statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }), unlinkSync: vi.fn(),
+			};
+		});
+
+		vi.doMock('node:readline', () => {
+			const createInterface = vi.fn().mockImplementation(() => {
+				const rl = new EventEmitter();
+				setImmediate(() => {
+					rl.emit('line', event1);
+					rl.emit('line', event2);
+					rl.emit('close');
+				});
+				return rl;
+			});
+			return { default: { createInterface }, createInterface };
+		});
+
+		await import('../../src/plugin/logger-worker');
+		port.emit('message', { type: 'hydrate', maxBytesPerTransport: 1024 * 1024, batchSize: 10 });
+		await new Promise(r => setTimeout(r, 200));
+
+		const batchCalls = port.postMessage.mock.calls.filter(([msg]) => msg.type === 'hydrate:batch');
+		expect(batchCalls.length).toBeGreaterThanOrEqual(1);
+		const allEvents = batchCalls.flatMap(([msg]) => msg.events as TrackerEvent[]);
+		expect(allEvents).toHaveLength(2);
+		expect(allEvents[0].type).toBe('click');
+		expect(allEvents[1].type).toBe('navigation');
+	});
+
+	it('streams invalid events', async () => {
+		const port = new FakeParentPort();
+		const event1 = makeValidLine({ type: 'click' });
+		const event2 = makeValidLine({ type: 'navigation' }, true);
+
+		vi.resetModules();
+		vi.doMock('node:worker_threads', () => ({
+			parentPort: port,
+			workerData: {
+				transports: [makeTransport({ path: './logs/test.log' })],
+				minLevel: 0,
+			},
+		}));
+
+		vi.doMock('node:fs', () => {
+			const createWriteStream = vi.fn().mockReturnValue(makeFakeStream());
+			const createReadStream = vi.fn().mockReturnValue(new EventEmitter());
+			return {
+				default: { existsSync: vi.fn().mockReturnValue(true), mkdirSync: vi.fn(), createWriteStream, renameSync: vi.fn(), readdirSync: vi.fn().mockReturnValue(['test.log']), statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }), unlinkSync: vi.fn(), createReadStream },
+				existsSync: vi.fn().mockReturnValue(true), mkdirSync: vi.fn(), createWriteStream, createReadStream, readdirSync: vi.fn().mockReturnValue(['test.log']), statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }), unlinkSync: vi.fn(),
+			};
+		});
+
+		vi.doMock('node:readline', () => {
+			const createInterface = vi.fn().mockImplementation(() => {
+				const rl = new EventEmitter();
+				setImmediate(() => {
+					rl.emit('line', event1);
+					rl.emit('line', event2);
+					rl.emit('close');
+				});
+				return rl;
+			});
+			return { default: { createInterface }, createInterface };
+		});
+
+		await import('../../src/plugin/logger-worker');
+		port.emit('message', { type: 'hydrate', maxBytesPerTransport: 1024 * 1024, batchSize: 10 });
+		await new Promise(r => setTimeout(r, 200));
+
+		const batchCalls = port.postMessage.mock.calls.filter(([msg]) => msg.type === 'hydrate:batch');
+		expect(batchCalls.length).toBeGreaterThanOrEqual(1);
+		const allEvents = batchCalls.flatMap(([msg]) => msg.events as TrackerEvent[]);
+		expect(allEvents).toHaveLength(1);
+		expect(allEvents[0].type).toBe('click');
+	});
+
+	it('flushes a full batch mid-stream when batch.length reaches batchSize', async () => {
+		const port = new FakeParentPort();
+
+		const line1 = makeValidLine({ type: 'click' });
+		const line2 = makeValidLine({ type: 'navigation' });
+		const line3 = makeValidLine({ type: 'console' });
+
+		vi.resetModules();
+		vi.doMock('node:worker_threads', () => ({
+			parentPort: port,
+			workerData: {
+				transports: [makeTransport({ path: './logs/test.log' })],
+				minLevel: 0,
+			},
+		}));
+
+		vi.doMock('node:fs', () => {
+			const createWriteStream = vi.fn().mockReturnValue(makeFakeStream());
+			const createReadStream = vi.fn().mockReturnValue(new EventEmitter());
+			return {
+				default: { existsSync: vi.fn().mockReturnValue(true), mkdirSync: vi.fn(), createWriteStream, renameSync: vi.fn(), readdirSync: vi.fn().mockReturnValue(['test.log']), statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }), unlinkSync: vi.fn(), createReadStream },
+				existsSync: vi.fn().mockReturnValue(true), mkdirSync: vi.fn(), createWriteStream, createReadStream, readdirSync: vi.fn().mockReturnValue(['test.log']), statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }), unlinkSync: vi.fn(),
+			};
+		});
+
+		vi.doMock('node:readline', () => {
+			const createInterface = vi.fn().mockImplementation(() => {
+				const rl = new EventEmitter();
+				setImmediate(() => {
+					rl.emit('line', line1);
+					rl.emit('line', line2);
+					rl.emit('line', line3);
+					rl.emit('close');
+				});
+				return rl;
+			});
+			return { default: { createInterface }, createInterface };
+		});
+
+		await import('../../src/plugin/logger-worker');
+		port.emit('message', { type: 'hydrate', maxBytesPerTransport: 1024 * 1024, batchSize: 2 });
+		await new Promise(r => setTimeout(r, 200));
+
+		const batchCalls = port.postMessage.mock.calls.filter(([m]) => m.type === 'hydrate:batch');
+
+		expect(batchCalls).toHaveLength(2);
+		expect(batchCalls[0][0].events).toHaveLength(2);
+		expect(batchCalls[1][0].events).toHaveLength(1);
+
+		expect(port.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({ type: 'hydrate:done', loaded: 3 })
+		);
+	});
+
+	it('flushes the last partial batch on close even if smaller than batchSize', async () => {
+		const port = new FakeParentPort();
+		const line = makeValidLine();
+
+		vi.resetModules();
+		vi.doMock('node:worker_threads', () => ({
+			parentPort: port,
+			workerData: {
+				transports: [makeTransport({ path: './logs/test.log' })],
+				minLevel: 0,
+			},
+		}));
+
+		vi.doMock('node:fs', () => {
+			const createWriteStream = vi.fn().mockReturnValue(makeFakeStream());
+			const createReadStream = vi.fn().mockReturnValue(new EventEmitter());
+			return {
+				default: { existsSync: vi.fn().mockReturnValue(true), mkdirSync: vi.fn(), createWriteStream, renameSync: vi.fn(), readdirSync: vi.fn().mockReturnValue(['test.log']), statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }), unlinkSync: vi.fn(), createReadStream },
+				existsSync: vi.fn().mockReturnValue(true), mkdirSync: vi.fn(), createWriteStream, createReadStream, readdirSync: vi.fn().mockReturnValue(['test.log']), statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }), unlinkSync: vi.fn(),
+			};
+		});
+
+		vi.doMock('node:readline', () => {
+			const createInterface = vi.fn().mockImplementation(() => {
+				const rl = new EventEmitter();
+				setImmediate(() => {
+					rl.emit('line', line);
+					rl.emit('close');
+				});
+				return rl;
+			});
+			return { default: { createInterface }, createInterface };
+		});
+
+		await import('../../src/plugin/logger-worker');
+		port.emit('message', { type: 'hydrate', maxBytesPerTransport: 1024 * 1024, batchSize: 10 });
+		await new Promise(r => setTimeout(r, 200));
+
+		const batchCalls = port.postMessage.mock.calls.filter(([m]) => m.type === 'hydrate:batch');
+		expect(batchCalls).toHaveLength(1);
+		expect(batchCalls[0][0].events).toHaveLength(1);
+	});
+
+	it('counts malformed JSON lines in skippedMalformed', async () => {
+		const port = new FakeParentPort();
+
+		vi.resetModules();
+		vi.doMock('node:worker_threads', () => ({
+			parentPort: port,
+			workerData: {
+				transports: [makeTransport({ path: './logs/test.log' })],
+				minLevel: 0,
+			},
+		}));
+
+		vi.doMock('node:readline', () => ({
+			default: {
+				createInterface: vi.fn().mockImplementation(() => {
+					const rl = new EventEmitter();
+					setImmediate(() => {
+						rl.emit('line', '{invalid json}}}');
+						rl.emit('close');
+					});
+					return rl;
+				}),
+			},
+			createInterface: vi.fn().mockImplementation(() => {
+				const rl = new EventEmitter();
+				setImmediate(() => {
+					rl.emit('line', '{invalid json}}}');
+					rl.emit('close');
+				});
+				return rl;
+			}),
+		}));
+
+		vi.doMock('node:fs', () => ({
+			default: {
+				existsSync: vi.fn().mockReturnValue(true),
+				mkdirSync: vi.fn(),
+				createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+				renameSync: vi.fn(),
+				readdirSync: vi.fn().mockReturnValue(['test.log']),
+				statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }),
+				unlinkSync: vi.fn(),
+				createReadStream: vi.fn().mockReturnValue(new EventEmitter()),
+			},
+			existsSync: vi.fn().mockReturnValue(true),
+			mkdirSync: vi.fn(),
+			createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+			createReadStream: vi.fn().mockReturnValue(new EventEmitter()),
+			readdirSync: vi.fn().mockReturnValue(['test.log']),
+			statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }),
+			unlinkSync: vi.fn(),
+		}));
+
+		await import('../../src/plugin/logger-worker');
+
+		port.emit('message', { type: 'hydrate', maxBytesPerTransport: 1024 * 1024, batchSize: 10 });
+		await new Promise(r => setTimeout(r, 50));
+
+		expect(port.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: 'hydrate:done',
+				skippedMalformed: 1,
+				loaded: 0,
+			})
+		);
+	});
+
+	it('counts structurally invalid events in skippedInvalid', async () => {
+		const port = new FakeParentPort();
+
+
+		const invalidEvent = JSON.stringify({ foo: 'bar' });
+
+		vi.resetModules();
+		vi.doMock('node:worker_threads', () => ({
+			parentPort: port,
+			workerData: {
+				transports: [makeTransport({ path: './logs/test.log' })],
+				minLevel: 0,
+			},
+		}));
+
+		vi.doMock('node:readline', () => ({
+			default: {
+				createInterface: vi.fn().mockImplementation(() => {
+					const rl = new EventEmitter();
+					setImmediate(() => {
+						rl.emit('line', invalidEvent);
+						rl.emit('close');
+					});
+					return rl;
+				}),
+			},
+			createInterface: vi.fn().mockImplementation(() => {
+				const rl = new EventEmitter();
+				setImmediate(() => {
+					rl.emit('line', invalidEvent);
+					rl.emit('close');
+				});
+				return rl;
+			}),
+		}));
+
+		vi.doMock('node:fs', () => ({
+			default: {
+				existsSync: vi.fn().mockReturnValue(true),
+				mkdirSync: vi.fn(),
+				createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+				renameSync: vi.fn(),
+				readdirSync: vi.fn().mockReturnValue(['test.log']),
+				statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }),
+				unlinkSync: vi.fn(),
+				createReadStream: vi.fn().mockReturnValue(new EventEmitter()),
+			},
+			existsSync: vi.fn().mockReturnValue(true),
+			mkdirSync: vi.fn(),
+			createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+			createReadStream: vi.fn().mockReturnValue(new EventEmitter()),
+			readdirSync: vi.fn().mockReturnValue(['test.log']),
+			statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }),
+			unlinkSync: vi.fn(),
+		}));
+
+		await import('../../src/plugin/logger-worker');
+
+		port.emit('message', { type: 'hydrate', maxBytesPerTransport: 1024 * 1024, batchSize: 10 });
+		await new Promise(r => setTimeout(r, 50));
+
+		expect(port.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: 'hydrate:done',
+				skippedInvalid: 1,
+				loaded: 0,
+			})
+		);
+	});
+
+	it('sets limitReached=true and stops reading when maxBytesPerTransport is exceeded', async () => {
+		const port = new FakeParentPort();
+		const line = makeValidLine();
+
+		vi.resetModules();
+		vi.doMock('node:worker_threads', () => ({
+			parentPort: port,
+			workerData: {
+				transports: [makeTransport({ path: './logs/test.log' })],
+				minLevel: 0,
+			},
+		}));
+
+		const createReadStreamMock = vi.fn().mockReturnValue(new EventEmitter());
+
+		vi.doMock('node:readline', () => ({
+			default: {
+				createInterface: vi.fn().mockImplementation(() => {
+					const rl = new EventEmitter();
+					setImmediate(() => {
+						rl.emit('line', line);
+						rl.emit('close');
+					});
+					return rl;
+				}),
+			},
+			createInterface: vi.fn().mockImplementation(() => {
+				const rl = new EventEmitter();
+				setImmediate(() => {
+					rl.emit('line', line);
+					rl.emit('close');
+				});
+				return rl;
+			}),
+		}));
+
+		vi.doMock('node:fs', () => ({
+			default: {
+				existsSync: vi.fn().mockReturnValue(true),
+				mkdirSync: vi.fn(),
+				createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+				renameSync: vi.fn(),
+				readdirSync: vi.fn().mockReturnValue(['test-a.log', 'test-b.log']),
+				statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }),
+				unlinkSync: vi.fn(),
+				createReadStream: createReadStreamMock,
+			},
+			existsSync: vi.fn().mockReturnValue(true),
+			mkdirSync: vi.fn(),
+			createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+			createReadStream: createReadStreamMock,
+			readdirSync: vi.fn().mockReturnValue(['test-a.log', 'test-b.log']),
+			statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }),
+			unlinkSync: vi.fn(),
+		}));
+
+		await import('../../src/plugin/logger-worker');
+		port.emit('message', { type: 'hydrate', maxBytesPerTransport: 1, batchSize: 10 });
+		await new Promise(r => setTimeout(r, 50));
+
+		expect(port.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({ type: 'hydrate:done', limitReached: true })
+		);
+
+		expect(createReadStreamMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('reports an error and continues when a file cannot be read', async () => {
+		const port = new FakeParentPort();
+
+		vi.resetModules();
+		vi.doMock('node:worker_threads', () => ({
+			parentPort: port,
+			workerData: {
+				transports: [makeTransport({ path: './logs/test.log' })],
+				minLevel: 0,
+			},
+		}));
+
+		vi.doMock('node:readline', () => ({
+			default: {
+				createInterface: vi.fn().mockImplementation(() => {
+					const rl = new EventEmitter();
+					setImmediate(() => {
+						rl.emit('error', new Error('ENOENT: no such file'));
+					});
+					return rl;
+				}),
+			},
+			createInterface: vi.fn().mockImplementation(() => {
+				const rl = new EventEmitter();
+				setImmediate(() => {
+					rl.emit('error', new Error('ENOENT: no such file'));
+				});
+				return rl;
+			}),
+		}));
+
+		vi.doMock('node:fs', () => ({
+			default: {
+				existsSync: vi.fn().mockReturnValue(true),
+				mkdirSync: vi.fn(),
+				createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+				renameSync: vi.fn(),
+				readdirSync: vi.fn().mockReturnValue(['test.log']),
+				statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }),
+				unlinkSync: vi.fn(),
+				createReadStream: vi.fn().mockReturnValue(new EventEmitter()),
+			},
+			existsSync: vi.fn().mockReturnValue(true),
+			mkdirSync: vi.fn(),
+			createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+			createReadStream: vi.fn().mockReturnValue(new EventEmitter()),
+			readdirSync: vi.fn().mockReturnValue(['test.log']),
+			statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }),
+			unlinkSync: vi.fn(),
+		}));
+
+		await import('../../src/plugin/logger-worker');
+
+		port.emit('message', { type: 'hydrate', maxBytesPerTransport: 1024 * 1024, batchSize: 10 });
+		await new Promise(r => setTimeout(r, 50));
+
+		expect(port.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({ type: 'error', message: expect.stringContaining('ENOENT') })
+		);
+
+		expect(port.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({ type: 'hydrate:done' })
+		);
+	});
+
+	it('skips blank lines without counting them as errors', async () => {
+		const port = new FakeParentPort();
+
+		vi.resetModules();
+		vi.doMock('node:worker_threads', () => ({
+			parentPort: port,
+			workerData: {
+				transports: [makeTransport({ path: './logs/test.log' })],
+				minLevel: 0,
+			},
+		}));
+
+		vi.doMock('node:readline', () => ({
+			default: {
+				createInterface: vi.fn().mockImplementation(() => {
+					const rl = new EventEmitter();
+					setImmediate(() => {
+						rl.emit('line', '   ');
+						rl.emit('line', '');
+						rl.emit('close');
+					});
+					return rl;
+				}),
+			},
+			createInterface: vi.fn().mockImplementation(() => {
+				const rl = new EventEmitter();
+				setImmediate(() => {
+					rl.emit('line', '   ');
+					rl.emit('line', '');
+					rl.emit('close');
+				});
+				return rl;
+			}),
+		}));
+
+		vi.doMock('node:fs', () => ({
+			default: {
+				existsSync: vi.fn().mockReturnValue(true),
+				mkdirSync: vi.fn(),
+				createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+				renameSync: vi.fn(),
+				readdirSync: vi.fn().mockReturnValue(['test.log']),
+				statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }),
+				unlinkSync: vi.fn(),
+				createReadStream: vi.fn().mockReturnValue(new EventEmitter()),
+			},
+			existsSync: vi.fn().mockReturnValue(true),
+			mkdirSync: vi.fn(),
+			createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+			createReadStream: vi.fn().mockReturnValue(new EventEmitter()),
+			readdirSync: vi.fn().mockReturnValue(['test.log']),
+			statSync: vi.fn().mockReturnValue({ mtimeMs: Date.now() }),
+			unlinkSync: vi.fn(),
+		}));
+
+		await import('../../src/plugin/logger-worker');
+
+		port.emit('message', { type: 'hydrate', maxBytesPerTransport: 1024 * 1024, batchSize: 10 });
+		await new Promise(r => setTimeout(r, 50));
+
+		expect(port.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: 'hydrate:done',
+				loaded: 0,
+				skippedMalformed: 0,
+				skippedInvalid: 0,
+			})
+		);
+	});
+
+	it('uses default maxBytesPerTransport and batchSize when not specified in message', async () => {
+		const port = new FakeParentPort();
+
+		vi.resetModules();
+		vi.doMock('node:worker_threads', () => ({
+			parentPort: port,
+			workerData: {
+				transports: [makeTransport({ path: './logs/test.log' })],
+				minLevel: 0,
+			},
+		}));
+
+		vi.doMock('node:readline', () => ({
+			default: { createInterface: vi.fn().mockImplementation(() => { const rl = new EventEmitter(); setImmediate(() => rl.emit('close')); return rl; }) },
+			createInterface: vi.fn().mockImplementation(() => { const rl = new EventEmitter(); setImmediate(() => rl.emit('close')); return rl; }),
+		}));
+
+		vi.doMock('node:fs', () => ({
+			default: {
+				existsSync: vi.fn().mockReturnValue(true),
+				mkdirSync: vi.fn(),
+				createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+				renameSync: vi.fn(),
+				readdirSync: vi.fn().mockReturnValue(['test.log']),
+				statSync: vi.fn(),
+				unlinkSync: vi.fn(),
+				createReadStream: vi.fn().mockReturnValue(new EventEmitter()),
+			},
+			existsSync: vi.fn().mockReturnValue(true),
+			mkdirSync: vi.fn(),
+			createWriteStream: vi.fn().mockReturnValue(makeFakeStream()),
+			createReadStream: vi.fn().mockReturnValue(new EventEmitter()),
+			readdirSync: vi.fn().mockReturnValue(['test.log']),
+			statSync: vi.fn(),
+			unlinkSync: vi.fn(),
+		}));
+
+		await import('../../src/plugin/logger-worker');
+
+
+		port.emit('message', { type: 'hydrate' });
+		await new Promise(r => setTimeout(r, 50));
+
+		expect(port.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({ type: 'hydrate:done' })
+		);
 	});
 });

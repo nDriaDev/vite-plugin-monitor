@@ -13,7 +13,9 @@ const mockLogger = {
 	warn: vi.fn(),
 	error: vi.fn(),
 	writeEvent: vi.fn(),
-	destroy: vi.fn().mockResolvedValue(undefined)
+	destroy: vi.fn().mockResolvedValue(undefined),
+	destroyForHmr: vi.fn(),
+	startHydration: vi.fn()
 }
 vi.mock('../../src/plugin/logger', () => ({
 	createLogger: vi.fn(() => mockLogger)
