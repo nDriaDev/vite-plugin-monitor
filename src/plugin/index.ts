@@ -43,12 +43,9 @@ function getMimeType(filePath: string): string {
 export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 	const opts = resolveOptions(options);
 	if (!opts.enabled) {
-		return { name: 'vite-plugin-monitor' } // INFO no-op plugin: no hooks, no side effects
+		return { name: 'vite-plugin-monitor' }
 	}
-	/**
-	 * INFO logger is initialised in configResolved (after Vite has resolved the config
-	 * and the CWD is final). Declaring it here lets every hook close over the same ref.
-	 */
+
 	let logger: Logger;
 	let viteConfig: ResolvedConfig;
 	let isBuild = false;
@@ -56,10 +53,25 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 	let standalone: ReturnType<typeof createStandaloneServer> | null = null;
 	let unregisterShutdown: (() => void) | null = null;
 
+	let cachedSetupScript: string | null = null;
+	let cachedAutoInitScript: string | null = null;
+	let cachedDashboardHtml: string | null = null;
+
+	function cleanupForHmr() {
+		standalone?.stop();
+		standalone = null;
+		cachedSetupScript = null;
+		cachedAutoInitScript = null;
+		cachedDashboardHtml = null;
+	}
+
 	async function cleanup() {
 		standalone?.stop();
 		standalone = null;
 		await logger?.destroy();
+		cachedSetupScript = null;
+		cachedAutoInitScript = null;
+		cachedDashboardHtml = null;
 	}
 
 	function effectiveMode(opts: ResolvedTrackerOptions, isBuild: boolean): 'http' | 'standalone' | 'middleware' | 'websocket' {
@@ -99,7 +111,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			: mode === "standalone"
 				? `http://localhost:${opts.storage.port}/_tracker/events`
 				: mode === "middleware"
-					? '/_tracker/events' // INFO middleware - same origin
+					? '/_tracker/events'
 					: '';
 	}
 
@@ -110,7 +122,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				: opts.storage.writeEndpoint.replace(/\/events\/?$/, "")
 			: mode === "standalone"
 				? `http://localhost:${opts.storage.port}/_tracker`
-				: "/_tracker"; // INFO middleware
+				: "/_tracker";
 	}
 
 	/* v8 ignore start */
@@ -133,7 +145,6 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			standalone.start();
 		}
 
-		// INFO used by dashboard like health check to verify if backend is reachable
 		server.middlewares.use('/_tracker/ping', (_req, res) => {
 			res.setHeader('Content-Type', 'application/json');
 			res.end(JSON.stringify({ ok: true, appId: opts.appId, mode, version }));
@@ -143,37 +154,35 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			const dashDir = dashboardDistDir();
 
 			server.middlewares.use(opts.dashboard.route, (req, res, next) => {
-				// INFO serve asset files (JS, CSS, fonts) - URL contains a dot
 				const url = req.url ?? '/';
 				if (url !== '/' && url.includes('.')) {
 					const filePath = path.join(dashDir, url);
 					if (existsSync(filePath)) {
 						res.setHeader('Content-Type', getMimeType(filePath));
 						createReadStream(filePath).pipe(res);
-						return
+						return;
 					}
 				}
-				// INFO all other requests -> serve index.html (SPA fallback)
-				const indexPath = path.join(dashDir, 'index.html');
-				if (existsSync(indexPath)) {
+
+				if (!cachedDashboardHtml) {
+					const indexPath = path.join(dashDir, 'index.html');
+					if (!existsSync(indexPath)) {
+						logger.warn(
+							`Dashboard HTML not found at ${indexPath}. ` +
+							`Run 'pnpm build:dashboard' to build the dashboard first.`
+						);
+						return next();
+					}
 					let html = readFileSync(indexPath, 'utf8');
-					// INFO Fix assets paths from relative paths to absolute paths.
 					const dashRoute = opts.dashboard.route.replace(/\/$/, '') + '/';
 					html = html.replace(/(src|href)="\.\//g, `$1="${dashRoute}`);
-
-					// INFO Inject config before </head> so window.__TRACKER_CONFIG__ is available when dashboard/main.ts executes
 					const configScript = `<script>${generateConfigScript(opts)}</script>`;
-					html = html.replace('</head>', `${configScript}\n</head>`)
-
-					res.setHeader('Content-Type', 'text/html');
-					res.end(html);
-				} else {
-					logger.warn(
-						`Dashboard HTML not found at ${indexPath}. ` +
-						`Run 'pnpm build:dashboard' to build the dashboard first.`
-					);
-					next();
+					html = html.replace('</head>', `${configScript}\n</head>`);
+					cachedDashboardHtml = html;
 				}
+
+				res.setHeader('Content-Type', 'text/html');
+				res.end(cachedDashboardHtml);
 			});
 		}
 
@@ -202,7 +211,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 					console.log(
 						`  \x1b[32m➜\x1b[0m  \x1b[1mvite-plugin-monitor Dashboard\x1b[0m:       ` +
 						`\x1b[36mhttp://localhost:${port}${base}${dash}\x1b[0m`
-					)
+					);
 				}
 			}
 		})(server.printUrls);
@@ -230,21 +239,32 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 						opts.buildVersion = pkg.version;
 					}
 				} catch {
-					// INFO package.json absent or unreadable: buildVersion fallback to X.X.X
 					opts.buildVersion = "X.X.X";
 				}
 			}
 
-			// INFO logger is created here so the worker inherits the correct CWD
+			/**
+			 * INFO
+			 * Capture the previous logger instance BEFORE overwriting the reference.
+			 * destroyForHmr() must run on the OLD logger, not the one we are about
+			 * to create. Keeping this as an explicit local variable makes the
+			 * ordering invariant visible and impossible to break by accident.
+			 */
+			const prevLogger = logger;
+			unregisterShutdown?.();
+
+			prevLogger?.destroyForHmr();
+			cleanupForHmr();
+
 			logger = createLogger(opts.appId, opts.logging);
 
-			// INFO resolve effective endpoints
 			opts.storage.wsEndpoint = resolvedWsEndpoint(mode);
 			opts.storage.writeEndpoint = resolvedWriteEndpoint(mode);
 			opts.storage.readEndpoint = resolvedReadEndpoint(mode);
 
-			// INFO clean up plugin on every HMR cycle.
-			unregisterShutdown?.();
+			cachedSetupScript = generateSetupScript(opts, isBuild);
+			cachedAutoInitScript = opts.autoInit ? generateAutoInitScript(opts, isBuild) : null;
+
 			unregisterShutdown = registerShutdownHook(cleanup);
 
 			logger.info(`Plugin initialized - appId: ${opts.appId}, command: ${config.command}`);
@@ -257,19 +277,18 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 					{
 						tag: 'script',
 						attrs: { type: 'module' },
-						children: generateSetupScript(opts, isBuild),
+						children: cachedSetupScript ?? generateSetupScript(opts, isBuild),
 						injectTo: 'head-prepend',
 					}
 				];
-				if (opts.autoInit) {
+				if (opts.autoInit && cachedAutoInitScript) {
 					tags.push({
 						tag: 'script',
 						attrs: { type: 'module' },
-						children: generateAutoInitScript(opts, isBuild),
+						children: cachedAutoInitScript,
 						injectTo: 'head-prepend',
 					});
 				}
-
 				return tags;
 			},
 		},
@@ -300,7 +319,6 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 		async closeBundle() {
 			unregisterShutdown?.();
 			unregisterShutdown = null;
-
 			if (isBuild && opts.dashboard?.includeInBuild) {
 				const dashSrc = dashboardDistDir();
 				const dashDest = path.join(
@@ -325,7 +343,6 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 					);
 				}
 			}
-
 			await cleanup();
 		},
 	}
