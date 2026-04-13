@@ -594,4 +594,77 @@ describe('DebugOverlay', () => {
 			overlay.destroy();
 		});
 	});
+
+	describe('click outside', () => {
+		it('clicking outside the panel and FAB closes the panel when open', () => {
+			overlay = makeOverlay();
+			overlay.toggle();
+			const panel = getShadow(overlay).querySelector('#panel')!;
+			expect(panel.classList.contains('open')).toBe(true);
+
+			document.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+			expect(panel.classList.contains('open')).toBe(false);
+			overlay.destroy();
+		});
+
+		it('clicking inside the panel does not close it', () => {
+			overlay = makeOverlay();
+			overlay.toggle();
+			const panel = (overlay as any).panel as HTMLElement;
+			const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+			Object.defineProperty(event, 'composedPath', {
+				value: () => [panel, document.body, document.documentElement, document, window],
+			});
+			document.dispatchEvent(event);
+
+			expect(panel.classList.contains('open')).toBe(true);
+			overlay.destroy();
+		});
+
+		it('clicking on the FAB does not close the panel (FAB handles its own toggle)', () => {
+			overlay = makeOverlay();
+			overlay.toggle();
+			const panel = getShadow(overlay).querySelector('#panel')!;
+			const fab = (overlay as any).fab as HTMLElement;
+			const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+			Object.defineProperty(event, 'composedPath', {
+				value: () => [fab, document.body, document.documentElement, document, window],
+			});
+			document.dispatchEvent(event);
+
+			expect(panel.classList.contains('open')).toBe(true);
+			overlay.destroy();
+		});
+
+		it('clicking outside does nothing when the panel is already closed', () => {
+			overlay = makeOverlay();
+			const panel = getShadow(overlay).querySelector('#panel')!;
+			expect(panel.classList.contains('open')).toBe(false);
+
+			document.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+			expect(panel.classList.contains('open')).toBe(false);
+			overlay.destroy();
+		});
+
+		it('clicking outside during a drag does not close the panel', () => {
+			overlay = makeOverlay();
+			overlay.toggle();
+			(overlay as any).dragging = true;
+			const panel = getShadow(overlay).querySelector('#panel')!;
+			document.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+			expect(panel.classList.contains('open')).toBe(true);
+			overlay.destroy();
+		});
+
+		it('after destroy(), clicking outside no longer closes the panel', () => {
+			overlay = makeOverlay();
+			overlay.toggle();
+			const panel = (overlay as any).panel as HTMLElement;
+			overlay.destroy();
+			document.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+			expect(panel.classList.contains('open')).toBe(true);
+		});
+	});
 });
