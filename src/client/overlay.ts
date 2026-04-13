@@ -110,7 +110,7 @@ export class DebugOverlay implements IDebugOverlay {
 			 * all nodes the event passed through - including those inside the shadow.
 			 */
 			const path = e.composedPath();
-			if (!path.includes(this.panel) && !path.includes(this.fab)) {
+			if (!path.includes(this.panel) && !path.includes(this.fab) && !path.includes(this.host)) {
 				this.close();
 			}
 		}
