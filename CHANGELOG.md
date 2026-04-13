@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.3](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.4.3) - 2026-04-13
+
+### Bug Fixes
+
+- handling ingored url for tracking ([e6ab849](https://github.com/nDriaDev/vite-plugin-monitor/commit/e6ab849))
+
 ## [1.4.2](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.4.2) - 2026-04-13
 
 ### Bug Fixes
