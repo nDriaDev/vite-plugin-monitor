@@ -97,9 +97,17 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 		return 'middleware';
 	}
 
+	function resolvedHost(): string {
+		const h = viteConfig.server?.host;
+		if (!h || h === true) {
+			return 'localhost';
+		}
+		return h;
+	}
+
 	function resolvedWsEndpoint(mode: ReturnType<typeof effectiveMode>): string {
 		return mode === "standalone"
-			? `ws://localhost:${opts.storage.port}/_tracker/ws`
+			? `ws://${resolvedHost()}:${opts.storage.port}/_tracker/ws`
 			: mode === "websocket"
 				? opts.storage.wsEndpoint
 				: '';
@@ -109,7 +117,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 		return mode === "http"
 			? opts.storage.writeEndpoint
 			: mode === "standalone"
-				? `http://localhost:${opts.storage.port}/_tracker/events`
+				? `http://${resolvedHost()}:${opts.storage.port}/_tracker/events`
 				: mode === "middleware"
 					? '/_tracker/events'
 					: '';
@@ -121,7 +129,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				? opts.storage.readEndpoint
 				: opts.storage.writeEndpoint.replace(/\/events\/?$/, "")
 			: mode === "standalone"
-				? `http://localhost:${opts.storage.port}/_tracker`
+				? `http://${resolvedHost()}:${opts.storage.port}/_tracker`
 				: "/_tracker";
 	}
 
@@ -139,7 +147,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 	function configureServer(server: ViteDevServer | PreviewServer) {
 		if (mode === 'middleware') {
 			server.middlewares.use(createMiddleware(opts, logger));
-			logger.info('Middleware mounted on Vite dev server');
+			logger.debug('Middleware mounted on Vite dev server');
 		} else if (mode === 'standalone') {
 			standalone = createStandaloneServer(opts, logger);
 			standalone.start();
@@ -189,18 +197,19 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 		server.printUrls = (function (originalPrint) {
 			return function () {
 				originalPrint.call(server);
+				const host = resolvedHost();
 				const port = viteConfig.server?.port ?? 5173;
 				const base = (viteConfig.base ?? '/').replace(/\/$/, '');
 				const dash = opts.dashboard.route;
 				const apiUrl = mode === 'standalone'
-					? `http://localhost:${opts.storage.port}/_tracker`
+					? `http://${host}:${opts.storage.port}/_tracker`
 					: mode === 'http'
 						? opts.storage.readEndpoint
 							? opts.storage.readEndpoint
 							: opts.storage.writeEndpoint.replace(/\/events\/?$/, "")
 						: mode === 'websocket'
 							? opts.storage.wsEndpoint
-							: `http://localhost:${port}${base}/_tracker`;
+							: `http://${host}:${port}${base}/_tracker`;
 
 				console.log(
 					`  \x1b[32m➜\x1b[0m  \x1b[1mvite-plugin-monitor Tracker API\x1b[0m:       ` +
@@ -210,7 +219,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				if (opts.dashboard.enabled) {
 					console.log(
 						`  \x1b[32m➜\x1b[0m  \x1b[1mvite-plugin-monitor Dashboard\x1b[0m:       ` +
-						`\x1b[36mhttp://localhost:${port}${base}${dash}\x1b[0m`
+						`\x1b[36mhttp://${host}:${port}${base}${dash}\x1b[0m`
 					);
 				}
 			}
@@ -267,7 +276,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 
 			unregisterShutdown = registerShutdownHook(cleanup);
 
-			logger.info(`Plugin initialized - appId: ${opts.appId}, command: ${config.command}`);
+			logger.debug(`Plugin initialized - appId: ${opts.appId}, command: ${config.command}`);
 		},
 
 		transformIndexHtml: {
@@ -306,7 +315,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				const dir = path.dirname(t.path);
 				if (!existsSync(dir)) {
 					mkdirSync(dir, { recursive: true });
-					logger.info(`Log directory created: ${dir}`);
+					logger.debug(`Log directory created: ${dir}`);
 				}
 			}
 		},
@@ -335,7 +344,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 						html = html.replace('</head>', `${configScript}\n</head>`);
 						writeFileSync(copiedIndex, html);
 					}
-					logger.info(`Dashboard copied to ${dashDest}`);
+					logger.debug(`Dashboard copied to ${dashDest}`);
 				} else {
 					logger.warn(
 						`includeInBuild is true but dashboard dist not found at ${dashSrc}. ` +

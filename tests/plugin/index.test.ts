@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, createReadStream, readdirSync, copyFileSync } from 'node:fs';
-import type { Plugin, ResolvedConfig } from 'vite';
+import type { Plugin, ResolvedConfig, ResolvedServerOptions } from 'vite';
 import { trackerPlugin } from '../../src/plugin/index';
 import { createLogger } from '../../src/plugin/logger';
 import { createMiddleware, createStandaloneServer } from '../../src/plugin/standalone-server';
@@ -362,7 +362,7 @@ describe('trackerPlugin()', () => {
 			const plugin = trackerPlugin(baseOpts({
 				storage: { mode: 'standalone' } as any
 			}));
-			(getHook(plugin, 'configResolved') as Function)(makeViteConfig());
+			(getHook(plugin, 'configResolved') as Function)(makeViteConfig({ server: { port: 5173, host: "http://127.0.0.1" } as ResolvedServerOptions }));
 			const server = makeServer();
 			(getHook(plugin, 'configureServer') as Function)(server);
 			return { plugin, server }
@@ -498,7 +498,7 @@ describe('trackerPlugin()', () => {
 			(getHook(plugin, 'buildStart') as Function)();
 
 			expect(mockMkdirSync).toHaveBeenCalledWith('./logs', { recursive: true });
-			expect(mockLogger.info).toHaveBeenCalledWith(
+			expect(mockLogger.debug).toHaveBeenCalledWith(
 				expect.stringContaining('Log directory created')
 			);
 		});
@@ -578,7 +578,7 @@ describe('trackerPlugin()', () => {
 			expect(mockWriteFileSync).toHaveBeenCalledOnce();
 			const writtenHtml = mockWriteFileSync.mock.calls[0][1] as string;
 			expect(writtenHtml).toContain('__TRACKER_CONFIG__');
-			expect(mockLogger.info).toHaveBeenCalledWith(
+			expect(mockLogger.debug).toHaveBeenCalledWith(
 				expect.stringContaining('Dashboard copied to')
 			);
 		});
