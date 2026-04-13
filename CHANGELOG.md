@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.2](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.4.2) - 2026-04-13
+
+### Bug Fixes
+
+- resolved host name ([acaaf2d](https://github.com/nDriaDev/vite-plugin-monitor/commit/acaaf2d))
+- overlay close on click event ([e72f1f4](https://github.com/nDriaDev/vite-plugin-monitor/commit/e72f1f4))
+
 ## [1.4.1](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.4.1) - 2026-04-13
 
 ### Features
