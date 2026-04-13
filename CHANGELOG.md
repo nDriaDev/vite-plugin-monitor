@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.1](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.4.1) - 2026-04-13
+
+### Features
+
+- close overlay with click outside ([15f722c](https://github.com/nDriaDev/vite-plugin-monitor/commit/15f722c))
+
+### Documentation
+
+- update readme ([e50d7d7](https://github.com/nDriaDev/vite-plugin-monitor/commit/e50d7d7))
+
+### Tests
+
+- previous implementation ([b4fd931](https://github.com/nDriaDev/vite-plugin-monitor/commit/b4fd931))
+
 ## [1.4.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.4.0) - 2026-04-11
 
 ### Features
