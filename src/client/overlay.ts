@@ -56,6 +56,13 @@ export class DebugOverlay implements IDebugOverlay {
 	private onKeyDown: (e: KeyboardEvent) => void;
 
 	/**
+	* Bound `click` handler. Closes the panel when the user clicks outside
+	* of both the panel and the FAB. Uses `composedPath()` because the panel
+	* lives inside a closed Shadow DOM and `e.target` would only expose the host.
+	*/
+	private onClickOutside: (e: MouseEvent) => void;
+
+	/**
 	* Bound `DOMContentLoaded` handler used when `document.body` is not yet
 	* available at construction time. Stored so `destroy()` can remove it even
 	* if it never fired, preventing listener leaks across tests and hot-reloads.
@@ -91,6 +98,20 @@ export class DebugOverlay implements IDebugOverlay {
 		this.onKeyDown = (e: KeyboardEvent) => {
 			if (e.altKey && e.key === 't') {
 				this.toggle();
+			}
+		}
+		this.onClickOutside = (e: MouseEvent) => {
+			if (!this.panel.classList.contains('open') || this.dragging) {
+				return;
+			}
+			/**
+			 * INFO
+			 * composedPath() pierces the closed Shadow DOM boundary and returns
+			 * all nodes the event passed through - including those inside the shadow.
+			 */
+			const path = e.composedPath();
+			if (!path.includes(this.panel) && !path.includes(this.fab)) {
+				this.close();
 			}
 		}
 
@@ -399,6 +420,8 @@ export class DebugOverlay implements IDebugOverlay {
 		document.addEventListener('mousemove', this.onMouseMove);
 		document.addEventListener('mouseup', this.onMouseUp);
 		document.addEventListener('keydown', this.onKeyDown);
+		// INFO true = capture phase so the click is caught before any stopPropagation in the page
+		document.addEventListener('click', this.onClickOutside, true);
 
 		this.shadow.querySelector('#destroy-btn')!.addEventListener('click', () => this.destroy(), { once: true });
 	}
@@ -457,6 +480,7 @@ export class DebugOverlay implements IDebugOverlay {
 		document.removeEventListener('mousemove', this.onMouseMove);
 		document.removeEventListener('mouseup', this.onMouseUp);
 		document.removeEventListener('keydown', this.onKeyDown);
+		document.removeEventListener('click', this.onClickOutside, true);
 		this.host.remove();
 	}
 }
