@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.6](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.4.6) - 2026-04-14
+
+### Bug Fixes
+
+- shutdown handling SIGHUP event ([f4a624d](https://github.com/nDriaDev/vite-plugin-monitor/commit/f4a624d))
+
 ## [1.4.5](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.4.5) - 2026-04-14
 
 ### Bug Fixes
