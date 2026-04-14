@@ -16,6 +16,9 @@ function installHandlers(): void {
 	}
 	globalThis[HANDLER_KEY] = true;
 
+	// INFO ignored
+	process.on('SIGHUP', () => { });
+
 	for (const signal of ['SIGTERM', 'SIGINT'] as const) {
 		process.on(signal, () => {
 			// INFO Prevent the handler from firing twice if both SIGINT and SIGTERM arrive in quick succession (e.g. double Ctrl+C).
@@ -117,13 +120,12 @@ async function runShutdown(signal: string): Promise<void> {
 *   SIGTERM - `kill <pid>`, systemd, Docker stop, Kubernetes pod termination
 *   SIGINT  - Ctrl+C (Vite also handles this, but we register after it so
 *             we run first via the listeners stack)
-*   SIGHUP  - terminal closed, nohup restart
+*   SIGHUP  - no-op
 *
-* SIGKILL cannot be caught - that is by design in POSIX.
 *
 * @remarks
 * Register a cleanup callback that will be called when the process receives
-* SIGTERM, SIGINT, or SIGHUP.
+* SIGTERM, SIGINT.
 *
 * Returns an `unregister` function - call it when the plugin is destroyed
 * (e.g. on HMR re-evaluation) to avoid accumulating stale closures.
