@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.5](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.4.5) - 2026-04-14
+
+### Bug Fixes
+
+- various ([1a14a52](https://github.com/nDriaDev/vite-plugin-monitor/commit/1a14a52))
+
+### Other Changes
+
+- update test ([4a2f643](https://github.com/nDriaDev/vite-plugin-monitor/commit/4a2f643))
+
 ## [1.4.4](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.4.4) - 2026-04-14
 
 ### Bug Fixes
