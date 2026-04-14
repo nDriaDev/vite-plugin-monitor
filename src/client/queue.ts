@@ -159,12 +159,12 @@ export class EventQueue {
 		fetch(this.opts.writeEndpoint, { method: 'POST', headers, body, keepalive: true })
 			.then((res) => {
 				if (!res.ok) {
-					console.warn(`[vite-plugin-monitor] Server responded with ${res.status}, requeueing batch`);
+					console.debug(`[vite-plugin-monitor] Server responded with ${res.status}, requeueing batch`);
 					this.queue.unshift(...batch);
 				}
 			})
 			.catch((err) => {
-				console.warn('[vite-plugin-monitor] Failed to send events, requeueing:', err);
+				console.debug('[vite-plugin-monitor] Failed to send events, requeueing:', err);
 				this.queue.unshift(...batch);
 			})
 			.finally(() => {

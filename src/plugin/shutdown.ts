@@ -46,27 +46,41 @@ async function runShutdown(signal: string): Promise<void> {
 
 	/**
 	 * INFO
-	 * Run all hooks concurrently, with an overall 5-second hard deadline.
-	 * This outer deadline is a safety net so the process never hangs indefinitely.
+	 * Each hook gets its own 4-second per-hook deadline so that a single slow
+	 * cleanup (e.g. a logger flush on a slow disk) cannot exhaust the entire
+	 * process budget and cause every other hook to be silently skipped.
+	 * The outer 5-second process-level deadline remains as a final safety net.
 	 */
+	const PER_HOOK_TIMEOUT_MS = 4000;
+	const OVERALL_DEADLINE_MS = 5000;
+
+	function runWithTimeout(fn: CleanupFn): Promise<void> {
+		return new Promise<void>((resolve) => {
+			const t = setTimeout(() => {
+				console.warn('[vite-plugin-monitor] A shutdown hook timed out and was skipped');
+				resolve();
+			}, PER_HOOK_TIMEOUT_MS);
+			// INFO .unref() so the timer does not keep Node alive on its own
+			if (typeof t.unref === 'function') {
+				t.unref();
+			}
+			try {
+				Promise.resolve(fn()).then(resolve, resolve);
+			} catch {
+				resolve();
+			}
+		});
+	}
+
 	const deadline = new Promise<void>((resolve) => {
 		setTimeout(() => {
 			console.warn('[vite-plugin-monitor] Shutdown deadline exceeded - forcing exit');
 			resolve();
-		}, 5000).unref()  // INFO .unref() so the timer itself doesn't keep Node alive
+		}, OVERALL_DEADLINE_MS).unref();
 	});
 
 	await Promise.race([
-		Promise.allSettled(
-			hooks.map(fn => {
-				try {
-					return Promise.resolve(fn());
-				}
-				catch {
-					return Promise.resolve();
-				}
-			})
-		),
+		Promise.allSettled(hooks.map(runWithTimeout)),
 		deadline,
 	]);
 

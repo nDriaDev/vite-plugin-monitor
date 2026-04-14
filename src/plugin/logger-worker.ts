@@ -82,7 +82,6 @@ class StreamTransport {
 	private currentDate!: string;
 	private bytesLimit: number;
 	private readonly transport: LogTransport;
-	// eslint-disable-next-line no-unused-vars
 	private readonly formatter: (e: TrackerEvent) => string;
 	private pending: string[] = [];  // INFO lines buffered while stream is draining
 
@@ -140,6 +139,14 @@ class StreamTransport {
 	}
 
 	destroy(): void {
+		if (this.pending.length > 0 && this.stream) {
+			const queued = this.pending.splice(0);
+			for (const l of queued) {
+				if (l) {
+					this.stream.write(l, 'utf8');
+				}
+			}
+		}
 		this.closeStream();
 	}
 
@@ -174,6 +181,9 @@ class StreamTransport {
 
 	private closeStream(): void {
 		if (this.stream) {
+			this.stream.once('error', (err) => {
+				parentPort?.postMessage({ type: 'error', message: `Close stream error on ${this.currentPath}: ${err.message}` });
+			});
 			this.stream.end();
 			this.stream = null;
 		}

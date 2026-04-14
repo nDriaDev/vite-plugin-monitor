@@ -280,17 +280,16 @@ export function createStandaloneServer(opts: ResolvedTrackerOptions, logger: Log
 
 	return {
 		start() {
-			server.listen(opts.storage.port, () => {
-				logger.info(`Standalone server listening on port ${opts.storage.port}`);
-				logger.info(`WebSocket endpoint: ws://localhost:${opts.storage.port}/_tracker/ws`);
-			});
-			// eslint-disable-next-line no-undef
 			server.on('error', (err: NodeJS.ErrnoException) => {
 				if (err.code === 'EADDRINUSE') {
 					logger.warn(`Port ${opts.storage.port} already in use - standalone server not started`);
 				} else {
 					logger.error(`Server error: ${err.message}`);
 				}
+			});
+			server.listen(opts.storage.port, () => {
+				logger.info(`Standalone server listening on port ${opts.storage.port}`);
+				logger.info(`WebSocket endpoint: ws://localhost:${opts.storage.port}/_tracker/ws`);
 			});
 		},
 		stop() {
@@ -323,7 +322,6 @@ export function createMiddleware(opts: ResolvedTrackerOptions, logger: Logger): 
 		}
 	);
 
-	// eslint-disable-next-line @typescript-eslint/no-misused-promises
 	return async function trackerMiddleware(req: IncomingMessage, res: ServerResponse, next: Connect.NextFunction) {
 		if (!req.url?.startsWith('/_tracker')) {
 			return next();

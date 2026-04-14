@@ -166,7 +166,14 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 					const filePath = path.join(dashDir, url);
 					if (existsSync(filePath)) {
 						res.setHeader('Content-Type', getMimeType(filePath));
-						createReadStream(filePath).pipe(res);
+						const stream = createReadStream(filePath);
+						stream.on("error", (err: NodeJS.ErrnoException) => {
+							if (!res.headersSent) {
+								res.writeHead(err.code === "ENOENT" ? 404 : 500);
+							}
+							res.end();
+						});
+						stream.pipe(res);
 						return;
 					}
 				}

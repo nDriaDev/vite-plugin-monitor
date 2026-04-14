@@ -160,8 +160,9 @@ export class DebugOverlay implements IDebugOverlay {
 			type="text"
 			placeholder="Enter user ID or leave empty to clear"
 			value="${uid}"
+			style="grid-column: 1 / -1;"
 		/>
-		<div class="userid-actions">
+		<div class="userid-actions" style="grid-column: 1 / -1;">
 			<button class="confirm-btn" id="userid-confirm">✓</button>
 			<button class="cancel-btn"  id="userid-cancel">✕</button>
 		</div>
@@ -278,7 +279,7 @@ export class DebugOverlay implements IDebugOverlay {
 
         <div class="divider"></div>
 
-        <a id="dashboard-link" href="${dashboardUrl}" target="_blank" rel="noopener">
+        <a id="dashboard-link" href="${dashboardUrl}">
 			<div id="link-left">
 				<span>Open Dashboard</span>
 			</div>
@@ -375,6 +376,15 @@ export class DebugOverlay implements IDebugOverlay {
 
 		this.shadow.querySelector('#close')!.addEventListener('click', () => this.close());
 
+		this.shadow.querySelector('#dashboard-link')!.addEventListener('click', (e) => {
+			e.preventDefault();
+			window.open(
+				window.location.origin + this.dashboardRoute,
+				'tracker-dashboard'
+			);
+			this.close();
+		});
+
 		this.shadow.querySelector('#theme-toggle')!.addEventListener('click', () => {
 			this.theme = this.theme === 'dark' ? 'light' : 'dark';
 			try { localStorage.setItem(THEME_STORAGE_KEY, this.theme); } catch { /* ignore */ }
@@ -391,7 +401,6 @@ export class DebugOverlay implements IDebugOverlay {
 			if (!btn) {
 				return;
 			}
-			// eslint-disable-next-line @typescript-eslint/no-floating-promises
 			navigator.clipboard?.writeText(btn.dataset.val ?? '').then(() => {
 				btn.textContent = 'copied';
 				btn.classList.add('copied');
