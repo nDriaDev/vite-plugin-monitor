@@ -657,6 +657,7 @@ describe('EventQueue', () => {
 		});
 
 		it('re-queues events (unshift) when fetch rejects', async () => {
+			const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => { });
 			fetchMock.mockRejectedValue(new Error('Network error'));
 			const queue = new EventQueue(makeOpts());
 			const evt = makeEvent();
@@ -666,9 +667,12 @@ describe('EventQueue', () => {
 			await flushPromises();
 
 			expect((queue as any).queue).toContain(evt);
+			expect(debugSpy).toHaveBeenCalledWith(expect.stringContaining("[vite-plugin-monitor] Failed to send events, requeueing:"), expect.any(Error));
+			debugSpy.mockRestore();
 		});
 
 		it('re-queues events (unshift) when server responds with non-2xx status', async () => {
+			const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => { });
 			fetchMock.mockResolvedValue(new Response(null, { status: 500 }));
 			const queue = new EventQueue(makeOpts());
 			const evt = makeEvent();
@@ -678,6 +682,10 @@ describe('EventQueue', () => {
 			await flushPromises();
 
 			expect((queue as any).queue).toContain(evt);
+			expect(debugSpy).toHaveBeenCalledWith(
+				expect.stringContaining('Server responded with 500'),
+			);
+			debugSpy.mockRestore();
 		});
 
 		it('does not re-queue events when server responds with 2xx status', async () => {
@@ -693,6 +701,7 @@ describe('EventQueue', () => {
 		});
 
 		it('sets sending = false in finally also after a fetch error', async () => {
+			const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => { });
 			fetchMock.mockRejectedValue(new Error('Network error'));
 			const queue = new EventQueue(makeOpts());
 			queue.enqueue(makeEvent());
@@ -701,6 +710,7 @@ describe('EventQueue', () => {
 			await flushPromises();
 
 			expect((queue as any).sending).toBe(false);
+			debugSpy.mockRestore();
 		});
 
 		it('does not exceed batchSize events per single fetch call', async () => {

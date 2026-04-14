@@ -46,7 +46,7 @@ vi.mock('node:fs', async (importOriginal) => {
 		writeFileSync: vi.fn(),
 		copyFileSync: vi.fn(),
 		readdirSync: vi.fn(() => []),
-		createReadStream: vi.fn(() => ({ pipe: vi.fn() }))
+		createReadStream: vi.fn(() => ({ pipe: vi.fn(), on: vi.fn() }))
 	}
 });
 
@@ -465,12 +465,118 @@ describe('trackerPlugin()', () => {
 			const handler = dashCall![1];
 
 			const pipeMock = vi.fn();
-			mockCreateReadStream.mockReturnValue({ pipe: pipeMock });
+			mockCreateReadStream.mockReturnValue({ pipe: pipeMock, on: vi.fn() });
 
 			const res = { setHeader: vi.fn(), end: vi.fn() }
 			handler({ url: '/assets/index.js' }, res, vi.fn());
 
 			expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/javascript')
+		});
+
+		it('stream error ENOENT -> responds 404 and ends the response', () => {
+			mockExistsSync.mockImplementation((p: string) => p.includes('.js'));
+			const { server } = setupWithDashboard();
+
+			const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls.find((args: any[]) => args[0] === '/_dashboard');
+			const handler = dashCall![1];
+
+			let registeredErrorHandler: ((err: NodeJS.ErrnoException) => void) | null = null;
+			const pipeMock = vi.fn();
+			mockCreateReadStream.mockReturnValue({
+				pipe: pipeMock,
+				on: vi.fn((event: string, cb: (err: NodeJS.ErrnoException) => void) => {
+					if (event === 'error') {
+						registeredErrorHandler = cb;
+					}
+				}),
+			});
+
+			const res = { setHeader: vi.fn(), end: vi.fn(), headersSent: false, writeHead: vi.fn() };
+			handler({ url: '/assets/index.js' }, res, vi.fn());
+
+			expect(registeredErrorHandler).not.toBeNull();
+			const enoentErr = Object.assign(new Error('ENOENT: no such file'), { code: 'ENOENT' }) as NodeJS.ErrnoException;
+			registeredErrorHandler!(enoentErr);
+
+			expect(res.writeHead).toHaveBeenCalledWith(404);
+			expect(res.end).toHaveBeenCalledOnce();
+		});
+
+		it('stream error non-ENOENT -> responds 500 and ends the response', () => {
+			mockExistsSync.mockImplementation((p: string) => p.includes('.js'));
+			const { server } = setupWithDashboard();
+
+			const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls.find((args: any[]) => args[0] === '/_dashboard');
+			const handler = dashCall![1];
+
+			let registeredErrorHandler: ((err: NodeJS.ErrnoException) => void) | null = null;
+			const pipeMock = vi.fn();
+			mockCreateReadStream.mockReturnValue({
+				pipe: pipeMock,
+				on: vi.fn((event: string, cb: (err: NodeJS.ErrnoException) => void) => {
+					if (event === 'error') {
+						registeredErrorHandler = cb;
+					}
+				}),
+			});
+
+			const res = { setHeader: vi.fn(), end: vi.fn(), headersSent: false, writeHead: vi.fn() };
+			handler({ url: '/assets/index.js' }, res, vi.fn());
+
+			const ioErr = Object.assign(new Error('EIO: i/o error'), { code: 'EIO' }) as NodeJS.ErrnoException;
+			registeredErrorHandler!(ioErr);
+
+			expect(res.writeHead).toHaveBeenCalledWith(500);
+			expect(res.end).toHaveBeenCalledOnce();
+		});
+
+		it('stream error with headers already sent -> skips writeHead, only calls end()', () => {
+			mockExistsSync.mockImplementation((p: string) => p.includes('.js'));
+			const { server } = setupWithDashboard();
+
+			const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls.find((args: any[]) => args[0] === '/_dashboard');
+			const handler = dashCall![1];
+
+			let registeredErrorHandler: ((err: NodeJS.ErrnoException) => void) | null = null;
+			const pipeMock = vi.fn();
+			mockCreateReadStream.mockReturnValue({
+				pipe: pipeMock,
+				on: vi.fn((event: string, cb: (err: NodeJS.ErrnoException) => void) => {
+					if (event === 'error') {
+						registeredErrorHandler = cb;
+					}
+				}),
+			});
+
+			// INFO Simulate that some bytes were already flushed before the error
+			const res = { setHeader: vi.fn(), end: vi.fn(), headersSent: true, writeHead: vi.fn() };
+			handler({ url: '/assets/index.js' }, res, vi.fn());
+
+			const err = Object.assign(new Error('EIO: i/o error'), { code: 'EIO' }) as NodeJS.ErrnoException;
+			registeredErrorHandler!(err);
+
+			expect(res.writeHead).not.toHaveBeenCalled();
+			expect(res.end).toHaveBeenCalledOnce();
+		});
+
+		it('stream error handler is registered before pipe() is called', () => {
+			mockExistsSync.mockImplementation((p: string) => p.includes('.js'));
+			const { server } = setupWithDashboard();
+
+			const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls.find((args: any[]) => args[0] === '/_dashboard');
+			const handler = dashCall![1];
+
+			const callOrder: string[] = [];
+			mockCreateReadStream.mockReturnValue({
+				pipe: vi.fn(() => callOrder.push('pipe')),
+				on: vi.fn((event: string) => { if (event === 'error') callOrder.push('on:error'); }),
+			});
+
+			const res = { setHeader: vi.fn(), end: vi.fn(), headersSent: false, writeHead: vi.fn() };
+			handler({ url: '/assets/index.js' }, res, vi.fn());
+
+			expect(callOrder[0]).toBe('on:error');
+			expect(callOrder[1]).toBe('pipe');
 		});
 	});
 
@@ -653,7 +759,7 @@ describe('trackerPlugin()', () => {
 		for (const [url, expectedMime] of mimeTests) {
 			it(`${url} -> ${expectedMime}`, () => {
 				const pipeMock = vi.fn();
-				mockCreateReadStream.mockReturnValue({ pipe: pipeMock });
+				mockCreateReadStream.mockReturnValue({ pipe: pipeMock, on: vi.fn() });
 
 				mockExistsSync.mockImplementation((p: string) =>
 					p.endsWith(url.slice(1))

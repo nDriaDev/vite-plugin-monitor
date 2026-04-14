@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { formatDateTime, formatTime, formatShortTime, formatRelative, formatBucket, formatCount, formatPercent, formatPct, formatDuration, formatBytes, truncate, capitalize, formatJson, getEventDetail } from '../../../src/dashboard/utils/format';
+import { formatDateTime, formatTime, formatShortTime, formatRelative, formatBucket, formatCount, formatPercent, formatPct, formatDuration, formatBytes, truncate, capitalize, formatJson, getEventDetail, formatCompactNumber } from '../../../src/dashboard/utils/format';
 
 describe('formatDateTime', () => {
 	it('returns a non-empty string for a valid ISO', () => {
@@ -316,3 +316,25 @@ describe('getEventDetail', () => {
 		expect(truncated).toContain('…');
 	});
 });
+
+describe('formatCompactNumber', () => {
+	it('999', () => {
+		const result = formatCompactNumber(999);
+		expect(result).toBe('999')
+	});
+
+	it('Infinite', () => {
+		const result = formatCompactNumber(Infinity);
+		expect(result).toBe('-')
+	});
+
+	it('>999', () => {
+		const result = formatCompactNumber(1250);
+		expect(result).toBe("1.3k");
+	});
+
+	it('>9999999', () => {
+		const result = formatCompactNumber(1_000_001);
+		expect(result).toBe("1.0M");
+	});
+})

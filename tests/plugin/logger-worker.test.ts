@@ -336,6 +336,68 @@ describe('logger-worker — message handler: destroy', () => {
 		expect(stream1.end).toHaveBeenCalledOnce();
 		exitSpy.mockRestore();
 	});
+
+	it('flushes pending[] lines to the stream before closing on destroy', async () => {
+		const port = new FakeParentPort();
+		const stream = makeFakeStream();
+		stream.write
+			.mockReturnValueOnce(false)
+			.mockReturnValue(true);
+
+		let drainCallback: (() => void) | null = null;
+		stream.once.mockImplementation((event: string, cb: () => void) => {
+			if (event === 'drain') drainCallback = cb;
+		});
+
+		await loadWorker({ transports: [makeTransport()], minLevel: 0, fakePort: port, fakeStream: stream });
+
+		port.emit('message', { type: 'write', event: makeEvent({ level: 'info' }) });
+		port.emit('message', { type: 'write', event: makeEvent({ level: 'warn' }) });
+
+		expect(stream.write).toHaveBeenCalledOnce();
+
+		const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+		port.emit('message', { type: 'destroy' });
+
+		expect(stream.write).toHaveBeenCalledTimes(2);
+		expect(stream.end).toHaveBeenCalledOnce();
+		exitSpy.mockRestore();
+	});
+
+	it('skips empty placeholder entries in pending[] during destroy flush', async () => {
+		const port = new FakeParentPort();
+		const stream = makeFakeStream();
+		stream.write
+			.mockReturnValueOnce(false)
+			.mockReturnValue(true);
+
+		stream.once.mockImplementation(() => { /* don't fire drain */ });
+
+		await loadWorker({ transports: [makeTransport()], minLevel: 0, fakePort: port, fakeStream: stream });
+
+		port.emit('message', { type: 'write', event: makeEvent() });
+		port.emit('message', { type: 'write', event: makeEvent({ level: 'error' }) });
+
+		const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+		stream.write.mockClear();
+		port.emit('message', { type: 'destroy' });
+
+		const writeCalls = stream.write.mock.calls;
+		for (const [arg] of writeCalls) {
+			expect(arg).not.toBe('');
+		}
+		exitSpy.mockRestore();
+	});
+
+	it('does not attempt to write pending[] when stream is null at destroy time', async () => {
+		const port = new FakeParentPort();
+		const stream = makeFakeStream();
+		await loadWorker({ transports: [makeTransport()], minLevel: 0, fakePort: port, fakeStream: stream });
+
+		const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+		expect(() => port.emit('message', { type: 'destroy' })).not.toThrow();
+		exitSpy.mockRestore();
+	});
 });
 
 describe('logger-worker — formatters', () => {
@@ -668,6 +730,87 @@ describe('logger-worker — buffering during drain', () => {
 		drainCallback!();
 
 		expect(stream.write).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe('logger-worker — closeStream EPIPE/EIO handling', () => {
+	it('registers a once("error") handler on the stream before calling end()', async () => {
+		const port = new FakeParentPort();
+		const stream = makeFakeStream();
+		await loadWorker({ transports: [makeTransport()], minLevel: 0, fakePort: port, fakeStream: stream });
+
+		const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+		port.emit('message', { type: 'destroy' });
+
+		const onceErrorCall = stream.once.mock.calls.find(([event]) => event === 'error');
+		expect(onceErrorCall).toBeDefined();
+
+		expect(stream.end).toHaveBeenCalledOnce();
+		exitSpy.mockRestore();
+	});
+
+	it('once("error") is registered before end() — ordering guarantee', async () => {
+		const port = new FakeParentPort();
+		const stream = makeFakeStream();
+		const callOrder: string[] = [];
+		stream.once.mockImplementation((event: string) => {
+			if (event === 'error') callOrder.push('once:error');
+		});
+		stream.end.mockImplementation(() => callOrder.push('end'));
+
+		await loadWorker({ transports: [makeTransport()], minLevel: 0, fakePort: port, fakeStream: stream });
+
+		const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+		port.emit('message', { type: 'destroy' });
+
+		expect(callOrder[0]).toBe('once:error');
+		expect(callOrder[1]).toBe('end');
+		exitSpy.mockRestore();
+	});
+
+	it('once("error") callback reports the error to parentPort with currentPath', async () => {
+		const port = new FakeParentPort();
+		const stream = makeFakeStream();
+		let capturedOnceErrorCb: ((err: Error) => void) | null = null;
+		stream.once.mockImplementation((event: string, cb: (err: Error) => void) => {
+			if (event === 'error') capturedOnceErrorCb = cb;
+		});
+
+		await loadWorker({
+			transports: [makeTransport({ path: './logs/myapp.log' })],
+			minLevel: 0,
+			fakePort: port,
+			fakeStream: stream,
+		});
+
+		const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+		port.emit('message', { type: 'destroy' });
+
+		expect(capturedOnceErrorCb).not.toBeNull();
+
+		const epipeErr = Object.assign(new Error('write EPIPE'), { code: 'EPIPE' });
+		capturedOnceErrorCb!(epipeErr);
+
+		expect(port.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: 'error',
+				message: expect.stringContaining('write EPIPE'),
+			})
+		);
+		const errorCall = port.postMessage.mock.calls.find(([msg]) => msg.type === 'error' && msg.message.includes('write EPIPE'));
+		expect(errorCall![0].message).toContain('myapp.log');
+		exitSpy.mockRestore();
+	});
+
+	it('does not throw or crash when the stream is already null (idempotent)', async () => {
+		const port = new FakeParentPort();
+		const stream = makeFakeStream();
+		await loadWorker({ transports: [makeTransport()], minLevel: 0, fakePort: port, fakeStream: stream });
+
+		const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+		port.emit('message', { type: 'destroy' });
+		expect(() => port.emit('message', { type: 'destroy' })).not.toThrow();
+		exitSpy.mockRestore();
 	});
 });
 
