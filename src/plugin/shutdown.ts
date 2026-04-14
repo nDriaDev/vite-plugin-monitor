@@ -16,7 +16,7 @@ function installHandlers(): void {
 	}
 	globalThis[HANDLER_KEY] = true;
 
-	for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
+	for (const signal of ['SIGTERM', 'SIGINT'] as const) {
 		process.on(signal, () => {
 			// INFO Prevent the handler from firing twice if both SIGINT and SIGTERM arrive in quick succession (e.g. double Ctrl+C).
 			if ((process as any).__tracker_shutting_down__) {

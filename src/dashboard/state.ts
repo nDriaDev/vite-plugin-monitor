@@ -115,7 +115,7 @@ function createStore() {
 
 			result = result.filter(e => {
 				// INFO apply search to detail column table text
-				const detail = getEventDetail(e, false).toLowerCase();
+				const detail = getEventDetail(e).toLowerCase();
 				switch (op) {
 					case 'contains':
 						return detail.includes(lower);
@@ -138,7 +138,7 @@ function createStore() {
 					default:
 						/* v8 ignore start */
 						return detail.includes(lower);
-						/* v8 ignore stop */
+					/* v8 ignore stop */
 				}
 			});
 		}

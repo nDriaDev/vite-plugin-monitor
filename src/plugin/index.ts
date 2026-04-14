@@ -146,7 +146,6 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 	function configureServer(server: ViteDevServer | PreviewServer) {
 		if (mode === 'middleware') {
 			server.middlewares.use(createMiddleware(opts, logger));
-			logger.debug('Middleware mounted on Vite dev server');
 		} else if (mode === 'standalone') {
 			standalone = createStandaloneServer(opts, logger);
 			standalone.start();
@@ -281,8 +280,6 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			cachedAutoInitScript = opts.autoInit ? generateAutoInitScript(opts, isBuild) : null;
 
 			unregisterShutdown = registerShutdownHook(cleanup);
-
-			logger.debug(`Plugin initialized - appId: ${opts.appId}, command: ${config.command}`);
 		},
 
 		transformIndexHtml: {
@@ -321,7 +318,6 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				const dir = path.dirname(t.path);
 				if (!existsSync(dir)) {
 					mkdirSync(dir, { recursive: true });
-					logger.debug(`Log directory created: ${dir}`);
 				}
 			}
 		},
@@ -350,7 +346,6 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 						html = html.replace('</head>', `${configScript}\n</head>`);
 						writeFileSync(copiedIndex, html);
 					}
-					logger.debug(`Dashboard copied to ${dashDest}`);
 				} else {
 					logger.warn(
 						`includeInBuild is true but dashboard dist not found at ${dashSrc}. ` +

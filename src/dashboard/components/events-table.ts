@@ -1,5 +1,5 @@
 import type { LogLevel, SearchOperator, TrackerEvent, TrackerEventType } from "@tracker/types";
-import { formatDateTime, getEventDetail, truncate } from "../utils/format";
+import { formatDateTime, getEventDetail } from "../utils/format";
 import { el, empty, escapeHtml, on, qs, toggleVisible } from "../utils/dom";
 import { store } from "../state";
 
@@ -219,15 +219,14 @@ export function createEventsTable(): HTMLElement {
 
 	function buildRow(event: TrackerEvent): HTMLTableRowElement {
 		const tr = el('tr', { class: `event-row ${LEVEL_CLASS[event.level]}` });
-		const value = getEventDetail(event, false);
-		const valueTruncated = getEventDetail(event, true);
+		const value = getEventDetail(event);
 
 		tr.innerHTML = `
 		<td class="col-time">${formatDateTime(event.timestamp)}</td>
 		<td class="col-type"><span class="type-badge type-${event.type}">${TYPE_ICONS[event.type]} ${event.type}</span></td>
 		<td class="col-level"><span class="level-badge ${LEVEL_CLASS[event.level]}">${event.level}</span></td>
-		<td class="col-user" title="${escapeHtml(event.userId)}">${escapeHtml(truncate(event.userId, 30))}</td>
-		<td class="col-detail" title="${escapeHtml(value)}">${escapeHtml(valueTruncated)}</td>
+		<td class="col-user" title="${escapeHtml(event.userId)}"><div class="col-user-inner">${escapeHtml(event.userId)}</div></td>
+		<td class="col-detail" title="${escapeHtml(value)}"><div class="col-detail-inner">${escapeHtml(value)}</div></td>
     `;
 
 		rowEventMap.set(tr, event);

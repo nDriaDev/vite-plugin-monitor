@@ -1,7 +1,7 @@
 import type { ConsolePayload, TrackerEvent } from "@tracker/types";
 import { store } from "../state";
 import { el, empty, escapeHtml, on, qs, setHtml, show } from "../utils/dom";
-import { formatDateTime, formatDuration, formatJson, truncate } from "../utils/format";
+import { formatDateTime, formatDuration, formatJson } from "../utils/format";
 
 /**
 * Slide-in side panel showing the full detail of a selected event.
@@ -80,7 +80,7 @@ export function createEventDetail(): HTMLElement {
 			metaRow('Language', event.meta.language),
 		);
 		if (event.meta.userAgent) {
-			metaSec.append(metaRow('UA', truncate(event.meta.userAgent, 60)));
+			metaSec.append(metaRow('UA', event.meta.userAgent));
 		}
 		if (event.meta.referrer) {
 			metaSec.append(metaRow('Referrer', event.meta.referrer));

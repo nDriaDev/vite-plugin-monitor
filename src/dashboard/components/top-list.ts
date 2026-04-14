@@ -1,6 +1,6 @@
 import type { ErrorItem, FunnelComponent, FunnelStep, RankedItem, TopErrorsComponent, TopPagesComponent } from "@tracker/types";
 import { el, empty, escapeHtml } from "../utils/dom";
-import { formatCount, formatRelative, truncate } from "../utils/format";
+import { formatCount, formatRelative } from "../utils/format";
 
 /**
 * Generic ranked list component with proportional bars.
@@ -23,7 +23,7 @@ export function createTopPages(onSelect?: (route: string) => void): TopPagesComp
 			const pct = Math.round((item.count / max) * 100);
 			const safe = escapeHtml(item.label);
 			row.innerHTML = `
-        <div class="top-label" title="${safe}">${truncate(safe, 40)}</div>
+        <div class="top-label" title="${safe}">${safe}</div>
         <div class="top-bar-wrap">
 			<div class="top-bar" style="width:${pct}%"></div>
         </div>
@@ -52,7 +52,7 @@ export function createTopErrors(onSelect?: (message: string) => void): TopErrors
 			const row = el('div', { class: `error-row${onSelect ? ' clickable' : ''}` });
 			const safe = escapeHtml(item.message);
 			row.innerHTML = `
-        <div class="error-msg" title="${safe}">${truncate(safe, 80)}</div>
+        <div class="error-msg" title="${safe}">${safe}</div>
         <div class="error-meta">
 			<span class="error-count">×${formatCount(item.count)}</span>
 			<span class="error-time">${formatRelative(item.lastSeen)}</span>
@@ -82,14 +82,12 @@ export function createFunnel(onSelect?: (from: string, to: string) => void): Fun
 			const row = el('div', { class: `funnel-row${onSelect ? ' clickable' : ''}` });
 			const pct = Math.round((step.count / max) * 100);
 			const safeFrom = escapeHtml(step.from || '(direct)');
-			const safeTo   = escapeHtml(step.to   || '?');
-			const from = truncate(safeFrom, 20);
-			const to   = truncate(safeTo,   20);
+			const safeTo = escapeHtml(step.to || '?');
 			row.innerHTML = `
         <div class="funnel-route">
-			<span class="funnel-from" title="${safeFrom}">${from}</span>
+			<span class="funnel-from" title="${safeFrom}">${safeFrom}</span>
 			<span class="funnel-arrow">-></span>
-			<span class="funnel-to"   title="${safeTo}">${to}</span>
+			<span class="funnel-to"   title="${safeTo}">${safeTo}</span>
         </div>
         <div class="top-bar-wrap">
 			<div class="top-bar funnel-bar" style="width:${pct}%"></div>
@@ -124,7 +122,7 @@ export function createTopEndpoints(onSelect?: (url: string) => void): HTMLElemen
 			const pct = Math.round((item.count / max) * 100);
 			const safe = escapeHtml(item.label);
 			row.innerHTML = `
-        <div class="top-label top-label--mono" title="${safe}">${truncate(safe, 45)}</div>
+        <div class="top-label top-label--mono" title="${safe}">${safe}</div>
         <div class="top-bar-wrap">
 			<div class="top-bar top-bar--endpoint" style="width:${pct}%"></div>
         </div>

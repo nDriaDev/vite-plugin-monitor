@@ -226,42 +226,29 @@ export function formatJson(value: unknown, indent = 2): string {
 
 /**
 * Produces the detail string visible in the Detail column of the
-* events table. Used for both row rendering and the
-* client-side filter in the search field.
-*
-* @remarks
-* The returned text is not truncated for the filter (unlike the
-* version displayed in the table) so as not to lose matches on
-* long strings. The displayed version truncates with `truncate()`.
+* events table. Used for both row rendering and the client-side
+* filter in the search field. The full value is always returned —
+* visual truncation is handled by CSS text-overflow: ellipsis.
 */
-export function getEventDetail(event: { type: string, payload: unknown }, truncateValue?: boolean): string {
+export function getEventDetail(event: { type: string, payload: unknown }): string {
 	const p = event.payload as any;
-	let val;
 	switch (event.type) {
 		case 'click':
-			val = truncateValue ? truncate((p.text ?? "").trim(), 50) : (p.text ?? "").trim();
-			return `${p.tag}${p.id ? '#' + p.id : ''} ${val}`;
+			return `${p.tag}${p.id ? '#' + p.id : ''} ${(p.text ?? '').trim()}`;
 		case 'http':
-			val = truncateValue ? truncate((p.url ?? ""), 70) : (p.url ?? "").trim();
-			return `${p.method} ${val} ${p.status ?? ''}`;
+			return `${p.method} ${(p.url ?? '').trim()} ${p.status ?? ''}`;
 		case 'error':
-			val = truncateValue ? truncate((p.message ?? ""), 90) : (p.message ?? "").trim();
-			return val;
+			return (p.message ?? '').trim();
 		case 'navigation':
-			val = truncateValue ? truncate((p.from ?? ""), 45) : (p.from ?? "").trim();
-			const to = truncateValue ? truncate((p.to ?? ""), 45) : (p.to ?? "").trim();
-			return `${val} -> ${to}`;
+			return `${(p.from ?? '').trim()} -> ${(p.to ?? '').trim()}`;
 		case 'console': {
 			const indent = '  '.repeat(Number(p.groupDepth ?? 0));
-			val = truncateValue ? truncate((p.message ?? ""), 80) : (p.message ?? "").trim();
-			return `${indent}[${p.method}] ${val}`;
+			return `${indent}[${p.method}] ${(p.message ?? '').trim()}`;
 		}
 		case 'custom':
 			return `${p.name}${p.duration !== undefined ? ` - ${formatDuration(p.duration)}` : ''}`;
 		case 'session': {
-			val = truncateValue ? truncate((p.previousUserId ?? ""), 36) : (p.previousUserId ?? "").trim();
-			const newUserId = truncateValue ? truncate((p.newUserId ?? "-"), 36) : (p.newUserId ?? "-").trim();
-			const who = p.previousUserId ? ` (${val} -> ${newUserId})` : '';
+			const who = p.previousUserId ? ` (${(p.previousUserId ?? '').trim()} -> ${(p.newUserId ?? '-').trim()})` : '';
 			return `${p.action} · ${p.trigger}${who}`;
 		}
 		default:

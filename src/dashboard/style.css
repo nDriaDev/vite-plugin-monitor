@@ -582,13 +582,9 @@ select {
 .funnel-to {
 	color: var(--text-secondary);
 	font-size: 11px;
-	white-space: normal;
+	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	display: -webkit-box;
-	line-clamp: 1;
-	-webkit-line-clamp: 1;
-	-webkit-box-orient: vertical;
 	min-width: 0;
 	max-width: 100%;
 }
@@ -629,13 +625,9 @@ select {
 	font-size: 14px;
 	font-weight: 600;
 	font-family: ui-monospace, monospace;
-	white-space: normal;
+	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	display: -webkit-box;
-	line-clamp: 1;
-	-webkit-line-clamp: 1;
-	-webkit-box-orient: vertical;
 	min-width: 0;
 	max-width: 100%;
 }
@@ -704,13 +696,9 @@ select {
 	color: var(--color-error-text);
 	font-size: 11px;
 	font-family: monospace;
-	white-space: normal;
+	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	display: -webkit-box;
-	line-clamp: 1;
-	-webkit-line-clamp: 1;
-	-webkit-box-orient: vertical;
 	min-width: 0;
 	max-width: 100%;
 }
@@ -988,24 +976,31 @@ select {
 }
 
 .col-detail {
+	max-width: 320px;
+	min-width: 0;
+}
+
+.col-detail-inner {
 	color: var(--text-secondary);
 	font-size: 11px;
-	white-space: normal;
+	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	max-width: 320px;
-	display: -webkit-box;
-	line-clamp: 1;
-	-webkit-line-clamp: 1;
-	-webkit-box-orient: vertical;
-	min-width: 0;
 	max-width: 100%;
 }
 
 .col-user {
+	min-width: 0;
+}
+
+.col-user-inner {
 	color: var(--text-muted);
 	font-size: 11px;
 	font-family: monospace;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 100%;
 }
 
 .type-badge {
@@ -1414,14 +1409,9 @@ select {
 }
 
 .vital-meta span:first-child {
-	white-space: normal;
+	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	max-width: 70%;
-	display: -webkit-box;
-	line-clamp: 1;
-	-webkit-line-clamp: 1;
-	-webkit-box-orient: vertical;
 	min-width: 0;
 	max-width: 100%;
 }
