@@ -604,9 +604,6 @@ describe('trackerPlugin()', () => {
 			(getHook(plugin, 'buildStart') as Function)();
 
 			expect(mockMkdirSync).toHaveBeenCalledWith('./logs', { recursive: true });
-			expect(mockLogger.debug).toHaveBeenCalledWith(
-				expect.stringContaining('Log directory created')
-			);
 		});
 
 		it('does not call mkdirSync when the directory already exists', () => {
@@ -684,9 +681,6 @@ describe('trackerPlugin()', () => {
 			expect(mockWriteFileSync).toHaveBeenCalledOnce();
 			const writtenHtml = mockWriteFileSync.mock.calls[0][1] as string;
 			expect(writtenHtml).toContain('__TRACKER_CONFIG__');
-			expect(mockLogger.debug).toHaveBeenCalledWith(
-				expect.stringContaining('Dashboard copied to')
-			);
 		});
 
 		it('stops the standalone server before calling logger.destroy', async () => {

@@ -371,6 +371,45 @@ describe('DebugOverlay', () => {
 		});
 	});
 
+	describe('#dashboard-link', () => {
+		it('click calls window.open with the correct URL and target', () => {
+			const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+			overlay = makeOverlay();
+			getShadow(overlay).querySelector('#dashboard-link')!
+				.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+			expect(openSpy).toHaveBeenCalledWith(
+				window.location.origin + DASHBOARD_ROUTE,
+				'tracker-dashboard'
+			);
+			openSpy.mockRestore();
+			overlay.destroy();
+		});
+
+		it('click prevents the default anchor navigation', () => {
+			vi.spyOn(window, 'open').mockImplementation(() => null);
+			overlay = makeOverlay();
+			const link = getShadow(overlay).querySelector('#dashboard-link')!;
+			const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+			const preventSpy = vi.spyOn(event, 'preventDefault');
+			link.dispatchEvent(event);
+			expect(preventSpy).toHaveBeenCalled();
+			vi.restoreAllMocks();
+			overlay.destroy();
+		});
+
+		it('click closes the panel', () => {
+			vi.spyOn(window, 'open').mockImplementation(() => null);
+			overlay = makeOverlay();
+			overlay.toggle();
+			const panel = getShadow(overlay).querySelector('#panel')!;
+			getShadow(overlay).querySelector('#dashboard-link')!
+				.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+			expect(panel.classList.contains('open')).toBe(false);
+			vi.restoreAllMocks();
+			overlay.destroy();
+		});
+	});
+
 	describe('theme', () => {
 		it('click on #theme-toggle switches from dark to light', () => {
 			overlay = makeOverlay();

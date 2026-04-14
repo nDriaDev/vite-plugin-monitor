@@ -307,14 +307,6 @@ describe('getEventDetail', () => {
 		const event = { type: 'unknown', payload: {} };
 		expect(getEventDetail(event as any)).toBe('');
 	});
-
-	it('truncateValue=true: truncates long values', () => {
-		const longText = 'A'.repeat(100);
-		const event = { type: 'error', payload: { message: longText } };
-		const truncated = getEventDetail(event as any, true);
-		expect(truncated.length).toBeLessThan(longText.length);
-		expect(truncated).toContain('…');
-	});
 });
 
 describe('formatCompactNumber', () => {

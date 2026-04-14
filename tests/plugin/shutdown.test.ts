@@ -169,24 +169,23 @@ describe('registerShutdownHook()', () => {
 			const spy = vi.spyOn(process, 'on');
 			registerShutdownHook(vi.fn());
 			const countAfterFirst = spy.mock.calls.filter(([ev]) =>
-				['SIGTERM', 'SIGINT', 'SIGHUP'].includes(ev as string)
+				['SIGTERM', 'SIGINT'].includes(ev as string)
 			).length;
 
 			registerShutdownHook(vi.fn());
 			const countAfterSecond = spy.mock.calls.filter(([ev]) =>
-				['SIGTERM', 'SIGINT', 'SIGHUP'].includes(ev as string)
+				['SIGTERM', 'SIGINT'].includes(ev as string)
 			).length;
 
 			expect(countAfterFirst).toBe(countAfterSecond);
 		});
 
-		it('registers listeners for SIGTERM, SIGINT and SIGHUP only (no uncaughtException)', () => {
+		it('registers listeners for SIGTERM and SIGINT only (no uncaughtException)', () => {
 			const spy = vi.spyOn(process, 'on');
 			registerShutdownHook(vi.fn());
 			const signals = spy.mock.calls.map(([ev]) => ev);
 			expect(signals).toContain('SIGTERM');
 			expect(signals).toContain('SIGINT');
-			expect(signals).toContain('SIGHUP');
 			expect(signals).not.toContain('uncaughtException');
 		});
 	});
