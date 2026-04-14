@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 /**
 * Lightweight DOM helpers used throughout the dashboard.
 * These exist solely to reduce boilerplate: no abstractions,
@@ -65,7 +64,6 @@ export function svgEl<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Recor
 * Add an event listener and return a cleanup function.
 * Enables easy teardown: `const off = on(btn, 'click', handler); off()`
 */
-// eslint-disable-next-line no-unused-vars
 export function on<K extends keyof HTMLElementEventMap>(target: EventTarget, event: K, handler: (e: HTMLElementEventMap[K]) => void, opts?: AddEventListenerOptions): () => void {
 	target.addEventListener(event as string, handler as EventListener, opts);
 	return () => target.removeEventListener(event as string, handler as EventListener, opts);

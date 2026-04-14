@@ -1,5 +1,3 @@
-/* eslint-disable no-unused-vars */
-/* eslint-disable no-undef */
 import type { ErrorPayload, ErrorTrackOptions } from "@tracker/types";
 
 /**

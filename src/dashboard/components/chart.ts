@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import type { ChartComponent, ChartMode, ChartOptions, TimePoint } from "@tracker/types";
 import { el, empty, svgEl } from "../utils/dom";
 import { formatBucket } from "../utils/format";

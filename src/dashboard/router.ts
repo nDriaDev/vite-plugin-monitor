@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import type { AppTab } from "@tracker/types";
 import { store } from "./state";
 

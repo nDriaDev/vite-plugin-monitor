@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-misused-promises */
-/* eslint-disable no-undef */
 import type { CleanupFn } from "@tracker/types";
 
 const HOOKS_KEY = '__tracker_shutdown_hooks__';

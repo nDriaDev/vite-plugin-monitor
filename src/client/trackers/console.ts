@@ -1,5 +1,3 @@
-/* eslint-disable no-unused-vars */
-/* eslint-disable no-undef */
 import type { ConsoleMethod, ConsolePayload, ConsoleTrackOptions, LogLevel, ResolvedConsoleOpts, SerializedArg } from "@tracker/types";
 
 const ALL_METHODS: ConsoleMethod[] = [

@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import type { EventPayload, LogLevel, TrackerEvent } from "@tracker/types";
 
 function generateId(): string {

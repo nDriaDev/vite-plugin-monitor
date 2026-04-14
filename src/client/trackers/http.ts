@@ -1,5 +1,3 @@
-/* eslint-disable no-unused-vars */
-/* eslint-disable no-undef */
 import type { HttpPayload, HttpTrackOptions, LogLevel, ResolvedHttpOpts, TrackedXHR } from "@tracker/types";
 
 const SENSITIVE_HEADERS = new Set([

@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import type { Logger, ResolvedTrackerOptions, TrackerPluginOptions } from "@tracker/types";
 import type { HtmlTagDescriptor, Plugin, PreviewServer, ResolvedConfig, ViteDevServer } from "vite";
 import { resolveOptions } from "./config";

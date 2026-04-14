@@ -1,5 +1,3 @@
-/* eslint-disable no-unused-vars */
-/* eslint-disable no-undef */
 import type { IDebugOverlay, TrackerEvent } from "@tracker/types";
 import type { TrackerSession } from "./session";
 import { STYLES } from "./styles/overlay.styles";

@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import type { NavigationPayload, NavigationTrackOptions } from "@tracker/types";
 
 /**
@@ -108,7 +107,6 @@ function matchesRoute(path: string, patterns: (string | RegExp)[]): boolean {
  *                     A navigation is suppressed when either `from` or `to`
  *                     starts with one of these prefixes.
  */
-// eslint-disable-next-line no-unused-vars
 export function setupNavigationTracker(onEvent: (payload: NavigationPayload) => void, opts: true | NavigationTrackOptions = true, ignoreUrls: (string | RegExp)[] = []): () => void {
 	let currentRoute = window.location.pathname + window.location.search;
 	let routeStart = performance.now();

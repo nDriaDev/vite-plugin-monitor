@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import type { LogLevel, SearchOperator, TrackerEvent, TrackerEventType } from "@tracker/types";
 import { formatDateTime, getEventDetail, truncate } from "../utils/format";
 import { el, empty, escapeHtml, on, qs, toggleVisible } from "../utils/dom";

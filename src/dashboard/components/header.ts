@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import { el, on, qs } from "../utils/dom";
 import { navigateTo } from "../router";
 import { clearAuth } from "./login";

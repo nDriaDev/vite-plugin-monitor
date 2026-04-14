@@ -208,7 +208,6 @@ export function createStandaloneServer(opts: ResolvedTrackerOptions, logger: Log
 		}
 	);
 
-	// eslint-disable-next-line @typescript-eslint/no-misused-promises
 	const server = createServer(async (req, res) => {
 		const handled = await handler(req, res);
 		if (!handled) {

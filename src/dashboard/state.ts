@@ -223,7 +223,6 @@ function createStore() {
 	 * @param events - Full unfiltered event list returned by the backend.
 	 * @param _total - Ignored (total is now computed after client-side filtering).
 	 */
-	// eslint-disable-next-line no-unused-vars
 	function setEvents(events: TrackerEvent[], _total: number) {
 		rawEvents = events;
 		state.eventsLoading = false;

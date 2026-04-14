@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 /**
 * logger-worker.ts - Worker thread that owns all file I/O.
 *

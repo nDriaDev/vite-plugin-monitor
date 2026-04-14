@@ -1,5 +1,3 @@
-/* eslint-disable no-case-declarations */
-/* eslint-disable no-useless-escape */
 /**
 * Pure formatting functions: no side effects, no DOM access.
 * Used throughout the dashboard to display timestamps, durations, counts.

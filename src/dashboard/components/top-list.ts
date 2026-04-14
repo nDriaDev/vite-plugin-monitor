@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import type { ErrorItem, FunnelComponent, FunnelStep, RankedItem, TopErrorsComponent, TopPagesComponent } from "@tracker/types";
 import { el, empty, escapeHtml } from "../utils/dom";
 import { formatCount, formatRelative, truncate } from "../utils/format";

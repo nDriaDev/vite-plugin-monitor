@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import { createChart } from './components/chart';
 import { createHeader } from './components/header';
 import { createHttpInfoCards, createHttpStatusCards, createKpiCards } from './components/kpi-cards';
@@ -273,9 +272,7 @@ function mountApp(root: HTMLElement) {
 		const ok = await fetchPing();
 		store.setBackendStatus(ok);
 	}
-	// eslint-disable-next-line @typescript-eslint/no-floating-promises
 	pingBackend();
-	// eslint-disable-next-line @typescript-eslint/no-misused-promises
 	setInterval(pingBackend, 10_000);
 }
 
