@@ -1,5 +1,4 @@
-/* eslint-disable no-unused-vars */
-import { formatCount, formatDuration, formatPercent } from "../utils/format";
+import { formatCompactNumber, formatCount, formatDuration, formatPercent } from "../utils/format";
 import { el } from "../utils/dom";
 import { store } from "../state";
 import type { HttpStats, KpiCard, MetricsResult, StatsResult } from "@tracker/types";
@@ -8,19 +7,19 @@ const CARDS: KpiCard[] = [
 	{
 		id: 'active-sessions',
 		label: 'Active Sessions',
-		getValue: (_s, m) => formatCount(m?.activeSessions ?? 0),
+		getValue: (_s, m) => formatCompactNumber(m?.activeSessions ?? 0),
 		getClass: () => ''
 	},
 	{
 		id: 'total-events',
 		label: 'Total Events',
-		getValue: s => formatCount(s.totalEvents ?? 0),
+		getValue: s => formatCompactNumber(s.totalEvents ?? 0),
 		getClass: () => ''
 	},
 	{
 		id: 'unique-users',
 		label: 'Unique Users',
-		getValue: s => formatCount(s.totalUsers ?? 0),
+		getValue: s => formatCompactNumber(s.totalUsers ?? 0),
 		getClass: () => ''
 	},
 	{

@@ -226,7 +226,7 @@ export function createEventsTable(): HTMLElement {
 		<td class="col-time">${formatDateTime(event.timestamp)}</td>
 		<td class="col-type"><span class="type-badge type-${event.type}">${TYPE_ICONS[event.type]} ${event.type}</span></td>
 		<td class="col-level"><span class="level-badge ${LEVEL_CLASS[event.level]}">${event.level}</span></td>
-		<td class="col-user" title="${escapeHtml(event.userId)}">${escapeHtml(truncate(event.userId, 16))}</td>
+		<td class="col-user" title="${escapeHtml(event.userId)}">${escapeHtml(truncate(event.userId, 30))}</td>
 		<td class="col-detail" title="${escapeHtml(value)}">${escapeHtml(valueTruncated)}</td>
     `;
 

@@ -78,7 +78,7 @@ export function formatRelative(iso: string): string {
 */
 export function formatBucket(bucket: string): string {
 	let result = bucket;
-	if (bucket.split('T').filter(el => el).length === 2 ) {
+	if (bucket.split('T').filter(el => el).length === 2) {
 		// INFO Hourly bucket: show HH:MM
 		result = bucket.slice(11, 16);
 	}
@@ -98,6 +98,30 @@ export function formatCount(n: number): string {
 		return '-';
 	}
 	return new Intl.NumberFormat().format(Math.round(n));
+}
+
+/**
+ * INFO
+ * Compact number format for KPI cards:
+ * 999       -> "999"
+ * 1245      -> "1.2k"
+ * 12500     -> "12.5k"
+ * 1000000   -> "1.0M"
+ */
+export function formatCompactNumber(n: number): string {
+	if (!Number.isFinite(n)) {
+		return '-';
+	}
+	const v = Math.round(n);
+	if (v < 1_000) {
+		return String(v);
+	}
+	if (v < 1_000_000) {
+		const k = v / 1_000;
+		return `${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}k`;
+	}
+	const m = v / 1_000_000;
+	return `${m % 1 === 0 ? m.toFixed(0) : m.toFixed(1)}M`;
 }
 
 // INFO 0.1234 -> "12.3%"
@@ -215,28 +239,28 @@ export function getEventDetail(event: { type: string, payload: unknown }, trunca
 	let val;
 	switch (event.type) {
 		case 'click':
-			val = truncateValue ? truncate((p.text ?? "").trim(), 30) : (p.text ?? "").trim();
+			val = truncateValue ? truncate((p.text ?? "").trim(), 50) : (p.text ?? "").trim();
 			return `${p.tag}${p.id ? '#' + p.id : ''} ${val}`;
 		case 'http':
-			val = truncateValue ? truncate((p.url ?? ""), 50) : (p.url ?? "").trim();
+			val = truncateValue ? truncate((p.url ?? ""), 70) : (p.url ?? "").trim();
 			return `${p.method} ${val} ${p.status ?? ''}`;
 		case 'error':
-			val = truncateValue ? truncate((p.message ?? ""), 70) : (p.message ?? "").trim();
+			val = truncateValue ? truncate((p.message ?? ""), 90) : (p.message ?? "").trim();
 			return val;
 		case 'navigation':
-			val = truncateValue ? truncate((p.from ?? ""), 25) : (p.from ?? "").trim();
-			const to = truncateValue ? truncate((p.to ?? ""), 25) : (p.to ?? "").trim();
+			val = truncateValue ? truncate((p.from ?? ""), 45) : (p.from ?? "").trim();
+			const to = truncateValue ? truncate((p.to ?? ""), 45) : (p.to ?? "").trim();
 			return `${val} -> ${to}`;
 		case 'console': {
 			const indent = '  '.repeat(Number(p.groupDepth ?? 0));
-			val = truncateValue ? truncate((p.message ?? ""), 60) : (p.message ?? "").trim();
+			val = truncateValue ? truncate((p.message ?? ""), 80) : (p.message ?? "").trim();
 			return `${indent}[${p.method}] ${val}`;
 		}
 		case 'custom':
 			return `${p.name}${p.duration !== undefined ? ` - ${formatDuration(p.duration)}` : ''}`;
 		case 'session': {
-			val = truncateValue ? truncate((p.previousUserId ?? ""), 16) : (p.previousUserId ?? "").trim();
-			const newUserId = truncateValue ? truncate((p.newUserId ?? "-"), 16) : (p.newUserId ?? "-").trim();
+			val = truncateValue ? truncate((p.previousUserId ?? ""), 36) : (p.previousUserId ?? "").trim();
+			const newUserId = truncateValue ? truncate((p.newUserId ?? "-"), 36) : (p.newUserId ?? "-").trim();
 			const who = p.previousUserId ? ` (${val} -> ${newUserId})` : '';
 			return `${p.action} · ${p.trigger}${who}`;
 		}
