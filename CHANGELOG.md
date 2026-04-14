@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.4.4](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.4.4) - 2026-04-14
+
+### Bug Fixes
+
+- error handling + various ([f688ee7](https://github.com/nDriaDev/vite-plugin-monitor/commit/f688ee7))
+- format number and fix and events table dimension ([55c8cd2](https://github.com/nDriaDev/vite-plugin-monitor/commit/55c8cd2))
+
+### Chores
+
+- eslint config ([baa9c3a](https://github.com/nDriaDev/vite-plugin-monitor/commit/baa9c3a))
+
+### Other Changes
+
+- update test ([d0eec27](https://github.com/nDriaDev/vite-plugin-monitor/commit/d0eec27))
+
 ## [1.4.3](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.4.3) - 2026-04-13
 
 ### Bug Fixes
