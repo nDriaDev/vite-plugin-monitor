@@ -133,6 +133,24 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 	/* v8 ignore stop */
 
 	function configureServer(server: ViteDevServer | PreviewServer) {
+		/**
+		 * INFO
+		 * plugin print on process.stoud/sterr with console. If the process running in background,
+		 * when client disconnect session, stdout/stderr receive EIO/EPIPE error.
+		 * So register an hanlder to avoid process's death for uncaughtException
+		 */
+		const suppressIoError = (err: NodeJS.ErrnoException) => {
+			if (err.code !== 'EIO' && err.code !== 'EPIPE') {
+				throw err;
+			}
+		};
+		if (process.stdout.listenerCount('error') === 0) {
+			process.stdout.on('error', suppressIoError);
+		}
+		if (process.stderr.listenerCount('error') === 0) {
+			process.stderr.on('error', suppressIoError);
+		}
+
 		logger = createLogger(opts.appId, opts.logging);
 
 		if (mode === 'middleware') {
