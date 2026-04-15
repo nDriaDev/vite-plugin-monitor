@@ -62,6 +62,7 @@ function createStore() {
 		tab: 'metrics',
 		timeRange: { preset: '24h', ...presetToRange('24h') },
 		chartType: 'line',
+		chartBucket: '1h',
 		volumeBucket: '1h',
 		errorBucket: '1h',
 		metrics: null,
