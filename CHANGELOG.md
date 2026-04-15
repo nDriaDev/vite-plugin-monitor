@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.5.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.5.0) - 2026-04-15
+
+### Code Refactoring
+
+- rewrite logging logic without worker_thread ([103bf49](https://github.com/nDriaDev/vite-plugin-monitor/commit/103bf49))
+
+### Documentation
+
+- update documentation ([931b41d](https://github.com/nDriaDev/vite-plugin-monitor/commit/931b41d))
+
+### Other Changes
+
+- fixing on previous refactor ([cd6ebae](https://github.com/nDriaDev/vite-plugin-monitor/commit/cd6ebae))
+
 ## [1.4.6](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.4.6) - 2026-04-14
 
 ### Bug Fixes
