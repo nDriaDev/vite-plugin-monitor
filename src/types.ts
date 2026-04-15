@@ -2761,6 +2761,20 @@ export type TimePreset = 'live' | '1h' | '6h' | '24h' | '7d' | '30d'
 export type ChartType = 'line' | 'bar'
 
 /**
+* Time bucket granularity for the X-axis of the Metrics tab charts.
+*
+* | Value   | Bucket width | Best used with        |
+* |---------|--------------|-----------------------|
+* | `'30m'` | 30 minutes   | ≤ 6 h time windows    |
+* | `'1h'`  | 1 hour       | ≤ 24 h time windows   |
+* | `'6h'`  | 6 hours      | ≤ 3 d time windows    |
+* | `'12h'` | 12 hours     | ≤ 7 d time windows    |
+* | `'1d'`  | 1 day        | ≥ 3 d time windows    |
+* | `'7d'`  | 7 days       | ≥ 2 weeks time windows|
+*/
+export type ChartBucket = '30m' | '1h' | '6h' | '12h' | '1d' | '7d'
+
+/**
 * Identifier for the currently active tab in the dashboard SPA.
 *
 * @remarks
@@ -2891,6 +2905,12 @@ export interface AppState {
 	timeRange: TimeRange
 	/** Current render mode for all time series charts. */
 	chartType: ChartType
+	/** Bucket granularity for the X-axis of the Metrics charts. */
+	chartBucket: ChartBucket
+	/** Bucket granularity for the Event Volume chart X-axis. */
+	volumeBucket: ChartBucket
+	/** Bucket granularity for the Error Rate chart X-axis. */
+	errorBucket: ChartBucket
 	/** Latest metrics result. `null` before the first successful computation. */
 	metrics: MetricsResult | null
 	/** Latest stats result. `null` before the first successful computation. */
@@ -2929,6 +2949,9 @@ export interface StateEvents {
 	'tab:change': AppTab
 	'timeRange:change': TimeRange
 	'chartType:change': ChartType
+	'chartBucket:change': ChartBucket
+	'volumeBucket:change': ChartBucket
+	'errorBucket:change': ChartBucket
 	'metrics:update': { metrics: MetricsResult; stats: StatsResult }
 	'metrics:loading': boolean
 	'metrics:error': string | null

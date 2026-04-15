@@ -1,9 +1,51 @@
-import type { HttpStats, MetricsResult, StatsResult, TrackerEvent } from "@tracker/types";
+import type { ChartBucket, HttpStats, MetricsResult, StatsResult, TrackerEvent } from "@tracker/types";
+
+/**
+ * Returns an ISO string truncated to the requested bucket boundary.
+ * Used to group events into time buckets for chart time series.
+ */
+function toBucket(ts: string, bucket: ChartBucket): string {
+	const d = new Date(ts);
+	const y = d.getUTCFullYear();
+	const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
+	const day = String(d.getUTCDate()).padStart(2, '0');
+	const h = d.getUTCHours();
+	const m = d.getUTCMinutes();
+
+	switch (bucket) {
+		case '30m': {
+			const slot = m < 30 ? '00' : '30';
+			return `${y}-${mo}-${day}T${String(h).padStart(2, '0')}:${slot}`;
+		}
+		case '1h':
+			return `${y}-${mo}-${day}T${String(h).padStart(2, '0')}:00`;
+		case '6h': {
+			const slot = Math.floor(h / 6) * 6;
+			return `${y}-${mo}-${day}T${String(slot).padStart(2, '0')}:00`;
+		}
+		case '12h': {
+			const slot = h < 12 ? '00' : '12';
+			return `${y}-${mo}-${day}T${slot}:00`;
+		}
+		case '1d':
+			return `${y}-${mo}-${day}`;
+		case '7d': {
+			// Round down to nearest Monday (ISO week start)
+			const dayOfWeek = d.getUTCDay(); // 0=Sun
+			const diff = (dayOfWeek === 0 ? 6 : dayOfWeek - 1); // days since Monday
+			const monday = new Date(d.getTime() - diff * 86_400_000);
+			const my = monday.getUTCFullYear();
+			const mmo = String(monday.getUTCMonth() + 1).padStart(2, '0');
+			const mday = String(monday.getUTCDate()).padStart(2, '0');
+			return `${my}-${mmo}-${mday}`;
+		}
+	}
+}
 
 /**
 * Metrics computation pure, from buffer
 */
-export function computeMetrics(events: TrackerEvent[], since: string, until: string): MetricsResult {
+export function computeMetrics(events: TrackerEvent[], since: string, until: string, chartBucket: ChartBucket = '1h'): MetricsResult {
 	const ranged = events.filter(e => e.timestamp >= since && e.timestamp <= until);
 	const now = new Date();
 	const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
@@ -11,18 +53,12 @@ export function computeMetrics(events: TrackerEvent[], since: string, until: str
 	const activeSessions = new Set(events.filter(e => e.timestamp >= fiveMinAgo).map(e => e.sessionId)).size;
 
 	const diffHours = (new Date(until).getTime() - new Date(since).getTime()) / 3600000;
-	const bucket = (ts: string) => {
-		const d = new Date(ts);
-		if (diffHours <= 48) {
-			return `${d.toISOString().slice(0, 13)}:00`;   // INFO YYYY-MM-DDTHH:00
-		}
-		return d.toISOString().slice(0, 10);              // INFO YYYY-MM-DD
-	}
+	void diffHours;
 
 	const volumeMap = new Map<string, number>();
 	const errorMap = new Map<string, { total: number; errors: number }>();
 	for (const e of ranged) {
-		const b = bucket(e.timestamp);
+		const b = toBucket(e.timestamp, chartBucket);
 		volumeMap.set(b, (volumeMap.get(b) ?? 0) + 1);
 		const em = errorMap.get(b) ?? { total: 0, errors: 0 };
 		em.total++;

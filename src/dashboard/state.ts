@@ -1,4 +1,4 @@
-import type { AppState, AppTab, ChartType, EventsFilter, Listener, MetricsResult, SearchOperator, StateEvents, StatsResult, TimePreset, TimeRange, TrackerEvent } from "@tracker/types";
+import type { AppState, AppTab, ChartBucket, ChartType, EventsFilter, Listener, MetricsResult, SearchOperator, StateEvents, StatsResult, TimePreset, TimeRange, TrackerEvent } from "@tracker/types";
 import { getEventDetail } from "./utils/format";
 
 export const PRESETS: { label: string; value: TimePreset; minutes: number }[] = [
@@ -62,6 +62,9 @@ function createStore() {
 		tab: 'metrics',
 		timeRange: { preset: '24h', ...presetToRange('24h') },
 		chartType: 'line',
+		chartBucket: '1h',
+		volumeBucket: '1h',
+		errorBucket: '1h',
 		metrics: null,
 		stats: null,
 		metricsLoading: false,
@@ -197,6 +200,21 @@ function createStore() {
 		emit('chartType:change', type);
 	}
 
+	function setChartBucket(bucket: ChartBucket) {
+		state.chartBucket = bucket;
+		emit('chartBucket:change', bucket);
+	}
+
+	function setVolumeBucket(bucket: ChartBucket) {
+		state.volumeBucket = bucket;
+		emit('volumeBucket:change', bucket);
+	}
+
+	function setErrorBucket(bucket: ChartBucket) {
+		state.errorBucket = bucket;
+		emit('errorBucket:change', bucket);
+	}
+
 	function setMetrics(metrics: MetricsResult, stats: StatsResult) {
 		state.metrics = metrics;
 		state.stats = stats;
@@ -289,6 +307,9 @@ function createStore() {
 		setTab,
 		setTimeRange,
 		setChartType,
+		setChartBucket,
+		setVolumeBucket,
+		setErrorBucket,
 		setMetrics,
 		setMetricsLoading,
 		setMetricsError,

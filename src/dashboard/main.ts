@@ -11,7 +11,7 @@ import { createEventDetail } from './components/event-detail';
 import { createPoller } from './utils/poll';
 import { fetchAllEvents, fetchPing } from './api';
 import { computeMetrics, computeStats } from './aggregations';
-import type { FunnelComponent, TopErrorsComponent, TopPagesComponent } from '@tracker/types';
+import type { ChartBucket, FunnelComponent, TopErrorsComponent, TopPagesComponent } from '@tracker/types';
 import { createFunnel, createTopEndpoints, createTopErrors, createTopPages } from './components/top-list';
 
 /**
@@ -143,35 +143,76 @@ function mountApp(root: HTMLElement) {
 
 	const chartsRow = el('div', { class: 'charts-row' });
 
+	const BUCKET_OPTIONS: { label: string; value: string }[] = [
+		{ label: '30m', value: '30m' },
+		{ label: '1h', value: '1h' },
+		{ label: '6h', value: '6h' },
+		{ label: '12h', value: '12h' },
+		{ label: '1d', value: '1d' },
+		{ label: '7d', value: '7d' },
+	];
+
+	function makeBucketToggle(activeValue = '1h', idPrefix: string): HTMLElement {
+		const wrap = el('div', { class: 'chart-toggle', id: `${idPrefix}-bucket-toggle` });
+		wrap.innerHTML = BUCKET_OPTIONS.map(o =>
+			`<button class="toggle-btn bucket-btn${o.value === activeValue ? ' active' : ''}" data-bucket="${o.value}">${o.label}</button>`
+		).join('');
+		return wrap;
+	}
+
+	const volumeBucketToggle = makeBucketToggle('1h', 'volume');
+	const errorBucketToggle = makeBucketToggle('1h', 'error');
+
 	const volumePanel = el('div', { class: 'panel chart-panel' });
 	volumePanel.innerHTML = `
     <div class="panel-header">
 		<span class="panel-title">Event Volume</span>
-		<div class="chart-toggle">
-			<button class="toggle-btn active" data-mode="line">Line</button>
-			<button class="toggle-btn" data-mode="bar">Bar</button>
+		<div style="display:flex;gap:6px;align-items:center">
+			<div class="chart-toggle" id="mode-toggle">
+				<button class="toggle-btn active" data-mode="line">Line</button>
+				<button class="toggle-btn" data-mode="bar">Bar</button>
+			</div>
 		</div>
     </div>
 `;
+	volumePanel.querySelector('.panel-header div')!.prepend(volumeBucketToggle);
 	volumePanel.append(volumeChart.el);
 
 	const errorPanel = el('div', { class: 'panel chart-panel' });
 	errorPanel.innerHTML = `
     <div class="panel-header">
 		<span class="panel-title">Total Error Rate %</span>
+		<div style="display:flex;gap:6px;align-items:center"></div>
     </div>
 `;
+	errorPanel.querySelector('.panel-header div')!.append(errorBucketToggle);
 	errorPanel.append(errorChart.el);
 
 	chartsRow.append(volumePanel, errorPanel);
 
 	metricsTab.append(kpiCards, listsRow, httpInfoCards, httpStatusCards, chartsRow);
 
-	volumePanel.querySelectorAll<HTMLButtonElement>('.toggle-btn').forEach(btn => {
+	volumePanel.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(btn => {
 		on(btn, 'click', () => {
-			volumePanel.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+			volumePanel.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'));
 			btn.classList.add('active');
 			store.setChartType(btn.dataset.mode as 'line' | 'bar');
+		});
+	});
+
+	volumeBucketToggle.querySelectorAll<HTMLButtonElement>('.bucket-btn').forEach(btn => {
+		on(btn, 'click', () => {
+			volumeBucketToggle.querySelectorAll('.bucket-btn').forEach(b => b.classList.remove('active'));
+			btn.classList.add('active');
+			store.setVolumeBucket(btn.dataset.bucket as ChartBucket);
+		});
+	});
+
+	errorBucketToggle.querySelectorAll<HTMLButtonElement>('.bucket-btn').forEach(btn => {
+		on(btn, 'click', () => {
+			errorBucketToggle.querySelectorAll('.bucket-btn').forEach(b => b.classList.remove('active'));
+			btn.classList.add('active');
+			store.setErrorBucket(btn.dataset.bucket as ChartBucket);
 		});
 	});
 
@@ -181,6 +222,32 @@ function mountApp(root: HTMLElement) {
 			volumeChart.render(s.metrics.eventVolume, mode);
 			errorChart.render(s.metrics.errorRateTimeline, mode);
 		}
+	});
+
+	store.on('volumeBucket:change', async () => {
+		const s = store.get();
+		if (!s.metrics) {
+			return;
+		}
+		try {
+			const { from, to } = effectiveTimeRange(s.timeRange);
+			const events = await fetchAllEvents(from, to);
+			const metrics = computeMetrics(events, from, to, s.volumeBucket);
+			volumeChart.render(metrics.eventVolume, s.chartType);
+		} catch { /* poller will retry */ }
+	});
+
+	store.on('errorBucket:change', async () => {
+		const s = store.get();
+		if (!s.metrics) {
+			return;
+		}
+		try {
+			const { from, to } = effectiveTimeRange(s.timeRange);
+			const events = await fetchAllEvents(from, to);
+			const metrics = computeMetrics(events, from, to, s.errorBucket);
+			errorChart.render(metrics.errorRateTimeline, s.chartType);
+		} catch { /* poller will retry */ }
 	});
 
 	const eventsTable = createEventsTable();
@@ -224,13 +291,15 @@ function mountApp(root: HTMLElement) {
 			try {
 				const { from, to } = effectiveTimeRange(store.get().timeRange);
 				const events = await fetchAllEvents(from, to);
-				const metrics = computeMetrics(events, from, to);
+				const { chartBucket, chartType, volumeBucket, errorBucket } = store.get();
+				const metrics = computeMetrics(events, from, to, chartBucket);
+				const volumeMetrics = computeMetrics(events, from, to, volumeBucket);
+				const errorMetrics = computeMetrics(events, from, to, errorBucket);
 				const stats = computeStats(events, from, to);
 				store.setMetrics(metrics, stats);
 
-				const s = store.get();
-				volumeChart.render(metrics.eventVolume, s.chartType);
-				errorChart.render(metrics.errorRateTimeline, s.chartType);
+				volumeChart.render(volumeMetrics.eventVolume, chartType);
+				errorChart.render(errorMetrics.errorRateTimeline, chartType);
 				topPages.render(metrics.topPages);
 				topErrors.render(metrics.topErrors);
 				funnel.render(metrics.navigationFunnel);
