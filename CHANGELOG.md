@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.1](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.6.1) - 2026-04-15
+
+### Tests
+
+- update test ([86b03b3](https://github.com/nDriaDev/vite-plugin-monitor/commit/86b03b3))
+
 ## [1.6.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.6.0) - 2026-04-15
 
 ### Bug Fixes
