@@ -62,7 +62,6 @@ function createStore() {
 		tab: 'metrics',
 		timeRange: { preset: '24h', ...presetToRange('24h') },
 		chartType: 'line',
-		chartBucket: '1h',
 		volumeBucket: '1h',
 		errorBucket: '1h',
 		metrics: null,
@@ -200,11 +199,6 @@ function createStore() {
 		emit('chartType:change', type);
 	}
 
-	function setChartBucket(bucket: ChartBucket) {
-		state.chartBucket = bucket;
-		emit('chartBucket:change', bucket);
-	}
-
 	function setVolumeBucket(bucket: ChartBucket) {
 		state.volumeBucket = bucket;
 		emit('volumeBucket:change', bucket);
@@ -307,7 +301,6 @@ function createStore() {
 		setTab,
 		setTimeRange,
 		setChartType,
-		setChartBucket,
 		setVolumeBucket,
 		setErrorBucket,
 		setMetrics,

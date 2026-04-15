@@ -2905,8 +2905,6 @@ export interface AppState {
 	timeRange: TimeRange
 	/** Current render mode for all time series charts. */
 	chartType: ChartType
-	/** Bucket granularity for the X-axis of the Metrics charts. */
-	chartBucket: ChartBucket
 	/** Bucket granularity for the Event Volume chart X-axis. */
 	volumeBucket: ChartBucket
 	/** Bucket granularity for the Error Rate chart X-axis. */
@@ -2949,7 +2947,6 @@ export interface StateEvents {
 	'tab:change': AppTab
 	'timeRange:change': TimeRange
 	'chartType:change': ChartType
-	'chartBucket:change': ChartBucket
 	'volumeBucket:change': ChartBucket
 	'errorBucket:change': ChartBucket
 	'metrics:update': { metrics: MetricsResult; stats: StatsResult }

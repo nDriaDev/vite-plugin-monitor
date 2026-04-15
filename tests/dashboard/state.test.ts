@@ -93,6 +93,16 @@ describe('store', () => {
 			const { store } = await import('../../src/dashboard/state');
 			expect(store.get().backendOnline).toBe(true);
 		});
+
+		it('volumeBucket = "1h"', async () => {
+			const { store } = await import('../../src/dashboard/state');
+			expect(store.get().volumeBucket).toBe('1h');
+		});
+
+		it('errorBucket = "1h"', async () => {
+			const { store } = await import('../../src/dashboard/state');
+			expect(store.get().errorBucket).toBe('1h');
+		});
 	});
 
 	describe('setAuth', () => {
@@ -174,6 +184,42 @@ describe('store', () => {
 			store.setChartType('bar');
 			expect(store.get().chartType).toBe('bar');
 			expect(listener).toHaveBeenCalledWith('bar');
+		});
+	});
+
+	describe('setVolumeBucket', () => {
+		it('updates volumeBucket and emits volumeBucket:change', async () => {
+			const { store } = await import('../../src/dashboard/state');
+			const listener = vi.fn();
+			store.on('volumeBucket:change', listener);
+			store.setVolumeBucket('6h');
+			expect(store.get().volumeBucket).toBe('6h');
+			expect(listener).toHaveBeenCalledWith('6h');
+		});
+
+		it('does not affect errorBucket', async () => {
+			const { store } = await import('../../src/dashboard/state');
+			const before = store.get().errorBucket;
+			store.setVolumeBucket('7d');
+			expect(store.get().errorBucket).toBe(before);
+		});
+	});
+
+	describe('setErrorBucket', () => {
+		it('updates errorBucket and emits errorBucket:change', async () => {
+			const { store } = await import('../../src/dashboard/state');
+			const listener = vi.fn();
+			store.on('errorBucket:change', listener);
+			store.setErrorBucket('12h');
+			expect(store.get().errorBucket).toBe('12h');
+			expect(listener).toHaveBeenCalledWith('12h');
+		});
+
+		it('does not affect volumeBucket', async () => {
+			const { store } = await import('../../src/dashboard/state');
+			const before = store.get().volumeBucket;
+			store.setErrorBucket('30m');
+			expect(store.get().volumeBucket).toBe(before);
 		});
 	});
 

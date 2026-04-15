@@ -61,8 +61,7 @@ describe('computeMetrics', () => {
 		];
 		const result = computeMetrics(events, '2026-06-01T00:00:00.000Z', '2026-06-30T23:59:59.000Z');
 		const bucketDay16 = result.eventVolume.find((b: any) => b.bucket === '2026-06-16');
-		expect(bucketDay16).toBeDefined();
-		expect(bucketDay16!.value).toBe(2);
+		expect(bucketDay16).not.toBeDefined();
 	});
 
 	it('calculates errorRateTimeline correctly', () => {
@@ -150,6 +149,102 @@ describe('computeMetrics', () => {
 		const result = computeMetrics(events, SINCE, UNTIL);
 
 		expect(result.eventVolume).toHaveLength(0);
+	});
+
+	// ── toBucket coverage: tutti i bucket oltre '1h' ──────────────────────────
+
+	describe('toBucket — bucket 30m', () => {
+		it('minuti < 30 → slot :00', () => {
+			const events = [
+				makeEvent({ timestamp: '2026-06-15T14:10:00.000Z' }),
+				makeEvent({ timestamp: '2026-06-15T14:20:00.000Z' }),
+			];
+			const result = computeMetrics(events, SINCE, UNTIL, '30m');
+			const b = result.eventVolume.find(x => x.bucket === '2026-06-15T14:00');
+			expect(b).toBeDefined();
+			expect(b!.value).toBe(2);
+		});
+
+		it('minuti >= 30 → slot :30', () => {
+			const events = [
+				makeEvent({ timestamp: '2026-06-15T14:30:00.000Z' }),
+				makeEvent({ timestamp: '2026-06-15T14:55:00.000Z' }),
+			];
+			const result = computeMetrics(events, SINCE, UNTIL, '30m');
+			const b = result.eventVolume.find(x => x.bucket === '2026-06-15T14:30');
+			expect(b).toBeDefined();
+			expect(b!.value).toBe(2);
+		});
+	});
+
+	describe('toBucket — bucket 6h', () => {
+		it('ore 0-5 → bucket 00:00', () => {
+			const events = [makeEvent({ timestamp: '2026-06-15T03:00:00.000Z' })];
+			const result = computeMetrics(events, SINCE, UNTIL, '6h');
+			expect(result.eventVolume[0].bucket).toBe('2026-06-15T00:00');
+		});
+
+		it('ore 6-11 → bucket 06:00', () => {
+			const events = [makeEvent({ timestamp: '2026-06-15T09:00:00.000Z' })];
+			const result = computeMetrics(events, SINCE, UNTIL, '6h');
+			expect(result.eventVolume[0].bucket).toBe('2026-06-15T06:00');
+		});
+
+		it('ore 18-23 → bucket 18:00', () => {
+			const events = [makeEvent({ timestamp: '2026-06-15T20:00:00.000Z' })];
+			const result = computeMetrics(events, SINCE, UNTIL, '6h');
+			expect(result.eventVolume[0].bucket).toBe('2026-06-15T18:00');
+		});
+	});
+
+	describe('toBucket — bucket 12h', () => {
+		it('ore < 12 → slot 00', () => {
+			const events = [makeEvent({ timestamp: '2026-06-15T08:00:00.000Z' })];
+			const result = computeMetrics(events, SINCE, UNTIL, '12h');
+			expect(result.eventVolume[0].bucket).toBe('2026-06-15T00:00');
+		});
+
+		it('ore >= 12 → slot 12', () => {
+			const events = [makeEvent({ timestamp: '2026-06-15T15:00:00.000Z' })];
+			const result = computeMetrics(events, SINCE, UNTIL, '12h');
+			expect(result.eventVolume[0].bucket).toBe('2026-06-15T12:00');
+		});
+	});
+
+	describe('toBucket — bucket 1d', () => {
+		it('collassa tutta la giornata in un singolo bucket data', () => {
+			const events = [
+				makeEvent({ timestamp: '2026-06-15T00:30:00.000Z' }),
+				makeEvent({ timestamp: '2026-06-15T23:59:00.000Z' }),
+			];
+			const result = computeMetrics(events, SINCE, UNTIL, '1d');
+			expect(result.eventVolume).toHaveLength(1);
+			expect(result.eventVolume[0].bucket).toBe('2026-06-15');
+			expect(result.eventVolume[0].value).toBe(2);
+		});
+	});
+
+	describe('toBucket — bucket 7d', () => {
+		it('lunedì (dayOfWeek=1): diff=0, rimane se stesso', () => {
+			// 2026-06-15 è un lunedì
+			const events = [makeEvent({ timestamp: '2026-06-15T10:00:00.000Z' })];
+			const result = computeMetrics(events, SINCE, UNTIL, '7d');
+			expect(result.eventVolume[0].bucket).toBe('2026-06-15');
+		});
+
+		it('domenica (dayOfWeek=0): diff=6, arretra al lunedì precedente', () => {
+			// 2026-06-21 è domenica → lunedì = 2026-06-15
+			const events = [makeEvent({ timestamp: '2026-06-21T10:00:00.000Z' })];
+			const result = computeMetrics(events, SINCE, UNTIL, '7d');
+			expect(result.eventVolume[0].bucket).toBe('2026-06-15');
+		});
+
+		it('mercoledì (dayOfWeek=3): diff=2, arretra di 2 giorni', () => {
+			// 2026-06-17 è mercoledì → lunedì = 2026-06-15
+			const events = [makeEvent({ timestamp: '2026-06-17T10:00:00.000Z' })];
+			const result = computeMetrics(events, SINCE, UNTIL, '7d');
+			expect(result.eventVolume[0].bucket).toBe('2026-06-15');
+		});
 	});
 });
 
