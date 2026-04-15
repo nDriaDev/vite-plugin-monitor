@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.6.0) - 2026-04-15
+
+### Bug Fixes
+
+- stdout/stderr uncaughtException ([beafb4e](https://github.com/nDriaDev/vite-plugin-monitor/commit/beafb4e))
+
 ## [1.5.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.5.0) - 2026-04-15
 
 ### Code Refactoring
