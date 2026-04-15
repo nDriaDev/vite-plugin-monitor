@@ -73,7 +73,7 @@ Setup Script (head-prepend)  →   configResolved()  → resolveOptions()
 TrackerClient.init()
   ├─ Start flush timer         →  POST /_tracker/events
   ├─ Mount overlay                 ├─ RingBuffer.push()
-  └─ Emit session:start            └─ Logger (worker_threads)
+  └─ Emit session:start            └─ Logger (main thread, fs.WriteStream)
                                        ├─ JSONL transport
                                        └─ Pretty transport
 

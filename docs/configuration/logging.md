@@ -1,6 +1,6 @@
 # Logging
 
-The `logging` option controls server-side log file output. All file I/O is handled by a dedicated `worker_threads` worker — zero blocking on the main Vite process.
+The `logging` option controls server-side log file output. All file I/O is handled directly on the main thread using Node's non-blocking `fs.WriteStream` API — no worker threads are involved.
 
 ```typescript
 trackerPlugin({
@@ -173,40 +173,36 @@ Log replay reads all `.log` / `.jsonl` files matching the configured transport p
 
 ---
 
-## Worker Architecture
+## I/O Architecture
 
-All file I/O is delegated to a dedicated `worker_threads` worker to avoid blocking the Vite dev server's event loop.
+All file I/O runs directly on the main thread using Node's non-blocking stream APIs. No worker threads are involved.
 
 ```
-Main thread (Vite)                Worker thread (logger-worker)
-──────────────────────────        ──────────────────────────────────────
-Logger.writeEvent(event)     ──→  postMessage({ type: 'write', event })
-                                      ├─ Level check
-                                      ├─ Format (JSON or pretty)
-                                      ├─ Rotation check
-                                      ├─ fs.WriteStream.write()
-                                      └─ Archive cleanup if needed
+Main thread (Vite)
+──────────────────────────────────────────────────────────────────────
+Logger.writeEvent(event)
+  └─ Level check
+  └─ StreamTransport.write(event)
+       ├─ Rotation check (daily / size)
+       ├─ Format (JSON or pretty)
+       ├─ fs.WriteStream.write()    ← async, non-blocking
+       └─ Backpressure buffer if stream is draining
 
-Logger.startHydration(       ──→  postMessage({ type: 'hydrate' })
-  onBatch, onDone)                    ├─ Read all JSONL transport files
-                                      ├─ Parse each line as TrackerEvent
-                                      ├─ Skip malformed / invalid lines
-                                      ├─ postMessage({ type: 'hydrate:batch',
-                             ←──          events })  →  onBatch(events)
-                                      │                  buffer.push(events)
-                                      │  (repeat per batch until EOF)
-                                      └─ postMessage({ type: 'hydrate:done',
-                             ←──          loaded, skippedMalformed,
-                                          skippedInvalid, limitReached })
-                                                         →  onDone(stats)
+Logger.startHydration(onBatch, onDone)
+  └─ hydrateFromLogs() — async readline over createReadStream
+       ├─ Read all JSONL transport files in chronological order
+       ├─ Parse each line as TrackerEvent
+       ├─ Skip malformed / invalid lines
+       ├─ onBatch(events)           ← batched every batchSize lines
+       └─ onDone({ loaded, skippedMalformed, skippedInvalid, limitReached })
 
-Logger.destroy()             ──→  postMessage({ type: 'destroy' })
-                                      ├─ Flush all streams
-                                      ├─ Close all WriteStreams
-                                      └─ worker exit(0)
+Logger.destroy()
+  └─ StreamTransport.destroy()
+       ├─ Flush any buffered (pending) lines
+       └─ fs.WriteStream.end()      ← close and flush kernel buffer
 ```
 
-The worker is **spawned lazily** on the first `writeEvent()` or `startHydration()` call. Events arriving before the worker is ready are buffered and drained once the worker sends a `'ready'` message. On plugin shutdown, `destroy()` waits up to 3 seconds for the worker to flush and exit cleanly.
+`fs.WriteStream.write()` hands data off to the OS kernel immediately without blocking the Vite event loop. Rotation and cleanup (`renameSync`, `readdirSync`, `unlinkSync`) run synchronously but only at rotation boundaries — not on every event — so their impact is imperceptible in practice.
 
 Hydration reads only `format: 'json'` (JSONL) transports — `format: 'pretty'` logs are skipped. Each transport is capped at `maxBytesPerTransport` (default 50 MB) to prevent unbounded memory use on large log directories; if the cap is hit, the oldest files are skipped and `limitReached: true` is reported via `onDone`.
 

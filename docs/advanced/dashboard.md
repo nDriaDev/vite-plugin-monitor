@@ -53,7 +53,7 @@ Four summary cards at the top of the Metrics tab:
 
 | Card | Description |
 |------|-------------|
-| **Active Sessions** | Distinct `sessionId` values in the selected time window |
+| **Active Sessions** | Distinct `sessionId` values with at least one event in the last 5 minutes |
 | **Total Events** | Total count of all events |
 | **Unique Users** | Distinct `userId` values (anonymous IDs counted separately) |
 | **App Error Rate** | Percentage of events with `type: 'error'` (JS errors only — HTTP 4xx/5xx excluded) |

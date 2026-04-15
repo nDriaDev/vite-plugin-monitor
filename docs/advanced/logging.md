@@ -1,6 +1,6 @@
 # Log Files
 
-vite-plugin-monitor writes events to disk using a dedicated `worker_threads` worker — all file I/O is off the main Vite thread. Log files serve two purposes: persistent storage for events across server restarts, and a machine-readable audit trail.
+vite-plugin-monitor writes events to disk directly on the main thread using Node's non-blocking `fs.WriteStream` API. Log files serve two purposes: persistent storage for events across server restarts, and a machine-readable audit trail.
 
 ## Default Log Location
 
@@ -58,7 +58,7 @@ rotation: {
 
 ### Size-Based Rotation
 
-Triggered on the first write that would exceed `maxSize`. The active file is renamed with a `-YYYY_MM_DD_HH_mm_ss` date suffix:
+Triggered on the first write that would exceed `maxSize`. The active file is renamed with a `-YYYY_MM_DD_HH_MM_ss` date suffix:
 
 ```
 ./logs/monitor.log
@@ -142,41 +142,37 @@ logging: {
 The `logging.level` threshold applies to **all** transports equally. You cannot set different minimum levels per transport. To capture only errors in one file, configure a separate plugin instance or filter at the consumer side.
 :::
 
-## Worker Architecture
+## I/O Architecture
 
 ```
-Vite main thread                    logger-worker.ts (worker_threads)
-────────────────────────────────    ──────────────────────────────────────
+Vite main thread
+────────────────────────────────────────────────────────────────────────
 event arrives from browser
 logger.writeEvent(event)
   └── level check (LEVELS[event.level] < minLevel → discard)
-  └── spawnWorker() (lazy, once)
-  └── postMessage({ type: 'write', event })  →  receive message
-                                                  format to string (json/pretty)
-                                                  rotation check
-                                                  stream.write(line)
-                                                  cleanup old archives if needed
+  └── StreamTransport.write(event)
+        ├── rotation check (daily date change / size threshold)
+        │     └── renameSync + cleanupOldFiles + openStream (new file)
+        ├── formatter (JSON or pretty)
+        └── fs.WriteStream.write(line)   ← non-blocking, async kernel I/O
+              └── if backpressure: buffer line, flush on 'drain' event
 
 logger.startHydration(onBatch, onDone)
-  └── spawnWorker() (lazy, once)
-  └── postMessage({ type: 'hydrate' })       →  read all JSONL transport files
-                                                  parse each line as TrackerEvent
-                                                  skip malformed / invalid lines
-                                                  postMessage({ type: 'hydrate:batch',
-                                                    events })  ──────────────────────→  onBatch(events)
-                                                                                         buffer.push(events)
-                                                  (repeat per batch until EOF)
-                                                  postMessage({ type: 'hydrate:done',
-                                                    loaded, skippedMalformed,        →  onDone(stats)
-                                                    skippedInvalid, limitReached })
+  └── hydrateFromLogs() (async, does not block the event loop)
+        └── for each JSON transport file (chronological order):
+              readline.createInterface(createReadStream(file))
+                ├── parse each line as TrackerEvent
+                ├── skip malformed / invalid lines
+                ├── onBatch(events)  ← flushed every batchSize lines
+                └── (repeat per batch until EOF)
+        └── onDone({ loaded, skippedMalformed, skippedInvalid, limitReached })
 
 logger.destroy()
-  └── postMessage({ type: 'destroy' })  →  flush all streams
-                                            close all WriteStreams
-                                            process.exit(0)
-  └── await worker exit (3s timeout)
+  └── StreamTransport.destroy()
+        ├── flush any buffered (pending) lines
+        └── fs.WriteStream.end()   ← close and flush kernel buffer
 ```
 
-The worker is spawned **lazily** on the first event write or hydration request. Events arriving before the worker signals `'ready'` are buffered in the main thread and drained once the worker is initialized.
+All file I/O runs on the main thread using Node's non-blocking `fs.WriteStream` API. `WriteStream.write()` hands off to the OS kernel immediately without blocking the Vite event loop. Rotation and cleanup use synchronous `fs` calls (`renameSync`, `readdirSync`, `unlinkSync`) which complete in microseconds and run only at rotation boundaries, not on every event.
 
 Hydration reads only `format: 'json'` (JSONL) transports — `format: 'pretty'` logs are skipped. Each transport is capped at `maxBytesPerTransport` (default 50 MB) to prevent unbounded memory use on large log directories; if the cap is hit, the oldest files are skipped and `limitReached: true` is reported in `onDone`.

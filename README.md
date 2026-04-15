@@ -102,7 +102,7 @@ It intercepts browser interactions at the lowest level (before any application c
 
 ### 🗄️ Server-Side Logging
 
-- **Worker Thread I/O** — All file writes are delegated to a dedicated `worker_threads` worker. Zero blocking on the main plugin thread.
+- **Non-Blocking I/O** — All file writes use Node's non-blocking `fs.WriteStream` API directly on the main thread. Zero blocking on the Vite event loop.
 - **JSONL format** — One JSON-stringified `TrackerEvent` per line, machine-readable and replay-friendly.
 - **Pretty format** — Human-readable aligned columns for local debugging.
 - **Log rotation** — Daily (UTC midnight) or size-based. Configurable archive count.

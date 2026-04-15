@@ -1588,6 +1588,7 @@ export interface TrackOptions {
 	*/
 	clicks?: boolean | ClickTrackOptions
 
+
 	/**
 	* Enable HTTP request tracking, with optional fine-grained capture settings.
 	*
@@ -1669,7 +1670,7 @@ export interface TrackOptions {
 	* Events below this threshold are discarded before being enqueued.
 	* Does not affect custom events from `tracker.track()`.
 	*
-	* `Navigation` and `Click` trackes are setted as __`info`__ level.
+	* `Navigation` and `Click` trackers are set as __`info`__ level.
 	*
 	* @default 'info'
 	*/
@@ -1991,7 +1992,7 @@ export interface HttpTrackOptions {
 * Server-side log file output configuration.
 *
 * @remarks
-* Log writing is performed in a dedicated worker thread (`logger-worker.ts`)
+* Log writing is performed on the main thread using Node's non-blocking fs.WriteStream API
 * to avoid blocking the main plugin thread on I/O. Streams are opened lazily
 * on the first write and flushed on process shutdown.
 *
@@ -2023,7 +2024,7 @@ export interface LoggingOptions {
 * Configuration for a single log file output target.
 *
 * @remarks
-* Each `LogTransport` owns an independent `fs.WriteStream` in the logger worker.
+* Each `LogTransport` owns an independent `fs.WriteStream` in the logger.
 * Rotation is handled inline at write time - no cron job or file watcher needed.
 *
 */
@@ -2066,7 +2067,7 @@ export interface LogTransport {
 * @remarks
 * Rotation is checked lazily on each write - no background timers needed.
 * All fs operations (rename, stat, readdir, unlink) run synchronously in the
-* logger worker thread to maintain write ordering.
+* logger to maintain write ordering.
 *
 */
 export interface RotationOptions {
@@ -3093,7 +3094,7 @@ export interface FunnelComponent extends HTMLElement {
 *    `[tracker]`.
 *
 * 2. **Event file writing** (`writeEvent`) - delegates all file I/O to a
-*    dedicated worker thread via `postMessage`. The main thread never blocks
+*    main thread event loop via non-blocking stream writes. The main thread never blocks
 *    on stream backpressure or rotation.
 *
 * **Internal use only** - not part of the public plugin API.
@@ -3113,50 +3114,19 @@ export interface Logger {
 	* Write a tracked event to all configured log file transports.
 	*
 	* @remarks
-	* Non-blocking - delegates to the logger worker thread immediately.
+	* Non-blocking - delegates to the StreamTransport internal class.
 	* Events below `LoggingOptions.level` are discarded before being sent.
 	*/
 	writeEvent(event: TrackerEvent): void
 	/**
-	* Flush pending events and gracefully shut down the logger worker thread.
-	*
-	* @remarks
-	* Called by the shutdown hook on `SIGTERM`/`SIGINT`/`SIGHUP` and by
-	* `closeBundle()` at the end of a production build. Awaits worker exit
-	* for up to 3 seconds.
-	*
-	* @returns Resolves when the worker exits or after a 3-second safety timeout.
+	* Close all transports
 	*/
 	destroy(): Promise<void>
 	/**
-	* Non-blocking teardown used during HMR config re-evaluation.
-	*
-	* @remarks
-	* Flushes in-memory pending events synchronously, sends the `'destroy'`
-	* message to the worker, and returns immediately without awaiting exit.
-	* The worker continues flushing its write streams and exits on its own,
-	* avoiding any freeze of Vite's HMR feedback loop.
-	*
-	* Use `destroy()` at the end of a build; use `destroyForHmr()` on every
-	* other `configResolved` call during `vite dev`.
-	*/
-	destroyForHmr(): void
-	/**
 	* Trigger background hydration of the RingBuffer from persisted log files.
 	*
-	* @remarks
-	* Sends a `hydrate` message to the logger worker, which reads every
-	* JSON-format log file line-by-line and streams parsed events back to the
-	* main thread in batches. This keeps all file I/O inside the worker thread,
-	* consistent with the write / rotation / cleanup pipeline.
-	*
-	* @param onBatch  Called on the main thread for each batch of parsed events.
-	*                 The caller should push the events into its `RingBuffer`.
-	* @param onDone   Called once all transports have been processed.
-	* @param maxBytesPerTransport  Byte cap per transport (default 50 MB).
-	* @param batchSize             Events per IPC batch message (default 200).
 	*/
-	startHydration(onBatch: (events: TrackerEvent[]) => void, onDone: (stats: { loaded: number; skippedMalformed: number; skippedInvalid: number; limitReached: boolean }) => void, maxBytesPerTransport?: number, batchSize?: number): void
+	startHydration(onBatch: (events: TrackerEvent[]) => void, onDone: (stats: { loaded: number; skippedMalformed: number; skippedInvalid: number; limitReached: boolean }) => void, maxBytesPerTransport?: number, batchSize?: number): Promise<void>
 }
 
 /**
@@ -3384,22 +3354,4 @@ declare global {
 		/** @internal Set once by TrackerClient after init. Do not modify. */
 		__tracker_instance__?: Tracker
 	}
-
-	/**
-	* Array of registered shutdown callbacks stored on `globalThis`.
-	*
-	* @remarks
-	* Stored on `globalThis` (not module scope) so the array survives HMR
-	* re-evaluations of `shutdown.ts` without losing previously registered hooks.
-	*/
-	var __tracker_shutdown_hooks__: Array<CleanupFn> | undefined
-
-	/**
-	* Guard flag that prevents signal handlers from being registered more than once.
-	*
-	* @remarks
-	* Set to `true` the first time `registerShutdownHook()` installs the signal
-	* handlers. Subsequent HMR re-evaluations skip re-registration.
-	*/
-	var __tracker_shutdown_installed__: boolean | undefined
 }

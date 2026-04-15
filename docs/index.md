@@ -42,5 +42,5 @@ features:
 
   - icon: ⚡
     title: Zero Overhead
-    details: All file I/O is delegated to a dedicated worker_threads worker. Client-side batching, beacon-based flush on unload, and configurable level filtering minimize impact.
+    details: All file I/O uses Node's non-blocking fs.WriteStream on the main thread. Client-side batching, beacon-based flush on unload, and configurable level filtering minimize impact.
 ---

@@ -41,7 +41,7 @@ dashboard: {
 The plugin serves the dashboard as a SPA — all sub-paths (e.g. `/_dashboard/events`) are handled by the same `index.html` with client-side routing.
 
 ::: info Dashboard self-exclusion
-The dashboard route is automatically injected into `ignorePaths` for the click and
+The dashboard route is automatically injected into `ignoreRoutes` for the click and
 navigation trackers. The HTTP tracker excludes only the tracker's own endpoints
 (writeEndpoint, readEndpoint, pingEndpoint).
 :::

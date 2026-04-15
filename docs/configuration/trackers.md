@@ -384,7 +384,7 @@ Maximum number of arguments captured per console call. Arguments beyond this lim
 Capture a stack trace for `console.error` calls. Note: `console.trace` always captures a stack regardless of this flag.
 
 #### `ignorePatterns`
-**Type:** `string[]` · **Default:** `['[vite]', '[HMR]', '[tracker]']`
+**Type:** `(string | RegExp)[]` · **Default:** `['[vite]', '[HMR]', '[tracker]']`
 
 Substring patterns — calls whose **first argument** matches any pattern are completely ignored before serialization. Zero overhead for ignored calls.
 

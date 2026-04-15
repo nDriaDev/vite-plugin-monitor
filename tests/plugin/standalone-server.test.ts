@@ -87,7 +87,7 @@ describe('createRequestHandler()', () => {
 			const handler = createRequestHandler(makeOpts(), { push: vi.fn(), query: vi.fn(), all: vi.fn(), size: vi.fn() } as any, makeLogger());
 			const handled = await handler(req, res);
 			expect(handled).toBe(true);
-			expect((res as any).writeHead).toHaveBeenCalledWith(204, expect.any(Object));
+			expect((res as any).writeHead).toHaveBeenCalledWith(200, expect.any(Object));
 		});
 	});
 

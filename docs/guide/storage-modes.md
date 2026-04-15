@@ -154,7 +154,7 @@ Accept: application/json
 X-Tracker-Key: <apiKey>
 
 Response:
-{ "type": "ingest", "events": TrackerEvent[], "total": 123, "page": 1, "limit": 5 }
+{ "events": TrackerEvent[], "total": 123, "page": 1, "limit": 5 }
 ```
 
 If `readEndpoint` is not set, it is inferred by stripping `/events` from `writeEndpoint`.
@@ -188,7 +188,7 @@ Your server must implement the tracker WebSocket sub-protocol:
 | Browser → Server | `{ "type": "ingest", "events": TrackerEvent[] }` |
 | Server → Browser | `{ "type": "ack", "saved": 42 }` |
 | Dashboard → Server | `{ "type": "events:query", "reqId": "uuid", "query": { "since": "...", "until": "..." } }` |
-| Server → Dashboard | `{ "type": "events:response", "reqId": "uuid", "response": { "type": "ingest", "events": [...], "total": 123, "page": 1, "limit": 5 } }` |
+| Server → Dashboard | `{ "type": "events:response", "reqId": "uuid", "response": { "events": [...], "total": 123, "page": 1, "limit": 5 } }` |
 | Server → Browser (push) | `{ "type": "push", "events": TrackerEvent[] }` (optional) |
 
 See [WebSocket Protocol](/reference/api-contracts#websocket-protocol) for the full specification.
