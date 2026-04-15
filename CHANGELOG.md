@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.2](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.6.2) - 2026-04-15
+
+### Bug Fixes
+
+- dashboard state ([99030ea](https://github.com/nDriaDev/vite-plugin-monitor/commit/99030ea))
+- dashboard chars ([112231b](https://github.com/nDriaDev/vite-plugin-monitor/commit/112231b))
+- dashboard ([3fc5998](https://github.com/nDriaDev/vite-plugin-monitor/commit/3fc5998))
+
+### Other Changes
+
+- update test ([460340f](https://github.com/nDriaDev/vite-plugin-monitor/commit/460340f))
+
 ## [1.6.1](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.6.1) - 2026-04-15
 
 ### Tests
