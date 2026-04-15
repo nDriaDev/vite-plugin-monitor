@@ -133,6 +133,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 	/* v8 ignore stop */
 
 	function configureServer(server: ViteDevServer | PreviewServer) {
+		/* v8 ignore start */
 		/**
 		 * INFO
 		 * plugin print on process.stoud/sterr with console. If the process running in background,
@@ -150,6 +151,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 		if (process.stderr.listenerCount('error') === 0) {
 			process.stderr.on('error', suppressIoError);
 		}
+		/* v8 ignore stop */
 
 		logger = createLogger(opts.appId, opts.logging);
 
