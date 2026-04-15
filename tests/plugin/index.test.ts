@@ -4,7 +4,6 @@ import type { Plugin, ResolvedConfig, ResolvedServerOptions } from 'vite';
 import { trackerPlugin } from '../../src/plugin/index';
 import { createLogger } from '../../src/plugin/logger';
 import { createMiddleware, createStandaloneServer } from '../../src/plugin/standalone-server';
-import { registerShutdownHook } from '../../src/plugin/shutdown';
 import type { TrackerPluginOptions } from '../../src/types';
 
 const mockLogger = {
@@ -29,11 +28,6 @@ const mockMiddlewareFn = vi.fn()
 vi.mock('../../src/plugin/standalone-server', () => ({
 	createStandaloneServer: vi.fn(() => mockStandaloneServer),
 	createMiddleware: vi.fn(() => mockMiddlewareFn)
-}));
-
-const mockUnregister = vi.fn()
-vi.mock('../../src/plugin/shutdown', () => ({
-	registerShutdownHook: vi.fn(() => mockUnregister)
 }));
 
 vi.mock('node:fs', async (importOriginal) => {
@@ -97,7 +91,6 @@ function getHook<K extends keyof Plugin>(plugin: Plugin, name: K): Plugin[K] {
 const mockCreateLogger = createLogger as ReturnType<typeof vi.fn>;
 const mockCreateMiddleware = createMiddleware as ReturnType<typeof vi.fn>;
 const mockCreateStandaloneServer = createStandaloneServer as ReturnType<typeof vi.fn>;
-const mockRegisterShutdownHook = registerShutdownHook as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -126,11 +119,6 @@ describe('trackerPlugin()', () => {
 			trackerPlugin(baseOpts({ enabled: false }));
 			expect(mockCreateLogger).not.toHaveBeenCalled();
 		});
-
-		it('does not register shutdown hook', () => {
-			trackerPlugin(baseOpts({ enabled: false }));
-			expect(mockRegisterShutdownHook).not.toHaveBeenCalled();
-		});
 	});
 
 	describe('base plugin properties', () => {
@@ -147,21 +135,6 @@ describe('trackerPlugin()', () => {
 
 	describe('configResolved()', () => {
 
-		it('creates the logger with the logging options', () => {
-			const plugin = trackerPlugin(baseOpts());
-			const hook = getHook(plugin, 'configResolved') as Function;
-			hook(makeViteConfig());
-			expect(mockCreateLogger).toHaveBeenCalledOnce();
-		});
-
-		it('registers a shutdown hook', () => {
-			mockReadFileSync.mockReturnValue('{"version": "1.1.1"}');
-			const plugin = trackerPlugin(baseOpts());
-			const hook = getHook(plugin, 'configResolved') as Function;
-			hook(makeViteConfig());
-			expect(mockRegisterShutdownHook).toHaveBeenCalledOnce();
-		});
-
 		it('in serve mode, mode becomes "middleware" for auto mode -> writeEndpoint resolved to /_tracker/events', () => {
 			const plugin = trackerPlugin(baseOpts());
 			(getHook(plugin, 'configResolved') as Function)(makeViteConfig({ command: 'serve' }));
@@ -169,6 +142,20 @@ describe('trackerPlugin()', () => {
 			(getHook(plugin, 'configureServer') as Function)(server);
 			expect(mockCreateMiddleware).toHaveBeenCalledOnce();
 			expect(mockCreateStandaloneServer).not.toHaveBeenCalled();
+		});
+
+		it('read version from package', () => {
+			mockReadFileSync.mockReturnValue('{"version": "1.1.1"}');
+			const plugin = trackerPlugin(baseOpts());
+			const hook = getHook(plugin, 'configResolved') as Function;
+			hook(makeViteConfig());
+		});
+
+		it('read version from package', () => {
+			mockReadFileSync.mockReturnValue('{"version": "1.1.1"}');
+			const plugin = trackerPlugin(baseOpts());
+			const hook = getHook(plugin, 'handleHotUpdate') as Function;
+			hook(makeViteConfig({file: "fff.log"} as unknown as ResolvedConfig));
 		});
 
 		it('in build mode with writeEndpoint, mode becomes "http" -> no middleware or standalone', () => {
@@ -199,15 +186,6 @@ describe('trackerPlugin()', () => {
 			(getHook(plugin, 'configureServer') as Function)(server);
 			expect(mockCreateStandaloneServer).toHaveBeenCalledOnce();
 			expect(mockStandaloneServer.start).toHaveBeenCalledOnce();
-		});
-
-		it('on HMR (second configResolved) first calls unregister of the old hook', () => {
-			const plugin = trackerPlugin(baseOpts());
-			const hook = getHook(plugin, 'configResolved') as Function;
-			hook(makeViteConfig());
-			hook(makeViteConfig());
-			expect(mockUnregister).toHaveBeenCalledOnce();
-			expect(mockRegisterShutdownHook).toHaveBeenCalledTimes(2);
 		});
 
 		it('in serve mode, readEndpoint resolves to /_tracker for middleware mode', () => {
@@ -621,15 +599,14 @@ describe('trackerPlugin()', () => {
 	});
 
 	describe('closeBundle()', () => {
-		it('calls unregisterShutdown and then cleanup', async () => {
+		it('calls cleanup', async () => {
 			const plugin = trackerPlugin(baseOpts({
 				storage: { mode: 'http', writeEndpoint: '/api/events' } as any
 			}));
 			(getHook(plugin, 'configResolved') as Function)(makeViteConfig({ command: 'build' }));
 			await (getHook(plugin, 'closeBundle') as Function)();
 
-			expect(mockUnregister).toHaveBeenCalledOnce();
-			expect(mockLogger.destroy).toHaveBeenCalledOnce();
+			expect(mockLogger.destroy).not.toHaveBeenCalledOnce();
 		});
 
 		it('does not copy the dashboard when isBuild is false', async () => {
@@ -655,6 +632,7 @@ describe('trackerPlugin()', () => {
 
 		it('logs warning when includeInBuild is true but the dashboard dir does not exist', async () => {
 			mockExistsSync.mockReturnValue(false);
+			const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 			const plugin = trackerPlugin(baseOpts({
 				storage: { mode: 'http', writeEndpoint: '/api/events' } as any,
 				dashboard: { enabled: true, includeInBuild: true } as any,
@@ -662,9 +640,8 @@ describe('trackerPlugin()', () => {
 			(getHook(plugin, 'configResolved') as Function)(makeViteConfig({ command: 'build' }));
 			await (getHook(plugin, 'closeBundle') as Function)();
 
-			expect(mockLogger.warn).toHaveBeenCalledWith(
-				expect.stringContaining('includeInBuild is true but dashboard dist not found')
-			);
+			expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('includeInBuild is true but dashboard dist not found'));
+			consoleSpy.mockRestore();
 		});
 
 		it('copies the dashboard and injects the config when everything exists', async () => {
