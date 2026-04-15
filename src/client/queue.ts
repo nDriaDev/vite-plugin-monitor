@@ -121,7 +121,7 @@ export class EventQueue {
 		}
 
 		if (this.queue.length === 0 || this.sending) {
-			this.scheduleFlush();
+			!this.stopped && this.scheduleFlush();
 			return;
 		}
 

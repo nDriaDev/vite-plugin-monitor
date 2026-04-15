@@ -3,8 +3,7 @@ import { defineConfig } from 'tsdown';
 export default defineConfig([
 	{
 		entry: {
-			'index':         'src/index.ts',
-			'plugin/logger-worker': 'src/plugin/logger-worker.ts',
+			'index': 'src/index.ts',
 		},
 		format: "esm",
 		platform: 'node',
@@ -19,7 +18,6 @@ export default defineConfig([
 	{
 		entry: {
 			'index': 'src/index.ts',
-			'plugin/logger-worker': 'src/plugin/logger-worker.ts',
 		},
 		format: "esm",
 		platform: 'node',
@@ -34,7 +32,6 @@ export default defineConfig([
 	{
 		entry: {
 			'index': 'src/index.ts',
-			'plugin/logger-worker': 'src/plugin/logger-worker.ts',
 		},
 		format: "cjs",
 		platform: 'node',

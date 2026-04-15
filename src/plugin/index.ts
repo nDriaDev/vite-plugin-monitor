@@ -3,7 +3,6 @@ import type { HtmlTagDescriptor, Plugin, PreviewServer, ResolvedConfig, ViteDevS
 import { resolveOptions } from "./config";
 import { createLogger } from "./logger";
 import { createMiddleware, createStandaloneServer } from "./standalone-server";
-import { registerShutdownHook } from "./shutdown";
 import { generateAutoInitScript, generateConfigScript, generateSetupScript } from "./codegen";
 import { version } from '../../package.json';
 import path from "node:path";
@@ -49,20 +48,10 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 	let viteConfig: ResolvedConfig;
 	let isBuild = false;
 	let mode: "http" | "standalone" | "middleware" | "websocket";
-	let standalone: ReturnType<typeof createStandaloneServer> | null = null;
-	let unregisterShutdown: (() => void) | null = null;
-
 	let cachedSetupScript: string | null = null;
 	let cachedAutoInitScript: string | null = null;
 	let cachedDashboardHtml: string | null = null;
-
-	function cleanupForHmr() {
-		standalone?.stop();
-		standalone = null;
-		cachedSetupScript = null;
-		cachedAutoInitScript = null;
-		cachedDashboardHtml = null;
-	}
+	let standalone: ReturnType<typeof createStandaloneServer> | null = null;
 
 	async function cleanup() {
 		standalone?.stop();
@@ -144,12 +133,16 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 	/* v8 ignore stop */
 
 	function configureServer(server: ViteDevServer | PreviewServer) {
+		logger = createLogger(opts.appId, opts.logging);
+
 		if (mode === 'middleware') {
 			server.middlewares.use(createMiddleware(opts, logger));
 		} else if (mode === 'standalone') {
 			standalone = createStandaloneServer(opts, logger);
 			standalone.start();
 		}
+
+		server.httpServer?.once('close', cleanup);
 
 		server.middlewares.use('/_tracker/ping', (_req, res) => {
 			res.setHeader('Content-Type', 'application/json');
@@ -239,7 +232,9 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			viteConfig = config;
 			isBuild = config.command === 'build';
 			mode = effectiveMode(opts, isBuild);
-
+			opts.storage.wsEndpoint = resolvedWsEndpoint(mode);
+			opts.storage.writeEndpoint = resolvedWriteEndpoint(mode);
+			opts.storage.readEndpoint = resolvedReadEndpoint(mode);
 			/**
 			 * INFO If buildVersion was not set explicitly, fall back to the consumer
 			 * project's package.json version. config.root is the reliable way to find
@@ -256,32 +251,9 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 					opts.buildVersion = "X.X.X";
 				}
 			}
-
-			/**
-			 * INFO
-			 * Capture the previous logger instance BEFORE overwriting the reference.
-			 * destroyForHmr() must run on the OLD logger, not the one we are about
-			 * to create. Keeping this as an explicit local variable makes the
-			 * ordering invariant visible and impossible to break by accident.
-			 */
-			const prevLogger = logger;
-			unregisterShutdown?.();
-
-			prevLogger?.destroyForHmr();
-			cleanupForHmr();
-
-			logger = createLogger(opts.appId, opts.logging);
-
-			opts.storage.wsEndpoint = resolvedWsEndpoint(mode);
-			opts.storage.writeEndpoint = resolvedWriteEndpoint(mode);
-			opts.storage.readEndpoint = resolvedReadEndpoint(mode);
-
 			cachedSetupScript = generateSetupScript(opts, isBuild);
 			cachedAutoInitScript = opts.autoInit ? generateAutoInitScript(opts, isBuild) : null;
-
-			unregisterShutdown = registerShutdownHook(cleanup);
 		},
-
 		transformIndexHtml: {
 			order: 'pre',
 			handler() {
@@ -304,15 +276,18 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				return tags;
 			},
 		},
-
 		configureServer(server) {
 			configureServer(server);
 		},
-
 		configurePreviewServer(server) {
 			configureServer(server);
 		},
-
+		handleHotUpdate(ctx) {
+			const logExts = (opts.logging.transports ?? []).map(t => path.extname(t.path));
+			if (logExts.some(ext => ctx.file.endsWith(ext))) {
+				return [];
+			}
+		},
 		buildStart() {
 			for (const t of opts.logging?.transports ?? []) {
 				const dir = path.dirname(t.path);
@@ -321,15 +296,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				}
 			}
 		},
-
-		/**
-		 * INFO Normal shutdown (build lifecycle)
-		 * CloseBundle runs at the end of `vite build` and when the dev server is stopped cleanly via the Vite API.
-		 * For signal-based termination the signal handler registered in configResolved covers this path.
-		 */
 		async closeBundle() {
-			unregisterShutdown?.();
-			unregisterShutdown = null;
 			if (isBuild && opts.dashboard?.includeInBuild) {
 				const dashSrc = dashboardDistDir();
 				const dashDest = path.join(
@@ -347,7 +314,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 						writeFileSync(copiedIndex, html);
 					}
 				} else {
-					logger.warn(
+					console.warn(
 						`includeInBuild is true but dashboard dist not found at ${dashSrc}. ` +
 						`Run 'pnpm build:dashboard' before 'vite build'.`
 					);

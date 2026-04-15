@@ -69,9 +69,7 @@ function buildConfig(opts: ResolvedTrackerOptions): TrackerConfig {
  * Generates the auto-init script injected into index.html when `autoInit: true`.
  *
  * @remarks
- * Injects `window.__TRACKER_CONFIG__` as a frozen, non-writable, non-configurable
- * property so it cannot be tampered with at runtime. Then calls `tracker.init()`
- * passing only the optional `userIdFn` - the config is read from `window` automatically.
+ * Calls `tracker.init()` passing only the optional `userIdFn` - the config is read from `window` automatically.
  *
  * The `userIdFn` is serialized from `opts.track.userId` via `.toString()`.
  * It must be a pure function with no closures over module-level variables

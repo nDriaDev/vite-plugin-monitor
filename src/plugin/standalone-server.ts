@@ -17,7 +17,7 @@ import { WebSocketServer } from "ws";
 */
 class RingBuffer {
 	private buf: (TrackerEvent | undefined)[];
-	private head = 0;    // INFO index of the oldest slot (next to be overwritten)
+	private head = 0;    // INFO index of the next slot to write (wraps around, oldest when buffer is full)
 	private count = 0;   // INFO number of valid entries currently stored
 	private readonly cap: number;
 
@@ -128,7 +128,12 @@ export function createRequestHandler(opts: ResolvedTrackerOptions, buffer: RingB
 		const base = `/_tracker`;
 
 		if (method === 'OPTIONS') {
-			json(res, 204, {});
+			res.writeHead(200, {
+				'Access-Control-Allow-Origin': '*',
+				'Access-Control-Allow-Headers': 'Content-Type, X-Tracker-Key',
+				'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+			});
+			res.end();
 			return true;
 		}
 
@@ -170,7 +175,7 @@ export function createRequestHandler(opts: ResolvedTrackerOptions, buffer: RingB
 				limit,
 				page,
 			});
-			const nextCursor = events.length > 0 ? events[0].timestamp : undefined;
+			const nextCursor = events.length > 0 ? events[events.length - 1].timestamp : undefined;
 			const response: EventsResponse = {
 				events,
 				total,
@@ -190,6 +195,7 @@ export function createStandaloneServer(opts: ResolvedTrackerOptions, logger: Log
 	const buffer = new RingBuffer(opts.storage.maxBufferSize);
 	const handler = createRequestHandler(opts, buffer, logger);
 
+	// eslint-disable-next-line @typescript-eslint/no-floating-promises
 	logger.startHydration(
 		(events) => buffer.push(events),
 		({ loaded, skippedMalformed, skippedInvalid, limitReached }) => {
@@ -304,6 +310,7 @@ export function createMiddleware(opts: ResolvedTrackerOptions, logger: Logger): 
 	const buffer = new RingBuffer(opts.storage.maxBufferSize);
 	const handler = createRequestHandler(opts, buffer, logger);
 
+	// eslint-disable-next-line @typescript-eslint/no-floating-promises
 	logger.startHydration(
 		(events) => buffer.push(events),
 		({ loaded, skippedMalformed, skippedInvalid, limitReached }) => {
