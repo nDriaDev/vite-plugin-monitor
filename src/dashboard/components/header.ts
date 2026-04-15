@@ -126,6 +126,7 @@ export function createHeader(): HTMLElement {
 
 	presetBtns.forEach(btn => {
 		on(btn, 'click', () => {
+			store.selectEvent(null);
 			const preset = btn.dataset.preset as TimePreset | 'custom' | 'live';
 			if (preset === 'live') {
 				// INFO live mode: last 5 minutes
@@ -148,6 +149,7 @@ export function createHeader(): HTMLElement {
 	});
 
 	on(applyBtn, 'click', () => {
+		store.selectEvent(null);
 		const from = fromInput.value;
 		const to = toInput.value;
 		if (!from || !to) {

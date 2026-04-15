@@ -1,4 +1,4 @@
-import type { ConsolePayload, TrackerEvent } from "@tracker/types";
+import type { ConsolePayload, ErrorPayload, HttpPayload, NavigationPayload, SessionPayload, TrackerEvent } from "@tracker/types";
 import { store } from "../state";
 import { el, empty, escapeHtml, on, qs, setHtml, show } from "../utils/dom";
 import { formatDateTime, formatDuration, formatJson } from "../utils/format";
@@ -95,70 +95,73 @@ export function createEventDetail(): HTMLElement {
 			body.append(section('User Attributes', formatJson(event.meta.userAttributes)));
 		}
 
-		if (event.type === 'console') {
-			const cp = event.payload as ConsolePayload;
-			const argList = el('div', { class: 'console-args' });
+		let addPayload = true;
+		switch (event.type) {
+			case "console":
+				const cp = event.payload as ConsolePayload;
+				const argList = el('div', { class: 'console-args' });
+				for (const arg of cp.args ?? []) {
+					const argRow = el('div', { class: `console-arg console-arg-${arg.type}` });
+					const typeTag = el('span', { class: 'arg-type' }, arg.type);
+					const valuePre = el('pre', { class: 'arg-value' });
+					valuePre.textContent = typeof arg.value === 'string'
+						? arg.value
+						: JSON.stringify(arg.value, null, 2) ?? 'undefined';
+					argRow.append(typeTag, valuePre);
+					argList.append(argRow);
+				}
+				body.append(section(`console.${cp.method}() - args`, argList));
 
-			for (const arg of cp.args ?? []) {
-				const argRow = el('div', { class: `console-arg console-arg-${arg.type}` });
-				const typeTag = el('span', { class: 'arg-type' }, arg.type);
-				const valuePre = el('pre', { class: 'arg-value' });
-				valuePre.textContent = typeof arg.value === 'string'
-					? arg.value
-					: JSON.stringify(arg.value, null, 2) ?? 'undefined';
-				argRow.append(typeTag, valuePre);
-				argList.append(argRow);
-			}
+				cp.stack && body.append(section('Stack Trace', formatJson(cp.stack)));
+				break;
+			case "navigation":
+				addPayload = false;
+				const navigationPayload = event.payload as NavigationPayload;
+				const navMeta = el('div', { class: 'detail-meta' });
+				navMeta.append(metaRow('From', navigationPayload.from ?? '-'));
+				navMeta.append(metaRow('To', navigationPayload.to ?? '-'));
+				navMeta.append(metaRow('Trigger', navigationPayload.trigger.toUpperCase()));
+				navigationPayload.duration !== undefined && navMeta.append(metaRow('Duration', formatDuration(navigationPayload.duration)));
 
-			body.append(section(`console.${cp.method}() - args`, argList));
+				body.append(section('Navigation Boundary', navMeta));
+				break;
+			case "http":
+				const httpPayload = event.payload as HttpPayload;
+				const httpMeta = el('div', { class: 'detail-meta' });
+				httpMeta.append(metaRow('Method', httpPayload.method ?? '-'));
+				httpMeta.append(metaRow('URL', httpPayload.url ?? '-'));
+				httpMeta.append(metaRow('Status', String(httpPayload.status ?? '-')));
+				httpPayload.duration !== undefined && httpMeta.append(metaRow('Duration', formatDuration(httpPayload.duration)));
+				httpPayload.error && httpMeta.append(metaRow('Error', httpPayload.error));
 
-			if (cp.stack) {
-				body.append(section('Stack Trace', formatJson(cp.stack)));
-			}
+				body.append(section('HTTP Request', httpMeta));
+				break;
+			case "session":
+				addPayload = false;
+				const sessionPayload = event.payload as SessionPayload;
+				const sessionMeta = el('div', { class: 'detail-meta' });
+				sessionMeta.append(metaRow('Action', sessionPayload.action));
+				sessionMeta.append(metaRow('Trigger', sessionPayload.trigger));
+				sessionPayload.previousUserId && sessionMeta.append(metaRow('Previous User', sessionPayload.previousUserId));
+				sessionPayload.newUserId && sessionMeta.append(metaRow('New User', sessionPayload.newUserId));
+
+				body.append(section('Session Boundary', sessionMeta));
+				break;
+			case "error":
+				const errorPayload = event.payload as ErrorPayload;
+				if (errorPayload.stack) {
+					const stackPre = el('pre', { class: 'detail-pre detail-stack' });
+					stackPre.textContent = errorPayload.stack;
+					body.append(section('Stack Trace', stackPre));
+				}
+				break;
+			case "click":
+			case "custom":
+			default:
+				break;
 		}
 
-		// INFO HTTP: show formatted duration and splitted stack before raw payload
-		if (event.type === 'http') {
-			const p = event.payload as any;
-			const httpMeta = el('div', { class: 'detail-meta' });
-			httpMeta.append(metaRow('Method', p.method ?? '-'));
-			httpMeta.append(metaRow('URL', p.url ?? '-'));
-			httpMeta.append(metaRow('Status', String(p.status ?? '-')));
-			if (p.duration !== undefined) {
-				httpMeta.append(metaRow('Duration', formatDuration(p.duration)));
-			}
-			if (p.error) {
-				httpMeta.append(metaRow('Error', p.error));
-			}
-			body.append(section('HTTP Request', httpMeta));
-		}
-
-		body.append(section('Payload', formatJson(event.payload)));
-
-		// INFO Session: show identity transition clearly
-		if (event.type === 'session') {
-			const p = event.payload as any;
-			const sessionMeta = el('div', { class: 'detail-meta' });
-			sessionMeta.append(metaRow('Action', p.action));
-			sessionMeta.append(metaRow('Trigger', p.trigger));
-			if (p.previousUserId) {
-				sessionMeta.append(metaRow('Previous User', p.previousUserId));
-			}
-			if (p.newUserId) {
-				sessionMeta.append(metaRow('New User', p.newUserId));
-			}
-			body.append(section('Session Boundary', sessionMeta));
-		}
-
-		// INFO Error: show splitted stack if present
-		if (event.type === 'error') {
-			const p = event.payload as any;
-			if (p.stack) {
-				const stackPre = el('pre', { class: 'detail-pre detail-stack' });
-				stackPre.textContent = p.stack;
-				body.append(section('Stack Trace', stackPre));
-			}
-		}
+		addPayload && body.append(section('Payload', formatJson(event.payload)));
 	}
 
 	return panel;

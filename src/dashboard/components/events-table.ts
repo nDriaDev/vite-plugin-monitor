@@ -145,6 +145,7 @@ export function createEventsTable(): HTMLElement {
 
 	for (const th of sortHeaders) {
 		on(th, 'click', () => {
+			store.selectEvent(null);
 			const key = th.dataset.sort as SortKey;
 			if (key === sortKey) {
 				sortDir = sortDir === 'asc' ? 'desc' : 'asc';
@@ -168,6 +169,7 @@ export function createEventsTable(): HTMLElement {
 
 	levelButtons.forEach(btn => {
 		on(btn, 'click', () => {
+			store.selectEvent(null);
 			store.resetSelectEvent();
 			btn.classList.toggle('active');
 			emitFilter();
@@ -181,6 +183,7 @@ export function createEventsTable(): HTMLElement {
 
 	on(resetBtn, 'click', () => {
 		// INFO Reset filter in store
+		store.selectEvent(null);
 		store.resetSelectEvent();
 		store.setEventsFilter({});
 		// INFO Reset sort to default
@@ -214,11 +217,14 @@ export function createEventsTable(): HTMLElement {
 	on(searchInput, 'input', debouncedFilter);
 
 	// INFO Rendering
-	const rowEventMap = new WeakMap<HTMLTableRowElement, TrackerEvent>();
+	const rowEventMap = new WeakMap<HTMLTableRowElement, string>();
 	let selectedRow: HTMLTableRowElement | null = null;
+	let selectedEvent: string | null = null;
 
-	function buildRow(event: TrackerEvent): HTMLTableRowElement {
-		const tr = el('tr', { class: `event-row ${LEVEL_CLASS[event.level]}` });
+	function buildRow(event: TrackerEvent, opts: { wasSelected: boolean }): HTMLTableRowElement {
+		const serialized = JSON.stringify(event);
+		opts.wasSelected = selectedEvent === serialized;
+		const tr = el('tr', { class: `event-row ${LEVEL_CLASS[event.level]}${opts.wasSelected ? ' selected' : ''}` });
 		const value = getEventDetail(event);
 
 		tr.innerHTML = `
@@ -229,7 +235,7 @@ export function createEventsTable(): HTMLElement {
 		<td class="col-detail" title="${escapeHtml(value)}"><div class="col-detail-inner">${escapeHtml(value)}</div></td>
     `;
 
-		rowEventMap.set(tr, event);
+		rowEventMap.set(tr, serialized);
 		on(tr, 'click', () => store.selectEvent(event));
 		return tr;
 	}
@@ -240,8 +246,13 @@ export function createEventsTable(): HTMLElement {
 		empty(tbody);
 		toggleVisible(emptyEl, sorted.length === 0);
 		const frag = document.createDocumentFragment();
+		const opts = { wasSelected: false };
 		for (const e of sorted) {
-			frag.append(buildRow(e));
+			frag.append(buildRow(e, opts));
+		}
+		if (!opts.wasSelected) {
+			selectedRow = null;
+			selectedEvent = null;
 		}
 		tbody.append(frag);
 		countEl.textContent = `${sorted.length} events`;
@@ -263,6 +274,9 @@ export function createEventsTable(): HTMLElement {
 	store.on('events:update', (events) => {
 		populateUsers();
 		renderAll(events);
+		if (selectedRow) {
+
+		}
 	});
 
 	store.on('events:loading', (loading) => {
@@ -277,10 +291,12 @@ export function createEventsTable(): HTMLElement {
 		if (!selected) {
 			return;
 		}
+		const serialized = JSON.stringify(selected);
 		for (const row of Array.from(tbody.rows) as HTMLTableRowElement[]) {
-			if (rowEventMap.get(row) === selected) {
-				row.classList.add('selected');
+			if (rowEventMap.get(row) === serialized) {
 				selectedRow = row;
+				selectedEvent = serialized;
+				row.classList.add('selected');
 				row.scrollIntoView({ block: 'nearest' });
 				break;
 			}
