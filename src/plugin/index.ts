@@ -1,19 +1,31 @@
 import type { Logger, ResolvedTrackerOptions, TrackerPluginOptions } from "@tracker/types";
-import type { HtmlTagDescriptor, Plugin, PreviewServer, ResolvedConfig, ViteDevServer } from "vite";
+import { normalizePath, type Plugin, type PreviewServer, type ResolvedConfig, type ViteDevServer } from "vite";
 import { resolveOptions } from "./config";
 import { createLogger } from "./logger";
 import { createMiddleware, createStandaloneServer } from "./standalone-server";
-import { generateAutoInitScript, generateConfigScript, generateSetupScript } from "./codegen";
+import { generateConfigScript, generateSetupScript } from "./codegen";
 import { version } from '../../package.json';
-import path from "node:path";
 import { copyFileSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { dirname, extname, join, resolve, sep } from "node:path";
+
+const mimeTypeMap: Record<string, string> = {
+	'.html': 'text/html',
+	'.js': 'application/javascript',
+	'.css': 'text/css',
+	'.json': 'application/json',
+	'.svg': 'image/svg+xml',
+	'.png': 'image/png',
+	'.ico': 'image/x-icon',
+	'.woff2': 'font/woff2',
+	'.woff': 'font/woff',
+};
 
 function copyDirSync(src: string, dest: string): void {
 	mkdirSync(dest, { recursive: true });
 	for (const entry of readdirSync(src, { withFileTypes: true })) {
-		const srcPath = path.join(src, entry.name);
-		const destPath = path.join(dest, entry.name);
+		const srcPath = join(src, entry.name);
+		const destPath = join(dest, entry.name);
 		if (entry.isDirectory()) {
 			copyDirSync(srcPath, destPath);
 		} else {
@@ -23,19 +35,12 @@ function copyDirSync(src: string, dest: string): void {
 }
 
 function getMimeType(filePath: string): string {
-	const ext = path.extname(filePath).toLowerCase();
-	const map: Record<string, string> = {
-		'.html': 'text/html',
-		'.js': 'application/javascript',
-		'.css': 'text/css',
-		'.json': 'application/json',
-		'.svg': 'image/svg+xml',
-		'.png': 'image/png',
-		'.ico': 'image/x-icon',
-		'.woff2': 'font/woff2',
-		'.woff': 'font/woff',
-	};
-	return map[ext] ?? 'application/octet-stream';
+	const ext = extname(filePath).toLowerCase();
+	return mimeTypeMap[ext] ?? 'application/octet-stream';
+}
+
+function getLogPaths(transports: ResolvedTrackerOptions["logging"]["transports"]) {
+	return (transports ?? []).map(t => normalizePath(resolve(t.path)))
 }
 
 export function trackerPlugin(options: TrackerPluginOptions): Plugin {
@@ -49,16 +54,15 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 	let isBuild = false;
 	let mode: "http" | "standalone" | "middleware" | "websocket";
 	let cachedSetupScript: string | null = null;
-	let cachedAutoInitScript: string | null = null;
 	let cachedDashboardHtml: string | null = null;
 	let standalone: ReturnType<typeof createStandaloneServer> | null = null;
+	let logPaths: string[] | null = null;
 
 	async function cleanup() {
 		standalone?.stop();
 		standalone = null;
 		await logger?.destroy();
 		cachedSetupScript = null;
-		cachedAutoInitScript = null;
 		cachedDashboardHtml = null;
 	}
 
@@ -125,9 +129,9 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 	function dashboardDistDir(): string {
 		try {
 			const __filename = fileURLToPath(import.meta.url);
-			return path.join(path.dirname(__filename), 'dashboard');
+			return join(dirname(__filename), 'dashboard');
 		} catch {
-			return path.join(__dirname, 'dashboard');
+			return join(__dirname, 'dashboard');
 		}
 	}
 	/* v8 ignore stop */
@@ -171,27 +175,34 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 
 		if (opts.dashboard.enabled) {
 			const dashDir = dashboardDistDir();
+			const resolvedDashDir = resolve(dashDir);
+			const dashAssets = new Set((readdirSync(dashDir, { recursive: true }) as string[]).map(f => resolve(join(dashDir, f))));
 
 			server.middlewares.use(opts.dashboard.route, (req, res, next) => {
 				const url = req.url ?? '/';
-				if (url !== '/' && url.includes('.')) {
-					const filePath = path.join(dashDir, url);
-					if (existsSync(filePath)) {
-						res.setHeader('Content-Type', getMimeType(filePath));
-						const stream = createReadStream(filePath);
-						stream.on("error", (err: NodeJS.ErrnoException) => {
-							if (!res.headersSent) {
-								res.writeHead(err.code === "ENOENT" ? 404 : 500);
-							}
-							res.end();
-						});
-						stream.pipe(res);
-						return;
-					}
+				const safeUrl = url.split('?')[0];
+				const filePath = join(dashDir, safeUrl);
+				const resolvedPath = resolve(filePath);
+				if (resolvedPath !== resolvedDashDir && !resolvedPath.startsWith(resolvedDashDir + sep)) {
+					res.writeHead(403);
+					res.end();
+					return;
+				}
+				if (dashAssets.has(resolvedPath)) {
+					res.setHeader('Content-Type', getMimeType(filePath));
+					const stream = createReadStream(filePath);
+					stream.on("error", (err: NodeJS.ErrnoException) => {
+						if (!res.headersSent) {
+							res.writeHead(err.code === "ENOENT" ? 404 : 500);
+						}
+						res.end();
+					});
+					stream.pipe(res);
+					return;
 				}
 
 				if (!cachedDashboardHtml) {
-					const indexPath = path.join(dashDir, 'index.html');
+					const indexPath = join(dashDir, 'index.html');
 					if (!existsSync(indexPath)) {
 						logger.warn(
 							`Dashboard HTML not found at ${indexPath}. ` +
@@ -255,6 +266,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			opts.storage.wsEndpoint = resolvedWsEndpoint(mode);
 			opts.storage.writeEndpoint = resolvedWriteEndpoint(mode);
 			opts.storage.readEndpoint = resolvedReadEndpoint(mode);
+			logPaths = getLogPaths(opts.logging.transports);
 			/**
 			 * INFO If buildVersion was not set explicitly, fall back to the consumer
 			 * project's package.json version. config.root is the reliable way to find
@@ -262,7 +274,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			 */
 			if (!opts.buildVersion) {
 				try {
-					const pkgPath = path.join(config.root, 'package.json');
+					const pkgPath = join(config.root, 'package.json');
 					const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
 					if (pkg.version) {
 						opts.buildVersion = pkg.version;
@@ -272,12 +284,11 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				}
 			}
 			cachedSetupScript = generateSetupScript(opts, isBuild);
-			cachedAutoInitScript = opts.autoInit ? generateAutoInitScript(opts, isBuild) : null;
 		},
 		transformIndexHtml: {
 			order: 'pre',
 			handler() {
-				const tags: HtmlTagDescriptor[] = [
+				return [
 					{
 						tag: 'script',
 						attrs: { type: 'module' },
@@ -285,15 +296,6 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 						injectTo: 'head-prepend',
 					}
 				];
-				if (opts.autoInit && cachedAutoInitScript) {
-					tags.push({
-						tag: 'script',
-						attrs: { type: 'module' },
-						children: cachedAutoInitScript,
-						injectTo: 'head-prepend',
-					});
-				}
-				return tags;
 			},
 		},
 		configureServer(server) {
@@ -303,14 +305,13 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			configureServer(server);
 		},
 		handleHotUpdate(ctx) {
-			const logExts = (opts.logging.transports ?? []).map(t => path.extname(t.path));
-			if (logExts.some(ext => ctx.file.endsWith(ext))) {
+			if ((logPaths || getLogPaths(opts.logging.transports)).some(p => resolve(ctx.file) === p)) {
 				return [];
 			}
 		},
 		buildStart() {
 			for (const t of opts.logging?.transports ?? []) {
-				const dir = path.dirname(t.path);
+				const dir = dirname(t.path);
 				if (!existsSync(dir)) {
 					mkdirSync(dir, { recursive: true });
 				}
@@ -319,14 +320,12 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 		async closeBundle() {
 			if (isBuild && opts.dashboard?.includeInBuild) {
 				const dashSrc = dashboardDistDir();
-				const dashDest = path.join(
-					viteConfig.build.outDir,
-					opts.dashboard.route.replace(/^\//, '')
-				);
+				const routeSegments = opts.dashboard.route.split('/').filter(Boolean);
+				const dashDest = join(viteConfig.build.outDir, ...routeSegments);
 
 				if (existsSync(dashSrc)) {
 					copyDirSync(dashSrc, dashDest);
-					const copiedIndex = path.join(dashDest, 'index.html');
+					const copiedIndex = join(dashDest, 'index.html');
 					if (existsSync(copiedIndex)) {
 						let html = readFileSync(copiedIndex, 'utf8');
 						const configScript = `<script>${generateConfigScript(opts)}</script>`;

@@ -1,39 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { generateAutoInitScript, generateConfigScript, generateSetupScript } from '../../src/plugin/codegen'
+import { generateConfigScript, generateSetupScript } from '../../src/plugin/codegen'
 import { resolveOptions } from '../../src/plugin/config'
 import type { ResolvedTrackerOptions } from '../../src/types'
 
 function makeOpts(overrides: Partial<Parameters<typeof resolveOptions>[0]> = {}): ResolvedTrackerOptions {
 	return resolveOptions({ appId: 'test-app', ...overrides });
 }
-
-describe('generateAutoInitScript()', () => {
-
-	it('contains an import from client/index.js', () => {
-		const script = generateAutoInitScript(makeOpts(), false);
-		expect(script).toContain("import { tracker } from '");
-		expect(script).toContain('client/index.js');
-	});
-
-	it('contains the tracker.init() call', () => {
-		const script = generateAutoInitScript(makeOpts(), false);
-		expect(script).toContain('tracker.init(');
-	});
-
-	it('serializza la userId fn di default () => null', () => {
-		const script = generateAutoInitScript(makeOpts(), false);
-		expect(script).toContain('() => null');
-	});
-
-	it('serializes a custom userId fn via .toString()', () => {
-		const customFn = () => 'user-abc';
-		const script = generateAutoInitScript(
-			makeOpts({ track: { userId: customFn } as any }),
-			false
-		);
-		expect(script).toContain(customFn.toString());
-	});
-});
 
 describe('generateConfigScript()', () => {
 
@@ -88,7 +60,7 @@ describe('generateConfigScript()', () => {
 describe('generateSetupScript()', () => {
 
 	it('contains import of setupTrackers from client/index.js', () => {
-		const script = generateSetupScript(makeOpts(), false);
+		const script = generateSetupScript(makeOpts({ autoInit: false }), false);
 		expect(script).toContain("import { setupTrackers } from '");
 		expect(script).toContain('client/index.js');
 	});

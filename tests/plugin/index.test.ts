@@ -92,11 +92,25 @@ const mockCreateLogger = createLogger as ReturnType<typeof vi.fn>;
 const mockCreateMiddleware = createMiddleware as ReturnType<typeof vi.fn>;
 const mockCreateStandaloneServer = createStandaloneServer as ReturnType<typeof vi.fn>;
 
+function setupWithDashboard(dashboardOpts: Record<string, unknown> = {}, assetRelPaths: string[] = []) {
+	mockReaddirSync.mockReturnValue(assetRelPaths);
+
+	const plugin = trackerPlugin(baseOpts({
+		storage: { mode: 'middleware' } as any,
+		dashboard: { enabled: true, route: '/_dashboard', ...dashboardOpts } as any,
+	}));
+	(getHook(plugin, 'configResolved') as Function)(makeViteConfig());
+	const server = makeServer();
+	(getHook(plugin, 'configureServer') as Function)(server);
+	return { server }
+}
+
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockLogger.destroy.mockResolvedValue(undefined);
 	mockExistsSync.mockReturnValue(false);
 	mockReadFileSync.mockReturnValue('<html><head></head></html>');
+	mockReaddirSync.mockReturnValue([]);
 	process.removeAllListeners('SIGTERM');
 	process.removeAllListeners('SIGINT');
 	process.removeAllListeners('SIGHUP');
@@ -151,11 +165,12 @@ describe('trackerPlugin()', () => {
 			hook(makeViteConfig());
 		});
 
-		it('read version from package', () => {
+		it('handleHotUpdate skips log files by resolved path', () => {
 			mockReadFileSync.mockReturnValue('{"version": "1.1.1"}');
 			const plugin = trackerPlugin(baseOpts());
 			const hook = getHook(plugin, 'handleHotUpdate') as Function;
-			hook(makeViteConfig({file: "fff.log"} as unknown as ResolvedConfig));
+			const result = hook({ file: "logs/test-app.log" });
+			expect(result).toStrictEqual([]);
 		});
 
 		it('in build mode with writeEndpoint, mode becomes "http" -> no middleware or standalone', () => {
@@ -261,30 +276,29 @@ describe('trackerPlugin()', () => {
 			expect(transform.order).toBe('pre');
 		});
 
-		it('always returns the setupScript tag', () => {
+		it('always returns exactly one script tag containing setupTrackers', () => {
 			const tags = runTransform(baseOpts()) as Array<{ children: string }>;
-			const setup = tags.find(t => t.children?.includes('setupTrackers'));
-			expect(setup).toBeDefined();
+			expect(tags).toHaveLength(1);
+			expect(tags[0].children).toContain('setupTrackers');
 		});
 
-		it('with autoInit: true also returns the autoInit tag', () => {
+		it('with autoInit: true the single script also contains tracker.init', () => {
 			const tags = runTransform(baseOpts({ autoInit: true })) as Array<{ children: string }>;
-			const autoInit = tags.find(t => t.children?.includes('tracker.init'));
-			expect(autoInit).toBeDefined();
+			expect(tags).toHaveLength(1);
+			expect(tags[0].children).toContain('setupTrackers');
+			expect(tags[0].children).toContain('tracker.init');
 		});
 
-		it('with autoInit: false does not return the autoInit tag', () => {
+		it('with autoInit: false the single script does not contain tracker.init', () => {
 			const tags = runTransform(baseOpts({ autoInit: false })) as Array<{ children: string }>;
-			const autoInit = tags.find(t => t.children?.includes('tracker.init'));
-			expect(autoInit).toBeUndefined();
+			expect(tags).toHaveLength(1);
+			expect(tags[0].children).not.toContain('tracker.init');
 		});
 
-		it('tags have type: "module" and injectTo: "head-prepend"', () => {
+		it('the script tag has type: "module" and injectTo: "head-prepend"', () => {
 			const tags = runTransform(baseOpts()) as Array<{ attrs: Record<string, string>; injectTo: string }>;
-			for (const tag of tags) {
-				expect(tag.attrs?.type).toBe('module');
-				expect(tag.injectTo).toBe('head-prepend');
-			}
+			expect(tags[0].attrs?.type).toBe('module');
+			expect(tags[0].injectTo).toBe('head-prepend');
 		});
 	});
 
@@ -359,16 +373,6 @@ describe('trackerPlugin()', () => {
 	});
 
 	describe('configureServer() — dashboard enabled', () => {
-		function setupWithDashboard(dashboardOpts = {}) {
-			const plugin = trackerPlugin(baseOpts({
-				storage: { mode: 'middleware' } as any,
-				dashboard: { enabled: true, route: '/_dashboard', ...dashboardOpts } as any,
-			}));
-			(getHook(plugin, 'configResolved') as Function)(makeViteConfig());
-			const server = makeServer();
-			(getHook(plugin, 'configureServer') as Function)(server);
-			return { server }
-		}
 
 		it('registers the middleware for the dashboard route', () => {
 			const { server } = setupWithDashboard();
@@ -434,9 +438,8 @@ describe('trackerPlugin()', () => {
 			);
 		});
 
-		it('URL with extension -> attempts to serve the static file', () => {
-			mockExistsSync.mockImplementation((p: string) => p.includes('.js'));
-			const { server } = setupWithDashboard();
+		it('URL with extension -> serves the static asset from dashAssets', () => {
+			const { server } = setupWithDashboard({}, ['assets/index.js']);
 
 			const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls
 				.find((args: any[]) => args[0] === '/_dashboard');
@@ -448,24 +451,34 @@ describe('trackerPlugin()', () => {
 			const res = { setHeader: vi.fn(), end: vi.fn() }
 			handler({ url: '/assets/index.js' }, res, vi.fn());
 
-			expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/javascript')
+			expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/javascript');
+		});
+
+		it('path traversal attempt returns 403', () => {
+			const { server } = setupWithDashboard();
+			const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls
+				.find((args: any[]) => args[0] === '/_dashboard');
+			const handler = dashCall![1];
+
+			const res = { writeHead: vi.fn(), end: vi.fn() };
+			handler({ url: '/../../../etc/passwd' }, res, vi.fn());
+
+			expect(res.writeHead).toHaveBeenCalledWith(403);
+			expect(res.end).toHaveBeenCalledOnce();
 		});
 
 		it('stream error ENOENT -> responds 404 and ends the response', () => {
-			mockExistsSync.mockImplementation((p: string) => p.includes('.js'));
-			const { server } = setupWithDashboard();
+			const { server } = setupWithDashboard({}, ['assets/index.js']);
 
-			const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls.find((args: any[]) => args[0] === '/_dashboard');
+			const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls
+				.find((args: any[]) => args[0] === '/_dashboard');
 			const handler = dashCall![1];
 
 			let registeredErrorHandler: ((err: NodeJS.ErrnoException) => void) | null = null;
-			const pipeMock = vi.fn();
 			mockCreateReadStream.mockReturnValue({
-				pipe: pipeMock,
+				pipe: vi.fn(),
 				on: vi.fn((event: string, cb: (err: NodeJS.ErrnoException) => void) => {
-					if (event === 'error') {
-						registeredErrorHandler = cb;
-					}
+					if (event === 'error') registeredErrorHandler = cb;
 				}),
 			});
 
@@ -473,75 +486,65 @@ describe('trackerPlugin()', () => {
 			handler({ url: '/assets/index.js' }, res, vi.fn());
 
 			expect(registeredErrorHandler).not.toBeNull();
-			const enoentErr = Object.assign(new Error('ENOENT: no such file'), { code: 'ENOENT' }) as NodeJS.ErrnoException;
-			registeredErrorHandler!(enoentErr);
+			registeredErrorHandler!(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }) as NodeJS.ErrnoException);
 
 			expect(res.writeHead).toHaveBeenCalledWith(404);
 			expect(res.end).toHaveBeenCalledOnce();
 		});
 
 		it('stream error non-ENOENT -> responds 500 and ends the response', () => {
-			mockExistsSync.mockImplementation((p: string) => p.includes('.js'));
-			const { server } = setupWithDashboard();
+			const { server } = setupWithDashboard({}, ['assets/index.js']);
 
-			const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls.find((args: any[]) => args[0] === '/_dashboard');
+			const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls
+				.find((args: any[]) => args[0] === '/_dashboard');
 			const handler = dashCall![1];
 
 			let registeredErrorHandler: ((err: NodeJS.ErrnoException) => void) | null = null;
-			const pipeMock = vi.fn();
 			mockCreateReadStream.mockReturnValue({
-				pipe: pipeMock,
+				pipe: vi.fn(),
 				on: vi.fn((event: string, cb: (err: NodeJS.ErrnoException) => void) => {
-					if (event === 'error') {
-						registeredErrorHandler = cb;
-					}
+					if (event === 'error') registeredErrorHandler = cb;
 				}),
 			});
 
 			const res = { setHeader: vi.fn(), end: vi.fn(), headersSent: false, writeHead: vi.fn() };
 			handler({ url: '/assets/index.js' }, res, vi.fn());
 
-			const ioErr = Object.assign(new Error('EIO: i/o error'), { code: 'EIO' }) as NodeJS.ErrnoException;
-			registeredErrorHandler!(ioErr);
+			registeredErrorHandler!(Object.assign(new Error('EIO'), { code: 'EIO' }) as NodeJS.ErrnoException);
 
 			expect(res.writeHead).toHaveBeenCalledWith(500);
 			expect(res.end).toHaveBeenCalledOnce();
 		});
 
 		it('stream error with headers already sent -> skips writeHead, only calls end()', () => {
-			mockExistsSync.mockImplementation((p: string) => p.includes('.js'));
-			const { server } = setupWithDashboard();
+			const { server } = setupWithDashboard({}, ['assets/index.js']);
 
-			const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls.find((args: any[]) => args[0] === '/_dashboard');
+			const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls
+				.find((args: any[]) => args[0] === '/_dashboard');
 			const handler = dashCall![1];
 
 			let registeredErrorHandler: ((err: NodeJS.ErrnoException) => void) | null = null;
-			const pipeMock = vi.fn();
 			mockCreateReadStream.mockReturnValue({
-				pipe: pipeMock,
+				pipe: vi.fn(),
 				on: vi.fn((event: string, cb: (err: NodeJS.ErrnoException) => void) => {
-					if (event === 'error') {
-						registeredErrorHandler = cb;
-					}
+					if (event === 'error') registeredErrorHandler = cb;
 				}),
 			});
 
-			// INFO Simulate that some bytes were already flushed before the error
 			const res = { setHeader: vi.fn(), end: vi.fn(), headersSent: true, writeHead: vi.fn() };
 			handler({ url: '/assets/index.js' }, res, vi.fn());
 
-			const err = Object.assign(new Error('EIO: i/o error'), { code: 'EIO' }) as NodeJS.ErrnoException;
-			registeredErrorHandler!(err);
+			registeredErrorHandler!(Object.assign(new Error('EIO'), { code: 'EIO' }) as NodeJS.ErrnoException);
 
 			expect(res.writeHead).not.toHaveBeenCalled();
 			expect(res.end).toHaveBeenCalledOnce();
 		});
 
 		it('stream error handler is registered before pipe() is called', () => {
-			mockExistsSync.mockImplementation((p: string) => p.includes('.js'));
-			const { server } = setupWithDashboard();
+			const { server } = setupWithDashboard({}, ['assets/index.js']);
 
-			const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls.find((args: any[]) => args[0] === '/_dashboard');
+			const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls
+				.find((args: any[]) => args[0] === '/_dashboard');
 			const handler = dashCall![1];
 
 			const callOrder: string[] = [];
@@ -686,14 +689,17 @@ describe('trackerPlugin()', () => {
 				return false
 			});
 
-			mockReaddirSync.mockImplementation((p: string) => {
-				if (p.endsWith('dashboard')) {
-					return [
-						{ name: 'index.html', isDirectory: () => false },
-						{ name: 'assets', isDirectory: () => true },
-					];
-				}
-				if (p.endsWith('dashboard/assets')) {
+			mockReaddirSync.mockImplementation((p: string, opts?: any) => {
+				if (opts?.withFileTypes) {
+					if (String(p).endsWith('dashboard')) {
+						return [
+							{ name: 'index.html', isDirectory: () => false },
+							{ name: 'assets', isDirectory: () => true },
+						];
+					}
+					if (String(p).endsWith('assets')) {
+						return [];
+					}
 					return [];
 				}
 				return [];
@@ -715,41 +721,34 @@ describe('trackerPlugin()', () => {
 
 	describe('getMimeType() — via dashboard asset handler', () => {
 		const mimeTests: Array<[string, string]> = [
-			['/app.js', 'application/javascript'],
-			['/style.css', 'text/css'],
-			['/data.json', 'application/json'],
-			['/icon.svg', 'image/svg+xml'],
-			['/logo.png', 'image/png'],
-			['/favicon.ico', 'image/x-icon'],
-			['/font.woff2', 'font/woff2'],
-			['/font.woff', 'font/woff'],
-			['/page.html', 'text/html'],
-			['/file.bin', 'application/octet-stream']
+			['assets/app.js', 'application/javascript'],
+			['assets/style.css', 'text/css'],
+			['assets/data.json', 'application/json'],
+			['assets/icon.svg', 'image/svg+xml'],
+			['assets/logo.png', 'image/png'],
+			['assets/favicon.ico', 'image/x-icon'],
+			['assets/font.woff2', 'font/woff2'],
+			['assets/font.woff', 'font/woff'],
+			['assets/page.html', 'text/html'],
+			['assets/file.bin', 'application/octet-stream'],
 		];
 
-		for (const [url, expectedMime] of mimeTests) {
-			it(`${url} -> ${expectedMime}`, () => {
+		for (const [relPath, expectedMime] of mimeTests) {
+			it(`${relPath} -> ${expectedMime}`, () => {
 				const pipeMock = vi.fn();
 				mockCreateReadStream.mockReturnValue({ pipe: pipeMock, on: vi.fn() });
 
-				mockExistsSync.mockImplementation((p: string) =>
-					p.endsWith(url.slice(1))
+				const { server } = setupWithDashboard(
+					{ route: '/_dashboard' },
+					[relPath]
 				);
-
-				const plugin = trackerPlugin(baseOpts({
-					storage: { mode: 'middleware' } as any,
-					dashboard: { enabled: true, route: '/_dashboard' } as any,
-				}));
-				(getHook(plugin, 'configResolved') as Function)(makeViteConfig());
-				const server = makeServer();
-				(getHook(plugin, 'configureServer') as Function)(server);
 
 				const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls
 					.find((args: any[]) => args[0] === '/_dashboard');
 				const handler = dashCall![1];
 
 				const res = { setHeader: vi.fn(), end: vi.fn() }
-				handler({ url }, res, vi.fn());
+				handler({ url: `/${relPath}` }, res, vi.fn());
 
 				expect(res.setHeader).toHaveBeenCalledWith('Content-Type', expectedMime);
 			});
