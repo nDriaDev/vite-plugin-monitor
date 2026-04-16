@@ -1,5 +1,6 @@
 import type { AutoStorageOptions, HttpStorageOptions, ManagedStorageOptions, ResolvedTrackerOptions, StorageMode, TrackerPluginOptions, WsStorageOptions } from "@tracker/types";
 import { createHmac } from "node:crypto";
+import { resolve } from "node:path";
 
 
 function hashCredential(value: string, appId: string): string {
@@ -84,7 +85,7 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 			transports: opts.logging?.transports ?? [
 				{
 					format: 'json',
-					path: `./logs/${opts.appId}.log`,
+					path: resolve(process.cwd(), 'logs',`${opts.appId}.log`),
 					rotation: { strategy: 'daily', maxFiles: 30, compress: false },
 				}
 			]

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import readline from 'node:readline';
-import path from 'node:path';
+import { basename, dirname, extname, join, resolve } from 'node:path';
 import type { Logger, LoggingOptions, LogLevel, LogTransport, TrackerEvent } from '../types';
 
 const LEVELS: Record<LogLevel, number> = {
@@ -251,9 +251,10 @@ class StreamTransport {
 	private resolveTargetPath(): string {
 		if (this.transport.rotation?.strategy === 'daily') {
 			this.currentDate = utcDateStamp(new Date());
-			const ext = path.extname(this.transport.path);
-			const base = this.transport.path.slice(0, -ext.length);
-			return `${base}-${this.currentDate}${ext}`;
+			const dir = dirname(this.transport.path);
+			const ext = extname(this.transport.path);
+			const stem = basename(this.transport.path, ext);
+			return join(dir, `${stem}-${this.currentDate}${ext}`);
 		}
 		return this.transport.path;
 	}
@@ -300,7 +301,10 @@ class StreamTransport {
 	private async rotate(onError: (msg: string) => void): Promise<void> {
 		await this.closeStream();
 		const ts = utcTimestamp(new Date());
-		const archived = this.transport.path.replace(/(\.[^.]+)$/, `-${ts}$1`);
+		const dir = dirname(this.currentPath);
+		const ext = extname(this.currentPath);
+		const stem = basename(this.currentPath, ext);
+		const archived = join(dir, `${stem}-${ts}${ext}`);
 		try {
 			fs.renameSync(this.currentPath, archived);
 		} catch { /* ignore */ }
@@ -310,9 +314,9 @@ class StreamTransport {
 
 	private cleanupOldFiles(): void {
 		const maxFiles = this.transport.rotation?.maxFiles ?? 30;
-		const dir = path.dirname(this.transport.path);
-		const baseName = path.basename(this.transport.path);
-		const ext = path.extname(baseName);
+		const dir = dirname(this.transport.path);
+		const baseName = basename(this.transport.path);
+		const ext = extname(baseName);
 		const stem = baseName.slice(0, -ext.length);
 		try {
 			/**
@@ -330,14 +334,14 @@ class StreamTransport {
 				.slice(maxFiles)  // INFO keep the newest maxFiles, collect the rest
 				.forEach(name => {
 					try {
-						fs.unlinkSync(path.join(dir, name));
+						fs.unlinkSync(join(dir, name));
 					} catch { /* ignore */ }
 				});
 		} catch { /* ignore */ }
 	}
 
 	private ensureDir(): void {
-		const dir = path.dirname(this.transport.path);
+		const dir = dirname(this.transport.path);
 		if (!fs.existsSync(dir)) {
 			fs.mkdirSync(dir, { recursive: true });
 		}
@@ -425,13 +429,13 @@ async function* hydrateFromLogsIterator(transportConfigs: LogTransport[], maxByt
  * generator boundaries.
  */
 async function* readTransportFiles(transport: LogTransport, maxBytesPerTransport: number, batchSize: number): AsyncGenerator<HydrateBatch | { type: 'done'; stats: { skippedMalformed: number; skippedInvalid: number; limitReached: boolean } }> {
-	const dir = path.dirname(transport.path);
+	const dir = dirname(transport.path);
 	if (!fs.existsSync(dir)) {
 		return;
 	}
 
-	const base = path.basename(transport.path);
-	const ext = path.extname(base);
+	const base = basename(transport.path);
+	const ext = extname(base);
 	const stem = base.slice(0, -ext.length);
 
 	let files: string[];
@@ -450,7 +454,7 @@ async function* readTransportFiles(transport: LogTransport, maxBytesPerTransport
 	let limitReached = false;
 
 	for (const file of files) {
-		const filePath = path.join(dir, file);
+		const filePath = join(dir, file);
 
 		for await (const chunk of readLogFile(filePath, batchSize, bytesRead, maxBytesPerTransport)) {
 			if (chunk.type === 'batch') {
@@ -546,7 +550,7 @@ export function createLogger(appId: string, loggingOpts?: LoggingOptions): Logge
 	const transportConfigs = loggingOpts?.transports ?? [
 		{
 			format: 'json' as const,
-			path: `./logs/${appId}.log`,
+			path: resolve(process.cwd(), 'logs',`${appId}.log`),
 			rotation: { strategy: 'daily' as const, maxFiles: 30, compress: false },
 		}
 	];

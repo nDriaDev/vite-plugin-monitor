@@ -1,5 +1,5 @@
+import { dirname, join, sep } from 'node:path';
 import type { ResolvedTrackerOptions, TrackerConfig } from '../types'
-import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /* v8 ignore start */
@@ -9,12 +9,14 @@ import { fileURLToPath } from 'node:url'
  * tsdown compiles to both targets, so we try ESM first.
  */
 function clientDir(): string {
+	let dir;
 	try {
-		const __filename = fileURLToPath(import.meta.url)
-		return path.join(path.dirname(__filename), 'client')
+		const __filename = fileURLToPath(import.meta.url);
+		dir = join(dirname(__filename), 'client');
 	} catch {
-		return path.join(__dirname, 'client')
+		dir = join(__dirname, 'client');
 	}
+	return dir.split(sep).join('/');
 }
 /* v8 ignore stop */
 
@@ -66,29 +68,6 @@ function buildConfig(opts: ResolvedTrackerOptions): TrackerConfig {
 }
 
 /**
- * Generates the auto-init script injected into index.html when `autoInit: true`.
- *
- * @remarks
- * Calls `tracker.init()` passing only the optional `userIdFn` - the config is read from `window` automatically.
- *
- * The `userIdFn` is serialized from `opts.track.userId` via `.toString()`.
- * It must be a pure function with no closures over module-level variables
- * at build time, since it is serialized as a string and evaluated in the browser.
- */
-export function generateAutoInitScript(opts: ResolvedTrackerOptions, isBuild: boolean): string {
-	const userIdFn = opts.track.userId?.toString() ?? '() => null';
-
-	const importPath = isBuild ? '@ndriadev/vite-plugin-monitor/client' : `/@fs/${clientDir()}/index.js`;
-
-	return `
-// vite-plugin-monitor - auto-generated init script
-import { tracker } from '${importPath}';
-
-tracker.init(${userIdFn});
-`;
-}
-
-/**
  * Generates the inline `<script>` that injects `window.__TRACKER_CONFIG__` into
  * the dashboard HTML (`dashboard/index.html`).
  *
@@ -136,7 +115,7 @@ export function generateSetupScript(opts: ResolvedTrackerOptions, isBuild: boole
 
 	return `
 // vite-plugin-monitor - proxy setup (runs before app code)
-import { setupTrackers } from '${importPath}';
+import { setupTrackers${opts.autoInit ? ', tracker' : ''} } from '${importPath}';
 
 Object.defineProperty(window, '__TRACKER_CONFIG__', {
 	value:        Object.freeze(${JSON.stringify(config, null, 2)}),
@@ -146,5 +125,6 @@ Object.defineProperty(window, '__TRACKER_CONFIG__', {
 });
 
 setupTrackers(${userIdFn});
+${opts.autoInit ? `tracker.init(${userIdFn});` : ""}
 `
 }
