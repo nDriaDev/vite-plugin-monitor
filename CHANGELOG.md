@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.7.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.7.0) - 2026-04-16
+
+### Bug Fixes
+
+- resolve windows paths problem ([c3ce702](https://github.com/nDriaDev/vite-plugin-monitor/commit/c3ce702))
+
+### Performance Improvements
+
+- optimization ([27e4d3a](https://github.com/nDriaDev/vite-plugin-monitor/commit/27e4d3a))
+
 ## [1.6.2](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.6.2) - 2026-04-15
 
 ### Bug Fixes
