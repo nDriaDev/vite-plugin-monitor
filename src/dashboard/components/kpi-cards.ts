@@ -1,4 +1,4 @@
-import { formatCompactNumber, formatCount, formatDuration, formatPercent } from "../utils/format";
+import { formatCompactNumber, formatDuration, formatPercent } from "../utils/format";
 import { el } from "../utils/dom";
 import { store } from "../state";
 import type { HttpStats, KpiCard, MetricsResult, StatsResult } from "@tracker/types";
@@ -131,7 +131,7 @@ export function createHttpInfoCards({ onMostCalledClick, onHttpErrorRateClick, o
 			const mc = h.mostCalledEndpoint;
 			mcVal.textContent = mc.url;
 			mcVal.title = mc.url;
-			mcBadge.textContent = [mc.method, mc.topStatus, `×${formatCount(mc.count)}`]
+			mcBadge.textContent = [mc.method, mc.topStatus, `×${formatCompactNumber(mc.count)}`]
 				.filter(Boolean)
 				.join(' · ');
 			if (onMostCalledClick) {
@@ -312,7 +312,7 @@ export function createHttpStatusCards({ onTotalClick, on2xxClick, on4xxClick, on
 			const pct = card.getPct(h);
 
 			if (isTotal) {
-				valEl.textContent = formatCount(count);
+				valEl.textContent = formatCompactNumber(count);
 				if (countEl) {
 					countEl.textContent = '';
 				}
@@ -325,7 +325,7 @@ export function createHttpStatusCards({ onTotalClick, on2xxClick, on4xxClick, on
 
 			valEl.textContent = h.total > 0 ? `${pct}%` : '-';
 			if (countEl) {
-				countEl.textContent = h.total > 0 ? `${formatCount(count)} reqs` : '';
+				countEl.textContent = h.total > 0 ? `${formatCompactNumber(count)} reqs` : '';
 			}
 
 			// INFO bar: 2xx shows % forward; error cards scale ×10 for visibility at low values

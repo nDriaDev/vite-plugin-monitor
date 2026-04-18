@@ -1,6 +1,6 @@
 import type { ErrorItem, FunnelComponent, FunnelStep, RankedItem, TopErrorsComponent, TopPagesComponent } from "@tracker/types";
 import { el, empty, escapeHtml } from "../utils/dom";
-import { formatCount, formatRelative } from "../utils/format";
+import { formatCompactNumber, formatRelative } from "../utils/format";
 
 /**
 * Generic ranked list component with proportional bars.
@@ -27,7 +27,7 @@ export function createTopPages(onSelect?: (route: string) => void): TopPagesComp
         <div class="top-bar-wrap">
 			<div class="top-bar" style="width:${pct}%"></div>
         </div>
-        <div class="top-count">${formatCount(item.count)}</div>
+        <div class="top-count">${formatCompactNumber(item.count)}</div>
 		`;
 			onSelect && row.addEventListener("click", () => onSelect(item.label));
 			list.append(row);
@@ -54,7 +54,7 @@ export function createTopErrors(onSelect?: (message: string) => void): TopErrors
 			row.innerHTML = `
         <div class="error-msg" title="${safe}">${safe}</div>
         <div class="error-meta">
-			<span class="error-count">×${formatCount(item.count)}</span>
+			<span class="error-count">×${formatCompactNumber(item.count)}</span>
 			<span class="error-time">${formatRelative(item.lastSeen)}</span>
         </div>
 		`;
@@ -92,7 +92,7 @@ export function createFunnel(onSelect?: (from: string, to: string) => void): Fun
         <div class="top-bar-wrap">
 			<div class="top-bar funnel-bar" style="width:${pct}%"></div>
         </div>
-        <div class="top-count">${formatCount(step.count)}</div>
+        <div class="top-count">${formatCompactNumber(step.count)}</div>
 		`;
 			onSelect && row.addEventListener("click", () => onSelect(step.from, step.to));
 			list.append(row);
@@ -126,7 +126,7 @@ export function createTopEndpoints(onSelect?: (url: string) => void): HTMLElemen
         <div class="top-bar-wrap">
 			<div class="top-bar top-bar--endpoint" style="width:${pct}%"></div>
         </div>
-        <div class="top-count">${formatCount(item.count)}</div>
+        <div class="top-count">${formatCompactNumber(item.count)}</div>
 		`;
 			onSelect && row.addEventListener('click', () => onSelect(item.label));
 			list.append(row);
