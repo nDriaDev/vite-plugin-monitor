@@ -167,7 +167,7 @@ Reserved for future gzip compression of rotated archives. Currently has no effec
 
 ## Log Replay on Restart
 
-When the Vite dev server (middleware mode) or standalone server restarts, **existing log files are replayed into the in-memory ring buffer**. This means the dashboard retains event history even after a server restart.
+When the Vite dev server restarts, **existing log files are replayed into the in-memory ring buffer**. This means the dashboard retains event history even after a server restart.
 
 Log replay reads all `.log` / `.jsonl` files matching the configured transport paths (including rotation archives) and inserts their events into the ring buffer in chronological order. Only JSONL-format logs are parsed for replay; pretty-format logs are skipped.
 

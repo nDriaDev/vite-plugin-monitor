@@ -1,13 +1,12 @@
 # Storage Modes
 
-vite-plugin-monitor supports four storage modes, each designed for a different deployment scenario. The mode is selected via `storage.mode` (default: `'auto'`).
+vite-plugin-monitor supports three storage modes, each designed for a different deployment scenario. The mode is selected via `storage.mode` (default: `'auto'`).
 
 ## Comparison
 
 | Mode | Transport | Server | Ideal for |
-|------|-----------|--------|-----------|
+|------|-----------|--------|-----------| 
 | `middleware` | HTTP (same-origin) | Vite dev server | Local development |
-| `standalone` | HTTP (separate port) | Plugin-managed Node.js server | Multi-process dev setups |
 | `http` | HTTP (custom endpoint) | Your own backend | Production |
 | `websocket` | WebSocket | Your own backend | Production with real-time needs |
 
@@ -68,50 +67,6 @@ trackerPlugin({
 **Limitations:**
 - Stops working when the Vite dev server is not running.
 - In-memory only between server restarts (unless log files exist for replay).
-
----
-
-## Standalone Mode
-
-The plugin spins up its own HTTP server on a separate port (default: `4242`). This is useful when:
-
-- The Vite dev server and the app backend run on different ports/processes.
-- You want the tracker server to remain running independently of Vite HMR cycles.
-
-```typescript
-trackerPlugin({
-  appId: 'my-app',
-  storage: {
-    mode: 'standalone',
-    port: 4242,  // default
-  },
-})
-```
-
-**How it works:**
-
-1. Plugin starts a Node.js HTTP server on the configured `port`.
-2. The browser POSTs events to `http://localhost:4242/_tracker/events`.
-3. The server maintains its own ring buffer and responds to dashboard queries.
-4. Also supports a WebSocket endpoint at `ws://localhost:4242/_tracker/ws`.
-5. Log replay on startup works the same as in middleware mode.
-
-**Endpoints (auto-configured):**
-
-| Endpoint | Description |
-|----------|-------------|
-| `http://localhost:4242/_tracker/events` | POST — ingest events |
-| `http://localhost:4242/_tracker` | GET — read events (dashboard) |
-| `http://localhost:4242/_tracker/ping` | GET — health check |
-| `ws://localhost:4242/_tracker/ws` | WebSocket — optional WS ingest |
-
-::: tip CORS
-The standalone server adds permissive CORS headers (`Access-Control-Allow-Origin: *`) to accommodate cross-origin requests from the browser.
-:::
-
-::: warning Port conflicts
-If port `4242` is in use, the server will fail to start with an `EADDRINUSE` error in the Vite terminal. Use `storage.port` to configure a different port.
-:::
 
 ---
 
@@ -197,7 +152,7 @@ See [WebSocket Protocol](/reference/api-contracts#websocket-protocol) for the fu
 
 ## Ring Buffer & Log Replay
 
-Both `middleware` and `standalone` modes use an in-memory **ring buffer** to store recent events for fast dashboard queries.
+`middleware` mode uses an in-memory **ring buffer** to store recent events for fast dashboard queries.
 
 - Default capacity: **500,000 events** (configurable via `storage.maxBufferSize`).
 - When capacity is exceeded, the **oldest events are evicted** (FIFO).

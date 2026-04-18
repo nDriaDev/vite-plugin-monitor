@@ -4,7 +4,7 @@ The `storage` option controls how events are transported from the browser to the
 
 ## HTTP Storage Options
 
-Used with modes `'auto'`, `'middleware'`, `'standalone'`, and `'http'`.
+Used with modes `'auto'`, `'middleware'`, and `'http'`.
 
 ```typescript
 trackerPlugin({
@@ -15,7 +15,6 @@ trackerPlugin({
     readEndpoint:  'https://api.myapp.com/tracker',
     pingEndpoint:  'https://api.myapp.com/health',
     apiKey:        process.env.TRACKER_API_KEY,
-    port:          4242,
     batchSize:     25,
     flushInterval: 3000,
     maxBufferSize: 500000,
@@ -25,7 +24,7 @@ trackerPlugin({
 
 ### `mode`
 
-**Type:** `'auto' | 'middleware' | 'standalone' | 'http' | 'websocket'` · **Default:** `'auto'`
+**Type:** `'auto' | 'middleware' | 'http' | 'websocket'` · **Default:** `'auto'`
 
 Selects the storage backend. See [Storage Modes](/guide/storage-modes) for full details.
 
@@ -33,7 +32,6 @@ Selects the storage backend. See [Storage Modes](/guide/storage-modes) for full 
 |------|-------------|
 | `'auto'` | Dev: `middleware`. Build: throws if no `writeEndpoint`. |
 | `'middleware'` | Vite handles everything. No external process needed. |
-| `'standalone'` | Plugin starts its own HTTP server on `port`. |
 | `'http'` | Send to your own REST API. Required for production. |
 | `'websocket'` | All traffic over a persistent WebSocket. |
 
@@ -56,7 +54,7 @@ X-Tracker-Key: <apiKey>  (if configured)
 
 Any `2xx` response is treated as success. Non-`2xx` causes the batch to be **re-queued** and retried on the next flush interval.
 
-In `middleware` and `standalone` modes, this is **auto-configured** (same-origin `/_tracker/events` or `http://localhost:<port>/_tracker/events`).
+In `middleware` mode, this is **auto-configured** (same-origin `/_tracker/events`).
 
 ---
 
@@ -111,21 +109,6 @@ The API key is injected into `window.__TRACKER_CONFIG__` and is visible in the b
 
 ---
 
-### `port`
-
-**Type:** `number` · **Default:** `4242`
-
-TCP port for the standalone server. Only used when `mode = 'standalone'`.
-
-```typescript
-storage: {
-  mode: 'standalone',
-  port: 4242,
-}
-```
-
----
-
 ### `batchSize`
 
 **Type:** `number` · **Default:** `25`
@@ -159,7 +142,7 @@ On page unload, all remaining queued events are sent via `navigator.sendBeacon` 
 
 **Type:** `number` · **Default:** `500000`
 
-Maximum events kept in the **server-side in-memory ring buffer**. Only used in `middleware` and `standalone` modes.
+Maximum events kept in the **server-side in-memory ring buffer**. Only used in `middleware` mode.
 
 When capacity is exceeded, the **oldest events are evicted** (FIFO). The ring buffer is the data source for dashboard queries.
 
@@ -201,11 +184,10 @@ Your server must implement the [tracker WebSocket protocol](/reference/api-contr
 
 ## Endpoint Auto-Configuration
 
-In `middleware` and `standalone` modes, endpoints are **automatically configured** — you don't need to set them manually:
+In `middleware` mode, endpoints are **automatically configured** — you don't need to set them manually:
 
 | Mode | `writeEndpoint` | `readEndpoint` |
 |------|-----------------|----------------|
 | `middleware` | `/_tracker/events` (same-origin) | `/_tracker` (same-origin) |
-| `standalone` | `http://localhost:<port>/_tracker/events` | `http://localhost:<port>/_tracker` |
 
-The `pingEndpoint` in dev is always served at `/_tracker/ping` by the Vite middleware, regardless of storage mode.
+The `pingEndpoint` in dev is always served at `/_tracker/ping` by the Vite middleware.

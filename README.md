@@ -77,7 +77,6 @@
 It intercepts browser interactions at the lowest level (before any application code runs) and forwards them to a configurable backend, with four storage modes covering every deployment scenario from local development to production:
 
 1. **🔌 Middleware mode** *(default in dev)* — Events are handled directly by Vite's dev server. Zero external processes needed.
-2. **🖥️ Standalone mode** — The plugin spins up its own HTTP server on a separate port. Useful when the Vite dev server and the backend are decoupled.
 3. **🌐 HTTP mode** *(required in production)* — Events are sent to your own API endpoint. Bring your own backend.
 4. **⚡ WebSocket mode** — All traffic (ingest + dashboard queries) flows over a single persistent WebSocket connection.
 
@@ -107,7 +106,7 @@ It intercepts browser interactions at the lowest level (before any application c
 - **Pretty format** — Human-readable aligned columns for local debugging.
 - **Log rotation** — Daily (UTC midnight) or size-based. Configurable archive count.
 - **Multiple transports** — Write the same event stream to several files simultaneously (e.g. JSONL for machines, pretty for humans).
-- **Replay on restart** — On startup the standalone/middleware server replays existing log files into its in-memory ring buffer so the dashboard retains history across Vite restarts.
+- **Replay on restart** — On startup the middleware server replays existing log files into its in-memory ring buffer so the dashboard retains history across Vite restarts.
 
 ### 📊 Built-in Dashboard
 
@@ -218,7 +217,6 @@ Open `http://localhost:5173/_dashboard` to see the live dashboard. The overlay F
 |------|-------------|---------------|--------------|
 | `'auto'` (default) | Dev: auto-selects `middleware`. Build: requires `writeEndpoint`. | Optional | Optional |
 | `'middleware'` | Dev/preview: Vite handles everything, no extra process | Same-origin `/_tracker/events` | Same-origin `/_tracker` |
-| `'standalone'` | Dev: separate port, useful for multi-server setups | `http://localhost:4242/_tracker/events` | `http://localhost:4242/_tracker` |
 | `'http'` | Production: your own REST API handles events | Required | Optional (inferred from `writeEndpoint`) |
 | `'websocket'` | Production: single persistent WS connection | — | — |
 
@@ -548,14 +546,14 @@ console: {
 
 ### Storage Options
 
-#### `HttpStorageOptions` (modes: `auto`, `middleware`, `standalone`, `http`)
+#### `HttpStorageOptions` (modes: `auto`, `middleware`, `http`)
 
 ```typescript
 storage: {
   /**
    * @default 'auto'
    */
-  mode?: 'auto' | 'middleware' | 'standalone' | 'http';
+  mode?: 'auto' | 'middleware' | 'http';
 
   /**
    * URL that receives batched events via POST.
@@ -584,13 +582,6 @@ storage: {
   apiKey?: string;
 
   /**
-   * TCP port for the standalone server.
-   * Only used when mode = 'standalone'.
-   * @default 4242
-   */
-  port?: number;
-
-  /**
    * Max events accumulated client-side before flushing.
    * @default 25
    */
@@ -604,7 +595,7 @@ storage: {
 
   /**
    * Max events kept in the server-side in-memory ring buffer.
-   * Only used in middleware and standalone modes.
+   * Only used in middleware mode.
    * Oldest events are evicted automatically (FIFO).
    * @default 500000
    */
@@ -1168,7 +1159,7 @@ After `vite build`, the dashboard SPA is present at `dist/_dashboard/`. Your rev
 
 ## 📊 Dashboard
 
-The dashboard is a standalone Vanilla TypeScript SPA injected into Vite's middleware (or standalone server) at the configured `route`. It reads its own configuration from `window.__TRACKER_CONFIG__` injected by the plugin at serve time.
+The dashboard is a standalone Vanilla TypeScript SPA injected into Vite's middleware at the configured `route`. It reads its own configuration from `window.__TRACKER_CONFIG__` injected by the plugin at serve time.
 
 ### Layout
 
@@ -1248,7 +1239,7 @@ X-Tracker-Key: <apiKey>           (only when apiKey is configured)
 
 ### Read Endpoint (HTTP)
 
-Used by the dashboard when `mode = 'http'` or `mode = 'standalone'`.
+Used by the dashboard when `mode = 'http'`.
 
 **Request** (dashboard → server):
 ```
@@ -1378,14 +1369,13 @@ The plugin's `closeBundle` hook copies the pre-built dashboard dist into the Vit
 ### No Events Appearing in the Dashboard
 
 - Check the browser Network tab: is the `POST <writeEndpoint>` request succeeding (2xx)?
-- In middleware/standalone mode: is Vite still running? Restart and reload.
+- In middleware mode: is Vite still running? Restart and reload.
 - Verify `track.clicks`, `track.http`, etc. are enabled — all auto-trackers except `console` default to `false`.
 - Check the `track.level` filter — events below the minimum level are silently discarded before enqueueing.
 
 ### Dashboard Shows "Backend Offline"
 
 - In middleware mode: the Vite dev server is the backend — make sure it is running.
-- In standalone mode: the plugin starts a server on `storage.port` (default: 4242) — check for port conflicts (`EADDRINUSE` in the Vite terminal).
 - In HTTP mode: verify `storage.readEndpoint` and `storage.pingEndpoint` are reachable from the browser.
 
 ### `window.__TRACKER_CONFIG__ not found`

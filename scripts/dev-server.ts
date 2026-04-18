@@ -1,17 +1,18 @@
 /**
- * Standalone development server for the dashboard.
+ * Development server for the dashboard.
  *
- * Starts the tracker standalone server independently of Vite so the
- * dashboard SPA (`pnpm dev:dashboard`) has a backend to talk to, and
- * seeds the ring buffer with realistic fixture events so the dashboard
- * has data to display immediately.
+ * Starts a local HTTP server independently of Vite so the dashboard SPA
+ * (`pnpm dev:dashboard`) has a backend to talk to, and seeds the ring
+ * buffer with realistic fixture events so the dashboard has data to
+ * display immediately.
  *
  * Usage - three terminals:
  *   pnpm dev           -> tsdown --watch (compiles plugin + client)
- *   pnpm dev:server    -> this script (standalone server + seed)
+ *   pnpm dev:server    -> this script (HTTP server + seed)
  *   pnpm dev:dashboard -> Vite SPA with proxy -> :4242
  */
-import { createStandaloneServer } from '../src/plugin/standalone-server';
+import { createServer } from 'node:http';
+import { createRequestHandler } from '../src/plugin/server';
 import type { ResolvedTrackerOptions, TrackerEvent } from '../src/types';
 
 const opts: ResolvedTrackerOptions = {
@@ -19,13 +20,12 @@ const opts: ResolvedTrackerOptions = {
 	appId: 'dev',
 	autoInit: true,
 	storage: {
-		mode: 'standalone',
+		mode: 'middleware',
 		writeEndpoint: 'http://localhost:4242/_tracker/events',
 		readEndpoint: 'http://localhost:4242/_tracker',
 		pingEndpoint: '',
 		wsEndpoint: '',
 		apiKey: '',
-		port: 4242,
 		batchSize: 25,
 		flushInterval: 3000,
 		maxBufferSize: 500000
@@ -80,15 +80,50 @@ const logger = {
 		onDone({ loaded: 0, skippedMalformed: 0, skippedInvalid: 0, limitReached: false });
 	},
 };
-const server = createStandaloneServer(opts, logger);
+const PORT = 4242;
 
-server.start();
+// Build a minimal in-memory buffer - dev-server only needs push/query/size.
+const _buf: TrackerEvent[] = [];
+const buffer = {
+	push: (events: TrackerEvent[]) => { _buf.push(...events); },
+	query: (filters: { since?: string; until?: string; after?: string; limit: number; page: number }) => {
+		let result = [..._buf];
+		if (filters.since) result = result.filter(e => e.timestamp >= filters.since!);
+		if (filters.until) result = result.filter(e => e.timestamp <= filters.until!);
+		if (filters.after) result = result.filter(e => e.timestamp > filters.after!);
+		result = result.reverse();
+		const total = result.length;
+		const start = (filters.page - 1) * filters.limit;
+		return { events: result.slice(start, start + filters.limit), total };
+	},
+	size: () => _buf.length,
+};
 
-logger.info('Dev server running  ->  http://localhost:4242/_tracker/events');
-logger.info('Start the dashboard ->  pnpm dev:dashboard');
+const handler = createRequestHandler(opts, buffer as any, logger);
 
-process.on('SIGINT', () => { server.stop(); process.exit(0) });
-process.on('SIGTERM', () => { server.stop(); process.exit(0) });
+const server = createServer(async (req, res) => {
+	const handled = await handler(req, res);
+	if (!handled) {
+		res.writeHead(404, { 'Content-Type': 'application/json' });
+		res.end(JSON.stringify({ error: 'Not found' }));
+	}
+});
+
+server.on('error', (err: NodeJS.ErrnoException) => {
+	if (err.code === 'EADDRINUSE') {
+		logger.warn(`Port ${PORT} already in use - dev server not started`);
+	} else {
+		logger.error(`Server error: ${err.message}`);
+	}
+});
+
+server.listen(PORT, () => {
+	logger.info(`Dev server running  ->  http://localhost:${PORT}/_tracker/events`);
+	logger.info(`Start the dashboard ->  pnpm dev:dashboard`);
+});
+
+process.on('SIGINT', () => { server.close(); process.exit(0); });
+process.on('SIGTERM', () => { server.close(); process.exit(0); });
 
 setTimeout(() => seedEvents(), 500);
 

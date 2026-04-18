@@ -4,7 +4,7 @@ The vite-plugin-monitor dashboard is a standalone Vanilla TypeScript SPA with no
 
 ## Accessing the Dashboard
 
-In development (middleware or standalone mode), the dashboard is available at:
+In development (middleware mode), the dashboard is available at:
 
 ```
 http://localhost:5173/_dashboard    (default route)
@@ -119,7 +119,7 @@ The header shows a coloured status dot:
 - 🟢 **Online** — backend is reachable
 - 🔴 **Offline** — `pingEndpoint` unreachable or returning errors
 
-In middleware/standalone mode, the backend is the Vite dev server itself. The ping endpoint is always `/_tracker/ping`.
+In middleware mode, the backend is the Vite dev server itself. The ping endpoint is always `/_tracker/ping`.
 
 ## Aggregation Architecture
 

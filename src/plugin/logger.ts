@@ -349,7 +349,7 @@ class StreamTransport {
 }
 
 /**
- * Minimal structural guard — mirrors isValidEvent in standalone-server.ts.
+ * Minimal structural guard — mirrors isValidEvent in server.ts.
  */
 function isValidEvent(value: unknown): value is TrackerEvent {
 	if (typeof value !== 'object' || value === null || Array.isArray(value)) {

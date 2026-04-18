@@ -2,7 +2,7 @@ import type { Logger, ResolvedTrackerOptions, TrackerPluginOptions } from "@trac
 import { normalizePath, type Plugin, type PreviewServer, type ResolvedConfig, type ViteDevServer } from "vite";
 import { resolveOptions } from "./config";
 import { createLogger } from "./logger";
-import { createMiddleware, createStandaloneServer } from "./standalone-server";
+import { createMiddleware } from "./server";
 import { generateConfigScript, generateSetupScript } from "./codegen";
 import { version } from '../../package.json';
 import { copyFileSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -52,27 +52,21 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 	let logger: Logger;
 	let viteConfig: ResolvedConfig;
 	let isBuild = false;
-	let mode: "http" | "standalone" | "middleware" | "websocket";
+	let mode: "http" | "middleware" | "websocket";
 	let cachedSetupScript: string | null = null;
 	let cachedDashboardHtml: string | null = null;
-	let standalone: ReturnType<typeof createStandaloneServer> | null = null;
 	let logPaths: string[] | null = null;
 
 	async function cleanup() {
-		standalone?.stop();
-		standalone = null;
 		await logger?.destroy();
 		cachedSetupScript = null;
 		cachedDashboardHtml = null;
 	}
 
-	function effectiveMode(opts: ResolvedTrackerOptions, isBuild: boolean): 'http' | 'standalone' | 'middleware' | 'websocket' {
+	function effectiveMode(opts: ResolvedTrackerOptions, isBuild: boolean): 'http' | 'middleware' | 'websocket' {
 		const m = opts.storage.mode;
 		if (m === 'http') {
 			return 'http';
-		}
-		if (m === 'standalone') {
-			return 'standalone';
 		}
 		if (m === 'middleware') {
 			return 'middleware';
@@ -98,21 +92,17 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 	}
 
 	function resolvedWsEndpoint(mode: ReturnType<typeof effectiveMode>): string {
-		return mode === "standalone"
-			? `ws://${resolvedHost()}:${opts.storage.port}/_tracker/ws`
-			: mode === "websocket"
-				? opts.storage.wsEndpoint
-				: '';
+		return mode === "websocket"
+			? opts.storage.wsEndpoint
+			: '';
 	}
 
 	function resolvedWriteEndpoint(mode: ReturnType<typeof effectiveMode>): string {
 		return mode === "http"
 			? opts.storage.writeEndpoint
-			: mode === "standalone"
-				? `http://${resolvedHost()}:${opts.storage.port}/_tracker/events`
-				: mode === "middleware"
-					? '/_tracker/events'
-					: '';
+			: mode === "middleware"
+				? '/_tracker/events'
+				: '';
 	}
 
 	function resolvedReadEndpoint(mode: ReturnType<typeof effectiveMode>): string {
@@ -120,9 +110,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			? opts.storage.readEndpoint
 				? opts.storage.readEndpoint
 				: opts.storage.writeEndpoint.replace(/\/events\/?$/, "")
-			: mode === "standalone"
-				? `http://${resolvedHost()}:${opts.storage.port}/_tracker`
-				: "/_tracker";
+			: "/_tracker";
 	}
 
 	/* v8 ignore start */
@@ -161,9 +149,6 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 
 		if (mode === 'middleware') {
 			server.middlewares.use(createMiddleware(opts, logger));
-		} else if (mode === 'standalone') {
-			standalone = createStandaloneServer(opts, logger);
-			standalone.start();
 		}
 
 		server.httpServer?.once('close', cleanup);
@@ -230,15 +215,13 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				const port = viteConfig.server?.port ?? 5173;
 				const base = (viteConfig.base ?? '/').replace(/\/$/, '');
 				const dash = opts.dashboard.route;
-				const apiUrl = mode === 'standalone'
-					? `http://${host}:${opts.storage.port}/_tracker`
-					: mode === 'http'
+				const apiUrl = mode === 'http'
+					? opts.storage.readEndpoint
 						? opts.storage.readEndpoint
-							? opts.storage.readEndpoint
-							: opts.storage.writeEndpoint.replace(/\/events\/?$/, "")
-						: mode === 'websocket'
-							? opts.storage.wsEndpoint
-							: `http://${host}:${port}${base}/_tracker`;
+						: opts.storage.writeEndpoint.replace(/\/events\/?$/, "")
+					: mode === 'websocket'
+						? opts.storage.wsEndpoint
+						: `http://${host}:${port}${base}/_tracker`;
 
 				console.log(
 					`  \x1b[32m➜\x1b[0m  \x1b[1mvite-plugin-monitor Tracker API\x1b[0m:       ` +

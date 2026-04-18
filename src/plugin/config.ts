@@ -28,7 +28,7 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 	// INFO 'auto' gets its own type because it supports writeEndpoint/readEndpoint/pingEndpoint as optional fields — used only when the build resolves 'auto' to 'http'.
 	const httpOpts = mode === 'http' ? opts.storage as HttpStorageOptions : undefined;
 	const autoOpts = mode === 'auto' ? opts.storage as AutoStorageOptions : undefined;
-	const managedOpts = (mode === 'standalone' || mode === 'middleware') ? opts.storage as ManagedStorageOptions : undefined;
+	const managedOpts = mode === 'middleware' ? opts.storage as ManagedStorageOptions : undefined;
 	const wsOpts = mode === 'websocket' ? opts.storage as WsStorageOptions : undefined;
 	const anyOpts = httpOpts ?? autoOpts ?? managedOpts;
 
@@ -54,7 +54,6 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 				readEndpoint: '' as const,
 				pingEndpoint: wsOpts!.pingEndpoint ?? '',
 				apiKey: wsOpts!.apiKey ?? '',
-				port: 4242,
 				batchSize: wsOpts!.batchSize ?? 25,
 				flushInterval: wsOpts!.flushInterval ?? 3000,
 				maxBufferSize: 500000
@@ -66,7 +65,6 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 				readEndpoint: (httpOpts?.readEndpoint ?? autoOpts?.readEndpoint ?? '').replace(/\/$/, ''),
 				pingEndpoint: httpOpts?.pingEndpoint ?? autoOpts?.pingEndpoint ?? '',
 				apiKey: anyOpts?.apiKey ?? '',
-				port: (autoOpts ?? managedOpts)?.port ?? 4242,
 				batchSize: anyOpts?.batchSize ?? 25,
 				flushInterval: anyOpts?.flushInterval ?? 3000,
 				maxBufferSize: (autoOpts ?? managedOpts)?.maxBufferSize ?? 500000

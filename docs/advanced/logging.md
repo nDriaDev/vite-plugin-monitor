@@ -76,7 +76,7 @@ rotation: {
 
 ## Log Replay on Server Restart
 
-When middleware or standalone mode starts up, the plugin **replays existing JSONL log files** into the in-memory ring buffer. This means:
+When middleware mode starts up, the plugin **replays existing JSONL log files** into the in-memory ring buffer. This means:
 
 - The dashboard shows historical events even after a `vite dev` restart
 - No events are "lost" from the ring buffer perspective across restarts

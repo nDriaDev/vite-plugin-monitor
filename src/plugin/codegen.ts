@@ -75,7 +75,7 @@ function buildConfig(opts: ResolvedTrackerOptions): TrackerConfig {
  * Called in two places inside the plugin:
  *
  * 1. **Dev / preview** (`configureServer`) - injected into the dashboard HTML
- *    served by the Vite middleware or the standalone server on every request,
+ *    served by the Vite middleware on every request,
  *    so the dashboard SPA always has the current resolved config available as
  *    `window.__TRACKER_CONFIG__` when its `main.ts` executes.
  *

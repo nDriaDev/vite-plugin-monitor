@@ -74,7 +74,6 @@ export default defineConfig({
 				items: [
 					{ text: 'Overview', link: '/guide/storage-modes' },
 					{ text: 'Middleware Mode', link: '/guide/storage-modes#middleware-mode' },
-					{ text: 'Standalone Mode', link: '/guide/storage-modes#standalone-mode' },
 					{ text: 'HTTP Mode', link: '/guide/storage-modes#http-mode' },
 					{ text: 'WebSocket Mode', link: '/guide/storage-modes#websocket-mode' },
 				],

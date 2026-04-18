@@ -30,7 +30,7 @@ features:
 
   - icon: 🗄️
     title: Flexible Storage
-    details: Four storage modes cover every scenario — middleware (dev), standalone (separate port), HTTP (production REST), and WebSocket (single persistent connection).
+    details: Three storage modes cover every scenario — middleware (dev), HTTP (production REST), and WebSocket (single persistent connection).
 
   - icon: 🔬
     title: Debug Overlay

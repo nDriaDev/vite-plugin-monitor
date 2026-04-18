@@ -66,11 +66,6 @@ describe('resolveOptions()', () => {
 			expect(r.storage.mode).toBe('auto');
 		});
 
-		it('storage.port is 4242 by default', () => {
-			const r = resolveOptions(baseOpts());
-			expect(r.storage.port).toBe(4242);
-		});
-
 		it('storage.batchSize is 25 by default', () => {
 			const r = resolveOptions(baseOpts());
 			expect(r.storage.batchSize).toBe(25);
@@ -206,13 +201,6 @@ describe('resolveOptions()', () => {
 			}));
 			expect(r.storage.writeEndpoint).toBe('');
 			expect(r.storage.readEndpoint).toBe('');
-		});
-
-		it('port fixed at 4242 for websocket', () => {
-			const r = resolveOptions(baseOpts({
-				storage: { mode: 'websocket', wsEndpoint: 'ws://remote:4242' } as any
-			}));
-			expect(r.storage.port).toBe(4242);
 		});
 	});
 

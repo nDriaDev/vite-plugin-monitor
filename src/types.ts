@@ -85,7 +85,7 @@ export interface TrackerEvent {
 	* Unique identifier assigned by the backend on ingest.
 	*
 	* @remarks
-	* Not set by the browser client. Populated by the standalone server or an
+	* Not set by the browser client. Populated by the plugin server or an
 	* external backend immediately before the event is persisted. Its format is
 	* backend-specific (MongoDB ObjectId string, UUID, etc.).
 	*
@@ -1043,7 +1043,6 @@ export interface SetUserOptions {
 * | Mode           | When to use                                                                                   | Requires         |
 * |----------------|-----------------------------------------------------------------------------------------------|------------------|
 * | `'http'`       | Production - POSTs to an external backend                                                     | `writeEndpoint`  |
-* | `'standalone'` | Dev/preview - dedicated port, file logging, no backend. It's a specification of http mode.    | Nothing extra    |
 * | `'middleware'` | Dev/preview - API on the same Vite dev server port                                            | Nothing extra    |
 * | `'websocket'`  | Production/Dev - bidirectional via WebSocket                                                  | `wsEndpoint`     |
 * | `'auto'`       | Default - `middleware` in dev, enforces `http` at build                                       | Depends          |
@@ -1054,7 +1053,7 @@ export interface SetUserOptions {
 *
 * @default 'auto'
 */
-export type StorageMode = 'http' | 'standalone' | 'middleware' | 'websocket' | 'auto'
+export type StorageMode = 'http' | 'middleware' | 'websocket' | 'auto'
 
 /**
 * Shared client-side transport tuning options used by all non-WebSocket storage modes.
@@ -1104,7 +1103,7 @@ interface BaseHttpStorageOptions {
 * it injects the client tracker into the app but does **not** start any
 * server-side handler. All endpoint URLs must point to your backend.
 *
-* @see {@link ManagedStorageOptions} for `standalone` / `middleware` / `auto`
+* @see {@link ManagedStorageOptions} for `middleware` / `auto`
 */
 export interface HttpStorageOptions extends BaseHttpStorageOptions {
 	mode: 'http'
@@ -1170,21 +1169,19 @@ export interface HttpStorageOptions extends BaseHttpStorageOptions {
 }
 
 /**
-* Storage configuration for `mode = 'standalone'`, `mode = 'middleware'`, or
-* `mode = 'auto'` (the default, which resolves to `'middleware'` in dev).
+* Storage configuration for `mode = 'middleware'` or `mode = 'auto'`
+* (the default, which resolves to `'middleware'` in dev).
 *
 * @remarks
-* In these modes the plugin **owns** the entire server-side stack. It either
-* starts a standalone HTTP server (`standalone`) or mounts handlers directly
-* on the Vite dev server (`middleware` / `auto`). All event routing is handled
+* In these modes the plugin **owns** the entire server-side stack, mounting
+* handlers directly on the Vite dev server. All event routing is handled
 * internally on fixed paths:
 *
-* | Path                    | Purpose                                    |
-* |-------------------------|--------------------------------------------|
-* | `POST /_tracker/events` | Ingest events from the browser client      |
-* | `GET  /_tracker` | Dashboard query endpoint                   |
-* | `GET  /_tracker/ping`   | Dashboard health check                     |
-* | `ws   /_tracker/ws`     | WebSocket endpoint (`standalone` only)     |
+* | Path                    | Purpose                               |
+* |-------------------------|---------------------------------------|
+* | `POST /_tracker/events` | Ingest events from the browser client |
+* | `GET  /_tracker`        | Dashboard query endpoint              |
+* | `GET  /_tracker/ping`   | Dashboard health check                |
 *
 * Because these paths are owned and served by the plugin, `writeEndpoint`,
 * `readEndpoint`, and `pingEndpoint` are **intentionally absent** from this
@@ -1201,18 +1198,7 @@ export interface ManagedStorageOptions extends BaseHttpStorageOptions {
 	/**
 	* Storage backend to use.
 	*/
-	mode: 'standalone' | 'middleware'
-
-	/**
-	* TCP port for the built-in standalone HTTP server.
-	*
-	* @remarks
-	* Only relevant when `mode = 'standalone'`. The plugin logs a warning and
-	* skips starting the server if the port is already in use (`EADDRINUSE`).
-	*
-	* @default 4242
-	*/
-	port?: number
+	mode: 'middleware'
 
 	/**
 	* Maximum number of events kept in the server-side in-memory ring buffer.
@@ -1255,10 +1241,10 @@ export interface ManagedStorageOptions extends BaseHttpStorageOptions {
 *   ```
 *
 * If you want an explicit, unambiguous config, prefer {@link HttpStorageOptions}
-* (`mode: 'http'`) or {@link ManagedStorageOptions} (`mode: 'standalone' | 'middleware'`)
+* (`mode: 'http'`) or {@link ManagedStorageOptions} (`mode: 'middleware'`)
 * instead of relying on `'auto'` resolution.
 *
-* @see {@link ManagedStorageOptions} for `mode = 'standalone' | 'middleware'`
+* @see {@link ManagedStorageOptions} for `mode = 'middleware'`
 * @see {@link HttpStorageOptions} for `mode = 'http'`
 */
 export interface AutoStorageOptions extends BaseHttpStorageOptions {
@@ -1302,17 +1288,6 @@ export interface AutoStorageOptions extends BaseHttpStorageOptions {
 	* @example `'https://api.myapp.com/ping'`
 	*/
 	pingEndpoint?: string
-
-	/**
-	* TCP port for the built-in standalone HTTP server.
-	*
-	* @remarks
-	* Only relevant when `mode` resolves to `'standalone'` at runtime (which
-	* never happens for `'auto'`, but kept for completeness).
-	*
-	* @default 4242
-	*/
-	port?: number
 
 	/**
 	* Maximum number of events kept in the server-side in-memory ring buffer.
@@ -1429,7 +1404,7 @@ export interface WsStorageOptions {
 *   and to `'http'` in build if `writeEndpoint` is provided.
 * - {@link HttpStorageOptions} — `mode: 'http'`. You operate your own backend;
 *   provide `writeEndpoint` (required) and optionally `readEndpoint` / `pingEndpoint`.
-* - {@link ManagedStorageOptions} — `mode: 'standalone' | 'middleware'`. The plugin
+* - {@link ManagedStorageOptions} — `mode: 'middleware'`. The plugin
 *   manages the server internally; endpoint paths are fixed and not configurable.
 * - {@link WsStorageOptions} — `mode: 'websocket'`. Provide `wsEndpoint` pointing at your backend.
 *
@@ -2036,7 +2011,7 @@ export interface LogTransport {
 	* | Format    | Description                                                      |
 	* |-----------|------------------------------------------------------------------|
 	* | `'json'`  | One JSON-stringified {@link TrackerEvent} per line (JSONL).      |
-	* |           | Machine-readable; used by standalone server to replay on restart.|
+	* |           | Machine-readable; used by the plugin to replay on restart.       |
 	* | `'pretty'`| Human-readable aligned columns. Not machine-parseable.           |
 	*/
 	format: 'json' | 'pretty'
@@ -2121,7 +2096,7 @@ export interface RotationOptions {
 *
 * @remarks
 * The dashboard is a Shadow DOM–isolated Vanilla TypeScript SPA bundled
-* separately. In dev/preview it is served by Vite or the standalone server.
+* separately. In dev/preview it is served by Vite.
 * In production it is included only when `includeInBuild: true`.
 *
 */
@@ -3178,7 +3153,6 @@ export type ResolvedStorage =
 		pingEndpoint: string
 		wsEndpoint: ''
 		apiKey: string
-		port: number
 		batchSize: number
 		flushInterval: number
 		maxBufferSize: number
@@ -3190,7 +3164,6 @@ export type ResolvedStorage =
 		writeEndpoint: ''
 		readEndpoint: ''
 		apiKey: string
-		port: number
 		batchSize: number
 		flushInterval: number
 		maxBufferSize: number

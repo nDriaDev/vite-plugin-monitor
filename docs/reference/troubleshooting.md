@@ -45,7 +45,6 @@ The red status dot in the dashboard header means the `pingEndpoint` is unreachab
 | Mode | Backend | What to check |
 |------|---------|---------------|
 | `middleware` | Vite dev server | Is `vite dev` running? Reload the terminal. |
-| `standalone` | Plugin-managed server on `port` | Check the Vite terminal for `EADDRINUSE` errors. Try changing `storage.port`. |
 | `http` | Your backend | Is `storage.pingEndpoint` reachable from the browser? Check CORS headers. |
 | `websocket` | Your backend | Is `storage.pingEndpoint` reachable? Is the WS server running? |
 
@@ -156,23 +155,6 @@ The build does **not fail** when the dashboard is missing — it logs a warning 
 
 ---
 
-## `EADDRINUSE` in Standalone Mode
-
-```
-Error: listen EADDRINUSE :::4242
-```
-
-Port `4242` is already in use. Change the port:
-
-```typescript
-storage: {
-  mode: 'standalone',
-  port: 4300,  // use a different port
-}
-```
-
----
-
 ## Console Output Not Captured
 
 By default, console tracking is `true` (all 19 methods). If console events aren't appearing:
@@ -234,7 +216,7 @@ if (event.type === 'click') {
 
 ---
 
-## High Memory Usage in Middleware/Standalone Mode
+## High Memory Usage in Middleware Mode
 
 The ring buffer defaults to 500,000 events. Each event is roughly 1–2 KB in memory (depending on headers/bodies), so the maximum memory footprint is approximately **500 MB–1 GB**.
 

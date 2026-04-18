@@ -21,7 +21,6 @@ On the server side, the plugin can operate in four different modes:
 | Mode | Description |
 |------|-------------|
 | `middleware` | Events handled directly by Vite's dev server. Default in dev. |
-| `standalone` | Plugin spins up its own HTTP server on a separate port. |
 | `http` | Events sent to your own API endpoint. Required in production. |
 | `websocket` | All traffic flows over a single persistent WebSocket connection. |
 

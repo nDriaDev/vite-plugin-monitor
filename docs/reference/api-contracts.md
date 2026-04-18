@@ -260,16 +260,15 @@ This message is **optional** — the dashboard works correctly without it (it fa
 
 ---
 
-## Middleware & Standalone Mode Endpoints
+## Middleware Mode Endpoints
 
-In `middleware` and `standalone` modes, the plugin implements all endpoints internally. These are the auto-configured values:
+In `middleware` mode, the plugin implements all endpoints internally on the Vite dev server. These are the auto-configured values:
 
-| Endpoint | Middleware | Standalone |
-|----------|-----------|------------|
-| Ingest (POST) | `/_tracker/events` | `http://localhost:4242/_tracker/events` |
-| Read (GET) | `/_tracker` | `http://localhost:4242/_tracker` |
-| Ping (GET) | `/_tracker/ping` | `http://localhost:4242/_tracker/ping` |
-| WebSocket | — | `ws://localhost:4242/_tracker/ws` |
+| Endpoint | Value |
+|----------|-------|
+| Ingest (POST) | `/_tracker/events` |
+| Read (GET) | `/_tracker` |
+| Ping (GET) | `/_tracker/ping` |
 
 The ping endpoint in middleware mode returns:
 

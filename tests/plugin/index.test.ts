@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, createReadStream, r
 import type { Plugin, ResolvedConfig, ResolvedServerOptions } from 'vite';
 import { trackerPlugin } from '../../src/plugin/index';
 import { createLogger } from '../../src/plugin/logger';
-import { createMiddleware, createStandaloneServer } from '../../src/plugin/standalone-server';
+import { createMiddleware } from '../../src/plugin/server';
 import type { TrackerPluginOptions } from '../../src/types';
 
 const mockLogger = {
@@ -20,13 +20,8 @@ vi.mock('../../src/plugin/logger', () => ({
 	createLogger: vi.fn(() => mockLogger)
 }));
 
-const mockStandaloneServer = {
-	start: vi.fn(),
-	stop: vi.fn()
-}
 const mockMiddlewareFn = vi.fn()
-vi.mock('../../src/plugin/standalone-server', () => ({
-	createStandaloneServer: vi.fn(() => mockStandaloneServer),
+vi.mock('../../src/plugin/server', () => ({
 	createMiddleware: vi.fn(() => mockMiddlewareFn)
 }));
 
@@ -90,7 +85,6 @@ function getHook<K extends keyof Plugin>(plugin: Plugin, name: K): Plugin[K] {
 
 const mockCreateLogger = createLogger as ReturnType<typeof vi.fn>;
 const mockCreateMiddleware = createMiddleware as ReturnType<typeof vi.fn>;
-const mockCreateStandaloneServer = createStandaloneServer as ReturnType<typeof vi.fn>;
 
 function setupWithDashboard(dashboardOpts: Record<string, unknown> = {}, assetRelPaths: string[] = []) {
 	mockReaddirSync.mockReturnValue(assetRelPaths);
@@ -155,7 +149,6 @@ describe('trackerPlugin()', () => {
 			const server = makeServer();
 			(getHook(plugin, 'configureServer') as Function)(server);
 			expect(mockCreateMiddleware).toHaveBeenCalledOnce();
-			expect(mockCreateStandaloneServer).not.toHaveBeenCalled();
 		});
 
 		it('read version from package', () => {
@@ -173,7 +166,7 @@ describe('trackerPlugin()', () => {
 			expect(result).toStrictEqual([]);
 		});
 
-		it('in build mode with writeEndpoint, mode becomes "http" -> no middleware or standalone', () => {
+		it('in build mode with writeEndpoint, mode becomes "http" -> no middleware', () => {
 			const plugin = trackerPlugin(baseOpts({
 				storage: { mode: 'http', writeEndpoint: '/api/events' } as any
 			}));
@@ -181,7 +174,6 @@ describe('trackerPlugin()', () => {
 			const server = makeServer();
 			(getHook(plugin, 'configureServer') as Function)(server);
 			expect(mockCreateMiddleware).not.toHaveBeenCalled();
-			expect(mockCreateStandaloneServer).not.toHaveBeenCalled();
 		});
 
 		it('throws when mode is "auto" in build without writeEndpoint', () => {
@@ -192,16 +184,6 @@ describe('trackerPlugin()', () => {
 			);
 		});
 
-		it('resolves wsEndpoint for standalone mode -> creates the standalone server', () => {
-			const plugin = trackerPlugin(baseOpts({
-				storage: { mode: 'standalone' } as any
-			}));
-			(getHook(plugin, 'configResolved') as Function)(makeViteConfig());
-			const server = makeServer();
-			(getHook(plugin, 'configureServer') as Function)(server);
-			expect(mockCreateStandaloneServer).toHaveBeenCalledOnce();
-			expect(mockStandaloneServer.start).toHaveBeenCalledOnce();
-		});
 
 		it('in serve mode, readEndpoint resolves to /_tracker for middleware mode', () => {
 			const plugin = trackerPlugin(baseOpts());
@@ -229,11 +211,6 @@ describe('trackerPlugin()', () => {
 			}), 'build')).not.toThrow();
 		});
 
-		it('"standalone" remains "standalone"', () => {
-			expect(() => resolveMode(baseOpts({
-				storage: { mode: 'standalone' } as any
-			}))).not.toThrow();
-		});
 
 		it('"middleware" remains "middleware"', () => {
 			expect(() => resolveMode(baseOpts({
@@ -319,10 +296,6 @@ describe('trackerPlugin()', () => {
 			expect(server.middlewares.use).toHaveBeenCalledWith(mockMiddlewareFn);
 		});
 
-		it('does not create the standalone server in middleware mode', () => {
-			setupMiddlewareMode();
-			expect(mockCreateStandaloneServer).not.toHaveBeenCalled();
-		});
 
 		it('registers the ping endpoint at /_tracker/ping', () => {
 			const { server } = setupMiddlewareMode();
@@ -349,28 +322,6 @@ describe('trackerPlugin()', () => {
 		});
 	});
 
-	describe('configureServer() — standalone mode', () => {
-		function setupStandaloneMode() {
-			const plugin = trackerPlugin(baseOpts({
-				storage: { mode: 'standalone' } as any
-			}));
-			(getHook(plugin, 'configResolved') as Function)(makeViteConfig({ server: { port: 5173, host: "http://127.0.0.1" } as ResolvedServerOptions }));
-			const server = makeServer();
-			(getHook(plugin, 'configureServer') as Function)(server);
-			return { plugin, server }
-		}
-
-		it('creates and starts the standalone server', () => {
-			setupStandaloneMode();
-			expect(mockCreateStandaloneServer).toHaveBeenCalledOnce();
-			expect(mockStandaloneServer.start).toHaveBeenCalledOnce();
-		});
-
-		it('does not mount the middleware in standalone mode', () => {
-			setupStandaloneMode();
-			expect(mockCreateMiddleware).not.toHaveBeenCalled();
-		});
-	});
 
 	describe('configureServer() — dashboard enabled', () => {
 
@@ -663,22 +614,6 @@ describe('trackerPlugin()', () => {
 			expect(writtenHtml).toContain('__TRACKER_CONFIG__');
 		});
 
-		it('stops the standalone server before calling logger.destroy', async () => {
-			const callOrder: string[] = [];
-			mockStandaloneServer.stop.mockImplementation(() => callOrder.push('stop'));
-			mockLogger.destroy.mockImplementation(async () => { callOrder.push('destroy') });
-
-			const plugin = trackerPlugin(baseOpts({
-				storage: { mode: 'standalone' } as any
-			}));
-			(getHook(plugin, 'configResolved') as Function)(makeViteConfig());
-			const server = makeServer();
-			(getHook(plugin, 'configureServer') as Function)(server);
-			await (getHook(plugin, 'closeBundle') as Function)();
-
-			expect(callOrder[0]).toBe('stop');
-			expect(callOrder[1]).toBe('destroy');
-		});
 
 		it('recursively copies directories and files into the dashboard (copyDirSync coverage)', async () => {
 			mockExistsSync.mockImplementation((p: string) => {
@@ -776,12 +711,6 @@ describe('trackerPlugin()', () => {
 			expect(spy).toHaveBeenCalledWith(expect.stringContaining('/_tracker'));
 		});
 
-		it('in standalone mode prints the standalone port as the API URL', () => {
-			const spy = setupAndCallPrintUrls(baseOpts({
-				storage: { mode: 'standalone' } as any
-			}));
-			expect(spy).toHaveBeenCalledWith(expect.stringContaining('4242'));
-		});
 
 		it('in http mode prints readEndpoint as the API URL', () => {
 			const spy = setupAndCallPrintUrls(baseOpts({
@@ -827,6 +756,14 @@ describe('trackerPlugin()', () => {
 
 			expect(originalPrint).toHaveBeenCalledOnce();
 			consoleSpy.mockRestore();
+		});
+
+		it('uses the configured host string in the API URL', () => {
+			const spy = setupAndCallPrintUrls(
+				baseOpts({ storage: { mode: 'middleware' } as any }),
+				{ server: { port: 5173, host: '0.0.0.0' } as any }
+			);
+			expect(spy).toHaveBeenCalledWith(expect.stringContaining('0.0.0.0'));
 		});
 	});
 });
