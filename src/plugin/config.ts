@@ -55,7 +55,7 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 				pingEndpoint: wsOpts!.pingEndpoint ?? '',
 				apiKey: wsOpts!.apiKey ?? '',
 				batchSize: wsOpts!.batchSize ?? 25,
-				flushInterval: wsOpts!.flushInterval ?? 3000,
+				flushInterval: wsOpts!.flushInterval ?? 5000,
 				maxBufferSize: 500000
 			}
 			: {
@@ -66,7 +66,7 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 				pingEndpoint: httpOpts?.pingEndpoint ?? autoOpts?.pingEndpoint ?? '',
 				apiKey: anyOpts?.apiKey ?? '',
 				batchSize: anyOpts?.batchSize ?? 25,
-				flushInterval: anyOpts?.flushInterval ?? 3000,
+				flushInterval: anyOpts?.flushInterval ?? 5000,
 				maxBufferSize: (autoOpts ?? managedOpts)?.maxBufferSize ?? 500000
 			},
 		track: {
@@ -93,7 +93,7 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 			route: opts.dashboard?.route ?? '/_dashboard',
 			auth,
 			includeInBuild: opts.dashboard?.includeInBuild ?? false,
-			pollInterval: opts.dashboard?.pollInterval ?? 3000
+			pollInterval: opts.dashboard?.pollInterval ?? 10000
 		},
 		overlay: {
 			enabled: opts.overlay?.enabled ?? false,

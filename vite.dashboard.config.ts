@@ -27,7 +27,7 @@ function injectDevConfig(): Plugin {
 				wsEndpoint: '',
 				apiKey: '',
 				batchSize: 25,
-				flushInterval: 3000,
+				flushInterval: 5000,
 				track: {
 					clicks: true,
 					http: true,
@@ -40,7 +40,7 @@ function injectDevConfig(): Plugin {
 				dashboard: {
 					enabled: true,
 					route: '/_dashboard',
-					pollInterval: 3000,
+					pollInterval: 10000,
 					auth: {
 						username: '0a26ba53f50677da78a8ca98adcfd46d05cbee580ce6f30311ad336b1d386841',
 						password: '0a26ba53f50677da78a8ca98adcfd46d05cbee580ce6f30311ad336b1d386841'

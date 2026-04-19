@@ -48,8 +48,8 @@ function ensureWsConnected(): Promise<WebSocket> {
 		}, { once: true });
 		ws.addEventListener('close', () => {
 			wsInstance = null;
-			// INFO reconnect after 3s - mirrors flushInterval cadence
-			setTimeout(() => ensureWsConnected().catch(() => {}), 3000);
+			// INFO reconnect after 5s - mirrors flushInterval cadence
+			setTimeout(() => ensureWsConnected().catch(() => {}), 5000);
 		}, { once: true });
 	});
 }

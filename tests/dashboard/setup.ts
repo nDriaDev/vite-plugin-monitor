@@ -10,7 +10,7 @@ const BASE_CONFIG: TrackerConfig = {
 	pingEndpoint: '',
 	apiKey: '',
 	batchSize: 25,
-	flushInterval: 3000,
+	flushInterval: 5000,
 	track: {
 		clicks: false,
 		http: false,
@@ -22,7 +22,7 @@ const BASE_CONFIG: TrackerConfig = {
 	dashboard: {
 		enabled: true,
 		route: '/_dashboard',
-		pollInterval: 3000,
+		pollInterval: 10000,
 		auth: false
 	},
 	overlay: {

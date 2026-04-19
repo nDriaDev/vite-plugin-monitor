@@ -120,6 +120,7 @@ It intercepts browser interactions at the lowest level (before any application c
 - Configurable time ranges: Live, 1h, 6h, 24h, 7d, 30d.
 - Optional login gate (client-side, HMAC-hashed credentials).
 - Polling interval configurable per environment.
+- Single unified polling loop — one fetch per tick shared between the metrics pipeline and the events table, minimising network traffic and main-thread JSON parsing overhead.
 
 ### 🔬 Debug Overlay
 
@@ -589,7 +590,7 @@ storage: {
 
   /**
    * Max milliseconds between automatic flushes.
-   * @default 3000
+   * @default 5000
    */
   flushInterval?: number;
 
@@ -614,7 +615,7 @@ storage: {
   pingEndpoint?: string;    // Optional health check URL
   apiKey?:       string;    // Optional API key
   batchSize?:    number;    // @default 25
-  flushInterval?: number;   // @default 3000
+  flushInterval?: number;   // @default 5000
 }
 ```
 
@@ -706,7 +707,7 @@ dashboard: {
 
   /**
    * Polling interval between dashboard data refresh requests (ms).
-   * @default 3000
+   * @default 10000
    */
   pollInterval?: number;
 }
@@ -1235,6 +1236,8 @@ X-Tracker-Key: <apiKey>           (only when apiKey is configured)
 
 **Response**: any `2xx` is treated as success. Non-`2xx` causes the batch to be requeued and retried on the next flush interval.
 
+> **External backend requirement:** Every event in the ingest payload has `id: ""` (an empty string set by the browser client). Your backend **must** assign a unique, non-empty `id` to each event before persisting it — for example using `crypto.randomUUID()`, a MongoDB ObjectId, or a ULID. The `id` field is required by the dashboard to identify table rows without serializing the full event payload. The built-in middleware mode handles this automatically.
+
 ---
 
 ### Read Endpoint (HTTP)
@@ -1292,6 +1295,8 @@ Until this handshake completes, the server must reject all other messages (recom
 ```json
 { "type": "ingest", "events": TrackerEvent[] }
 ```
+
+> **External backend requirement:** Events arrive with `id: ""`. Your server must assign a unique `id` to each event before storing it (e.g. `crypto.randomUUID()`). See the [Ingest Endpoint](#ingest-endpoint-http) note for details.
 
 **Server → Browser (acknowledgement):**
 ```json

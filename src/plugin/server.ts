@@ -1,6 +1,7 @@
 import type { EventsResponse, Logger, ResolvedTrackerOptions, TrackerEvent } from "@tracker/types";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Connect } from "vite";
+import { randomUUID } from "node:crypto";
 import { version } from '../../package.json';
 
 
@@ -145,6 +146,11 @@ export function createRequestHandler(opts: ResolvedTrackerOptions, buffer: RingB
 				const body = await parseBody(req);
 				const { events } = JSON.parse(body) as { events: TrackerEvent[] };
 				if (Array.isArray(events) && events.length) {
+					events.forEach(e => {
+						if (!e.id) {
+							e.id = randomUUID();
+						}
+					});
 					buffer.push(events);
 					events.forEach(e => logger.writeEvent(e));
 					logger.debug(`Ingested ${events.length} events (buffer: ${buffer.size()})`);

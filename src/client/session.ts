@@ -95,6 +95,7 @@ export class TrackerSession {
 			: undefined;
 
 		return {
+			id: '',
 			timestamp: new Date().toISOString(),
 			level,
 			type,

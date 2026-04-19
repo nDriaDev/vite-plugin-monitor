@@ -10,9 +10,9 @@ import { createEventsTable } from './components/events-table';
 import { createEventDetail } from './components/event-detail';
 import { createPoller } from './utils/poll';
 import { fetchAllEvents, fetchPing } from './api';
-import { computeMetrics, computeStats } from './aggregations';
 import type { ChartBucket, FunnelComponent, TopErrorsComponent, TopPagesComponent } from '@tracker/types';
 import { createFunnel, createTopEndpoints, createTopErrors, createTopPages } from './components/top-list';
+import { computeAll } from './aggregations';
 
 /**
 * Dashboard entry point.
@@ -224,30 +224,24 @@ function mountApp(root: HTMLElement) {
 		}
 	});
 
-	store.on('volumeBucket:change', async () => {
+	store.on('volumeBucket:change', () => {
 		const s = store.get();
 		if (!s.metrics) {
 			return;
 		}
-		try {
-			const { from, to } = effectiveTimeRange(s.timeRange);
-			const events = await fetchAllEvents(from, to);
-			const metrics = computeMetrics(events, from, to, s.volumeBucket);
-			volumeChart.render(metrics.eventVolume, s.chartType);
-		} catch { /* poller will retry */ }
+		const { from, to } = effectiveTimeRange(s.timeRange);
+		const { volumeTimeline } = computeAll(store.getRawEvents(), from, to, s.chartBucket, s.volumeBucket, s.errorBucket);
+		volumeChart.render(volumeTimeline, s.chartType);
 	});
 
-	store.on('errorBucket:change', async () => {
+	store.on('errorBucket:change', () => {
 		const s = store.get();
 		if (!s.metrics) {
 			return;
 		}
-		try {
-			const { from, to } = effectiveTimeRange(s.timeRange);
-			const events = await fetchAllEvents(from, to);
-			const metrics = computeMetrics(events, from, to, s.errorBucket);
-			errorChart.render(metrics.errorRateTimeline, s.chartType);
-		} catch { /* poller will retry */ }
+		const { from, to } = effectiveTimeRange(s.timeRange);
+		const { errorTimeline } = computeAll(store.getRawEvents(), from, to, s.chartBucket, s.volumeBucket, s.errorBucket);
+		errorChart.render(errorTimeline, s.chartType);
 	});
 
 	const eventsTable = createEventsTable();
@@ -281,46 +275,38 @@ function mountApp(root: HTMLElement) {
 	});
 
 	const cfg = (window as any).__TRACKER_CONFIG__;
-	const pollIntervalMs = cfg?.dashboard?.pollInterval ?? 3000;
+	const pollIntervalMs = cfg?.dashboard?.pollInterval ?? 10000;
 
-	const metricsPoller = createPoller({
+	/**
+	 * INFO Single poller — single fetch per tick shared between metrics and events pipelines.
+	 */
+	const singlePoller = createPoller({
 		intervalMs: pollIntervalMs,
-		onError: (err) => store.setMetricsError(String(err)),
+		onError: (err) => {
+			store.setMetricsError(String(err));
+			store.setEventsError(String(err));
+		},
 		onTick: async () => {
 			store.setMetricsLoading(true);
+			store.setEventsLoading(true);
 			try {
 				const { from, to } = effectiveTimeRange(store.get().timeRange);
 				const events = await fetchAllEvents(from, to);
 				const { chartBucket, chartType, volumeBucket, errorBucket } = store.get();
-				const metrics = computeMetrics(events, from, to, chartBucket);
-				const volumeMetrics = computeMetrics(events, from, to, volumeBucket);
-				const errorMetrics = computeMetrics(events, from, to, errorBucket);
-				const stats = computeStats(events, from, to);
-				store.setMetrics(metrics, stats);
+				// INFO Populate rawEvents and trigger client-side filter in one call
+				store.setEvents(events, events.length);
 
-				volumeChart.render(volumeMetrics.eventVolume, chartType);
-				errorChart.render(errorMetrics.errorRateTimeline, chartType);
+				// INFO Single pass over all events for all three bucket granularities
+				const { metrics, stats, volumeTimeline, errorTimeline } = computeAll(events, from, to, chartBucket, volumeBucket, errorBucket);
+				store.setMetrics(metrics, stats);
+				volumeChart.render(volumeTimeline, chartType);
+				errorChart.render(errorTimeline, chartType);
 				topPages.render(metrics.topPages);
 				topErrors.render(metrics.topErrors);
 				funnel.render(metrics.navigationFunnel);
 				topEndpoints.render(metrics.topEndpoints);
 			} catch (err) {
 				store.setMetricsError(String(err));
-			}
-			return null;  // INFO metrics polling doesn't use a cursor
-		}
-	});
-
-	const eventsPoller = createPoller({
-		intervalMs: pollIntervalMs,
-		onError: (err) => store.setEventsError(String(err)),
-		onTick: async () => {
-			store.setEventsLoading(true);
-			try {
-				const { from, to } = effectiveTimeRange(store.get().timeRange);
-				const events = await fetchAllEvents(from, to);
-				store.setEvents(events, events.length);
-			} catch (err) {
 				store.setEventsError(String(err));
 			}
 			return null;
@@ -328,12 +314,10 @@ function mountApp(root: HTMLElement) {
 	});
 
 	store.on('timeRange:change', (range) => {
-		metricsPoller.resetCursor();
-		eventsPoller.resetCursor();
-		// INFO In live mode, the pollers automatically advance with each tick. For the other presets, we force an immediate refresh.
+		singlePoller.resetCursor();
+		// INFO In live mode, the poller automatically advances with each tick. For the other presets, we force an immediate refresh.
 		if (range.preset !== 'live') {
-			metricsPoller.refresh();
-			eventsPoller.refresh();
+			singlePoller.refresh();
 		}
 	});
 

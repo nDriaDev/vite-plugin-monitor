@@ -85,14 +85,17 @@ export interface TrackerEvent {
 	* Unique identifier assigned by the backend on ingest.
 	*
 	* @remarks
-	* Not set by the browser client. Populated by the plugin server or an
-	* external backend immediately before the event is persisted. Its format is
-	* backend-specific (MongoDB ObjectId string, UUID, etc.).
+	* **Not set by the browser client.** The `id` is assigned by the backend
+	* (plugin middleware or external backend) immediately before the event is
+	* persisted, using `crypto.randomUUID()`. External backends must assign a
+	* UUID (or equivalent unique string) to every event in the ingest handler
+	* before storing it — this field is required by the dashboard to identify
+	* rows without serializing the full event payload.
 	*
-	* Absent while the event lives in the client-side queue or in in-memory ring
-	* buffer entries that predate the first persistence write.
+	* Format: UUID v4 string when using the built-in middleware; any unique
+	* string is valid for external backends (MongoDB ObjectId, ULID, etc.).
 	*/
-	id?: string
+	id: string
 
 	/**
 	* ISO 8601 UTC timestamp of when the event was captured on the client.
@@ -1089,7 +1092,7 @@ interface BaseHttpStorageOptions {
 	* Timer resets on each flush. The 3 000 ms default stays well within the
 	* 30-second ingress timeout common in Kubernetes / OpenShift environments.
 	*
-	* @default 3000
+	* @default 5000
 	*/
 	flushInterval?: number
 }
@@ -1389,7 +1392,7 @@ export interface WsStorageOptions {
 	/**
 	* Maximum time in milliseconds between automatic queue flushes.
 	*
-	* @default 3000
+	* @default 5000
 	*/
 	flushInterval?: number
 }
@@ -2153,7 +2156,7 @@ export interface DashboardOptions {
 	* Uses `setTimeout`-based polling to avoid pileup on slow backends. The 3 000 ms
 	* default stays well within the 30-second ingress timeout of OpenShift / Kubernetes.
 	*
-	* @default 3000
+	* @default 5000
 	*/
 	pollInterval?: number
 }
@@ -2717,6 +2720,35 @@ export interface StatsResult {
 // INFO Dashboard - state and UI component types
 
 /**
+ * Result of a single unified aggregation pass over the raw events.
+ *
+ * @remarks
+ * Produced by `computeAll()` in `aggregations.ts`, which replaces the
+ * separate `computeMetrics()` + `computeStats()` calls that previously
+ * performed multiple independent passes over the same dataset.
+ *
+ * The `volumeTimeline` and `errorTimeline` fields hold pre-bucketed series
+ * for the two charts at their respective user-selected bucket granularities,
+ * computed in the same single pass as everything else.
+ */
+export interface MetricsAllResult {
+	/** Full metrics result (KPI rows, top-lists, funnel). */
+	metrics: MetricsResult
+	/** Full stats result (KPI cards, HTTP stats). */
+	stats: StatsResult
+	/**
+	 * Event-volume time series bucketed at the user-selected `volumeBucket`.
+	 * Used to render the Event Volume chart without re-running computeMetrics.
+	 */
+	volumeTimeline: TimePoint[]
+	/**
+	 * Error-rate time series bucketed at the user-selected `errorBucket`.
+	 * Used to render the Error Rate chart without re-running computeMetrics.
+	 */
+	errorTimeline: TimePoint[]
+}
+
+/**
  * Preset time window options available in the dashboard time range picker.
  *
  * @remarks
@@ -2908,6 +2940,12 @@ export interface AppState {
 	selectedEvent: TrackerEvent | null
 	/** Whether the backend responded successfully to the last ping check. */
 	backendOnline: boolean
+	/**
+	 * Full unfiltered event buffer fetched from the backend for the current time range.
+	 * Used by the unified poller to share raw data between the metrics and events pipelines
+	 * without issuing two separate fetch requests.
+	 */
+	rawEvents: TrackerEvent[]
 }
 
 /**
@@ -2930,6 +2968,7 @@ export interface StateEvents {
 	'metrics:loading': boolean
 	'metrics:error': string | null
 	'events:update': TrackerEvent[]
+	'rawEvents:update': TrackerEvent[]
 	'events:filter': EventsFilter
 	'events:loading': boolean
 	'events:error': string | null
@@ -2952,7 +2991,7 @@ export interface PollOptions {
 	* Effective interval = `intervalMs + onTick duration`. For fast backends the
 	* difference is imperceptible; for slow ones, the poller self-throttles.
 	*
-	* @default 3000
+	* @default 5000
 	*/
 	intervalMs: number
 

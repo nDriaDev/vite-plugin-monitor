@@ -74,10 +74,10 @@ export class EventQueue {
 				return;
 			}
 
-			// INFO reconnect after 3s - mirrors flushInterval cadence
+			// INFO reconnect after 5s - mirrors flushInterval cadence
 			setTimeout(() => {
 				!this.stopped && this.connectWs();
-			}, 3000);
+			}, 5000);
 		});
 
 		ws.addEventListener('error', () => {

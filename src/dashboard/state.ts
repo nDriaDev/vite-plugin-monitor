@@ -76,9 +76,13 @@ function createStore() {
 		eventsTotal: 0,
 		selectedEvent: null,
 		backendOnline: true,
+		rawEvents: [],
 	}
-	// INFO Full unfiltered event buffer fetched from the backend.
-	let rawEvents: TrackerEvent[] = [];
+	/**
+	 * INFO Alias kept for internal use inside the store (applyFilter etc.)
+	 * The public accessor is store.getRawEvents().
+	 */
+	let rawEvents: TrackerEvent[] = state.rawEvents;
 
 	const listeners = new Map<keyof StateEvents, Set<Listener<any>>>();
 
@@ -238,8 +242,10 @@ function createStore() {
 	 */
 	function setEvents(events: TrackerEvent[], _total: number) {
 		rawEvents = events;
+		state.rawEvents = events;
 		state.eventsLoading = false;
 		state.eventsError = null;
+		emit('rawEvents:update', events);
 		applyFilter();
 	}
 
@@ -294,6 +300,9 @@ function createStore() {
 		getUniqueUserIds(): string[] {
 			const ids = new Set(rawEvents.map(e => e.userId));
 			return Array.from(ids).sort();
+		},
+		getRawEvents(): TrackerEvent[] {
+			return rawEvents;
 		},
 		on,
 		clearListeners,

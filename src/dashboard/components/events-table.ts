@@ -219,11 +219,11 @@ export function createEventsTable(): HTMLElement {
 	// INFO Rendering
 	const rowEventMap = new WeakMap<HTMLTableRowElement, string>();
 	let selectedRow: HTMLTableRowElement | null = null;
-	let selectedEvent: string | null = null;
+	let selectedEventId: string | null = null;
 
 	function buildRow(event: TrackerEvent, opts: { wasSelected: boolean }): HTMLTableRowElement {
-		const serialized = JSON.stringify(event);
-		opts.wasSelected = selectedEvent === serialized;
+		const eventId = event.id;
+		opts.wasSelected = selectedEventId === eventId;
 		const tr = el('tr', { class: `event-row ${LEVEL_CLASS[event.level]}${opts.wasSelected ? ' selected' : ''}` });
 		const value = getEventDetail(event);
 
@@ -235,7 +235,7 @@ export function createEventsTable(): HTMLElement {
 		<td class="col-detail" title="${escapeHtml(value)}"><div class="col-detail-inner">${escapeHtml(value)}</div></td>
     `;
 
-		rowEventMap.set(tr, serialized);
+		rowEventMap.set(tr, eventId);
 		on(tr, 'click', () => store.selectEvent(event));
 		return tr;
 	}
@@ -252,7 +252,7 @@ export function createEventsTable(): HTMLElement {
 		}
 		if (!opts.wasSelected) {
 			selectedRow = null;
-			selectedEvent = null;
+			selectedEventId = null;
 		}
 		tbody.append(frag);
 		countEl.textContent = `${sorted.length} events`;
@@ -291,11 +291,11 @@ export function createEventsTable(): HTMLElement {
 		if (!selected) {
 			return;
 		}
-		const serialized = JSON.stringify(selected);
+		const eventId = selected.id;
 		for (const row of Array.from(tbody.rows) as HTMLTableRowElement[]) {
-			if (rowEventMap.get(row) === serialized) {
+			if (rowEventMap.get(row) === eventId) {
 				selectedRow = row;
-				selectedEvent = serialized;
+				selectedEventId = eventId;
 				row.classList.add('selected');
 				row.scrollIntoView({ block: 'nearest' });
 				break;
