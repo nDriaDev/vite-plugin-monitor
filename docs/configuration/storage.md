@@ -79,6 +79,10 @@ X-Tracker-Key: <apiKey>  (if configured)
 { "events": TrackerEvent[], "total": 123, "page": 1, "limit": 5 }
 ```
 
+::: info Gzip compression in middleware mode
+In `middleware` mode the built-in read endpoint (`/_tracker`) returns a **gzip-compressed** response (`Content-Encoding: gzip`). Browsers decompress it automatically. Custom backends using `mode: 'http'` are not required to compress — plain JSON is fully supported.
+:::
+
 ---
 
 ### `pingEndpoint`

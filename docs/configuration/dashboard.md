@@ -123,14 +123,15 @@ In middleware mode, the backend is the Vite dev server itself. The ping endpoint
 
 ## Aggregation Architecture
 
-All filtering and aggregation is performed **client-side in the browser**. A single unified polling loop handles both the Metrics tab and the Events tab:
+All filtering and aggregation is performed **client-side in the browser**:
 
-1. One `fetchAllEvents(since, until)` request per tick — the same payload is shared between both pipelines, eliminating the double-fetch that existed in earlier versions.
-2. `computeAll()` runs a single pass over the event array, producing KPI metrics, top lists, stats, and both chart time-series (Event Volume and Error Rate) simultaneously. The three independently-configurable chart bucket granularities are computed in the same pass with no redundant iterations.
-3. The in-memory `rawEvents` buffer is stored in the dashboard state and reused by filter handlers — changing the Event Volume or Error Rate bucket granularity re-aggregates the cached events without a new network request.
+1. Dashboard fetches events from `readEndpoint?since=...&until=...`
+2. In middleware mode the response is **gzip-compressed** — the browser decompresses it transparently before the dashboard processes it
+3. All events for the selected time window are loaded into memory
+4. KPI cards, charts, top lists, and filters operate on this in-memory dataset
+5. No additional round-trips for re-filtering or changing the time range within the window
 
 This design means:
 - Your backend only needs to implement time-range filtering
 - Re-filtering (by type, level, user, route, search) is instant with no latency
-- Changing chart bucket granularities costs zero network round-trips
-- The full dataset is available for the Events table without server-side pagination
+- The full dataset is available for the Events table without pagination on the server side

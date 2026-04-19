@@ -273,7 +273,7 @@ describe('setupTrackers()', () => {
 		capturedEmit({ method: 'warn', args: [], message: 'warn msg', groupDepth: 0 }, 'warn');
 		capturedEmit({ method: 'error', args: [], message: 'error msg', groupDepth: 0 }, 'error');
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -305,7 +305,7 @@ describe('setupTrackers()', () => {
 		tracker.track('custom:debug', {}, { level: 'debug' });
 		tracker.track('custom:info', {}, { level: 'info' });
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -336,7 +336,7 @@ describe('tracker.init()', () => {
 		tracker.init();
 		tracker.init();
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -376,7 +376,7 @@ describe('tracker.init()', () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -392,7 +392,7 @@ describe('tracker.init()', () => {
 
 		expect(fetchMock).not.toHaveBeenCalled();
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		expect(fetchMock).toHaveBeenCalled();
@@ -441,7 +441,7 @@ describe('tracker.init()', () => {
 		const { tracker } = trackerModule;
 		tracker.init(() => 'user-from-fn');
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -455,7 +455,7 @@ describe('tracker.track()', () => {
 		const { tracker } = trackerModule;
 		expect(() => tracker.track('my-event', { foo: 'bar' })).not.toThrow();
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
@@ -466,7 +466,7 @@ describe('tracker.track()', () => {
 
 		tracker.track('button-click', { buttonId: 'cta' });
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -482,7 +482,7 @@ describe('tracker.track()', () => {
 
 		tracker.track('debug-event', {}, { level: 'debug' });
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -497,7 +497,7 @@ describe('tracker.track()', () => {
 		const groupId = tracker.group('flow');
 		tracker.track('step-1', {}, { groupId });
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -544,7 +544,7 @@ describe('tracker.time() / tracker.timeEnd()', () => {
 
 		expect(duration).toBeGreaterThanOrEqual(0);
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -573,7 +573,7 @@ describe('tracker.setUser()', () => {
 
 		tracker.setUser('user-new');
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -594,7 +594,7 @@ describe('tracker.setUser()', () => {
 
 		tracker.setUser('user-new');
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -616,7 +616,7 @@ describe('tracker.setUser()', () => {
 
 		tracker.setUser(null);
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -670,7 +670,7 @@ describe('tracker.setUser()', () => {
 
 		tracker.setUser('user-with-attrs', { attributes: { plan: 'pro' } });
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -697,7 +697,7 @@ describe('tracker.setContext()', () => {
 		tracker.setContext({ env: 'production', version: '2.0' });
 		tracker.track('page-view', {});
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -750,12 +750,12 @@ describe('tracker.destroy()', () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 		fetchMock.mockClear();
 
 		tracker.destroy();
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		expect(fetchMock).toHaveBeenCalled();
@@ -813,7 +813,7 @@ describe('visibilitychange', () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 		fetchMock.mockClear();
 		sendBeaconMock.mockClear();
@@ -840,7 +840,7 @@ describe('visibilitychange', () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 		fetchMock.mockClear();
 		sendBeaconMock.mockClear();
@@ -857,7 +857,7 @@ describe('beforeunload', () => {
 		const { tracker } = trackerModule;
 		tracker.init();
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 		fetchMock.mockClear();
 		sendBeaconMock.mockClear();
@@ -927,7 +927,7 @@ describe('setupTrackers and tracker.init are no-ops in SSR (window undefined)', 
 
 		capturedEmit({ msg: 'hello' }, 'warn');
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -959,7 +959,7 @@ describe('setupTrackers and tracker.init are no-ops in SSR (window undefined)', 
 
 		capturedEmit({ url: '/api' }, 'error');
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -991,7 +991,7 @@ describe('setupTrackers and tracker.init are no-ops in SSR (window undefined)', 
 
 		capturedEmit({ path: '/home' });
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -1198,7 +1198,7 @@ describe('callback onUserIdChange dell\'overlay (righe 246-256)', () => {
 
 			capturedOnUserIdChange!('user-after');
 
-			vi.advanceTimersByTime(3100);
+			vi.advanceTimersByTime(5100);
 			await flushPromises();
 
 			const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -1250,7 +1250,7 @@ describe('callback onUserIdChange dell\'overlay (righe 246-256)', () => {
 
 			capturedOnUserIdChange!(null);
 
-			vi.advanceTimersByTime(3100);
+			vi.advanceTimersByTime(5100);
 			await flushPromises();
 
 			const body = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -1305,7 +1305,7 @@ describe('callback onUserIdChange dell\'overlay (righe 246-256)', () => {
 
 		capturedEmit({ message: 'something broke', stack: 'Error: ...' });
 
-		vi.advanceTimersByTime(3100);
+		vi.advanceTimersByTime(5100);
 		await flushPromises();
 
 		const body = JSON.parse(fetchMock.mock.calls[0][1].body);

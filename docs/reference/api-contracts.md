@@ -110,6 +110,7 @@ X-Tracker-Key: tk_prod_xxxx
 ```
 HTTP/1.1 200 OK
 Content-Type: application/json
+Access-Control-Allow-Origin: *
 
 {
   "events": TrackerEvent[],
@@ -123,6 +124,12 @@ Content-Type: application/json
 |-------|------|-------------|
 | `events` | `TrackerEvent[]` | Events in the time range, newest first |
 | `total` | `number` | Total count of events in the time range |
+
+::: info Gzip compression in middleware mode
+The built-in middleware (`mode: 'middleware'`) compresses the read endpoint response with **gzip** (level 1) and adds `Content-Encoding: gzip` to the response headers. The dashboard handles this transparently via the browser's native fetch decompression.
+
+If you implement a **custom backend** (`mode: 'http'` or `mode: 'websocket'`), you may return an uncompressed response — gzip is optional. The dashboard's `fetch` call sets no `Accept-Encoding` header explicitly and relies on the browser's default negotiation.
+:::
 
 ::: tip Pagination
 The dashboard currently does **not** use server-side pagination — it loads all events for the selected time range in a single request. For large time ranges (e.g. 30d with millions of events), you may want to implement server-side aggregation or return a limited sample.
@@ -289,6 +296,10 @@ In `middleware` mode, the plugin implements all endpoints internally on the Vite
 | Ingest (POST) | `/_tracker/events` |
 | Read (GET) | `/_tracker` |
 | Ping (GET) | `/_tracker/ping` |
+
+::: info Read endpoint response compression
+`GET /_tracker` returns a **gzip-compressed** JSON response (`Content-Encoding: gzip`, level 1). Browsers decompress it transparently. This is handled automatically by the built-in dashboard — no configuration required.
+:::
 
 The ping endpoint in middleware mode returns:
 

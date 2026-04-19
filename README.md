@@ -1263,6 +1263,8 @@ The dashboard **always** sends `since` and `until`. Your server must honour them
 }
 ```
 
+> **Gzip compression in middleware mode.** The built-in `/_tracker` read endpoint (used in `middleware` mode) returns a **gzip-compressed** response (`Content-Encoding: gzip`, compression level 1). Browsers decompress it transparently. Custom backends (`mode: 'http'`) are not required to compress — plain JSON responses are fully supported.
+
 All further filtering (type, level, userId, full-text search) and all aggregations (charts, KPI cards, top lists) are performed **client-side** in the browser. Your server only needs to implement time-range filtering.
 
 ---

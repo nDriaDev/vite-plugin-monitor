@@ -746,7 +746,7 @@ describe('EventQueue', () => {
 			queue.enqueue(makeEvent());
 			queue.init();
 
-			vi.advanceTimersByTime(2999);
+			vi.advanceTimersByTime(4999);
 			expect(fetchMock).not.toHaveBeenCalled();
 
 			vi.advanceTimersByTime(1);

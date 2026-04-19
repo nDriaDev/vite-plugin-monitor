@@ -5,6 +5,7 @@ import type { ResolvedTrackerOptions, TrackerEvent } from '../../src/types';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { EventEmitter } from 'node:events';
 import { Connect } from 'vite';
+import { gunzipSync } from 'node:zlib';
 
 function makeOpts(overrides: Partial<Parameters<typeof resolveOptions>[0]> = {}): ResolvedTrackerOptions {
 	const opts = resolveOptions({ appId: 'test-app', ...overrides });
@@ -46,7 +47,7 @@ function makeReqRes(opts: { method?: string, url?: string, body?: unknown, heade
 	req.url = opts.url ?? '/';
 	req.headers = opts.headers ?? {};
 
-	const resChunks: string[] = [];
+	let resChunks: string[] = [];
 	let statusCode = 200;
 	let headers: Record<string, string> = {};
 
@@ -59,7 +60,19 @@ function makeReqRes(opts: { method?: string, url?: string, body?: unknown, heade
 			resChunks.push(body);
 		}),
 		getStatus: () => statusCode,
-		getBody: () => JSON.parse(resChunks[0] ?? 'null'),
+		getBody: () => {
+			const rawBody = resChunks[0];
+			if (!rawBody) {
+				return null;
+			}
+			if (headers['Content-Encoding'] === 'gzip') {
+				const decompressed = gunzipSync(rawBody);
+				resChunks = [];
+				return JSON.parse(decompressed.toString());
+			}
+			resChunks = [];
+			return JSON.parse(rawBody.toString());
+		},
 		getHeaders: () => headers
 	} as unknown as ServerResponse & {
 		getStatus: () => number

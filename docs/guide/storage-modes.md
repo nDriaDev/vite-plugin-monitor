@@ -52,7 +52,7 @@ trackerPlugin({
 1. The plugin registers a Connect middleware on Vite's `server.middlewares`.
 2. The browser POSTs events to `/_tracker/events` (same-origin).
 3. The middleware stores events in an in-memory **ring buffer** (default: 500,000 events, FIFO eviction).
-4. The dashboard reads from `/_tracker?since=...&until=...`.
+4. The dashboard reads from `/_tracker?since=...&until=...`. The response is **gzip-compressed** (level 1) to reduce payload size when the event buffer is large.
 5. Events are also written to log files via the logger worker.
 6. On startup, existing log files are **replayed** into the ring buffer so the dashboard retains history across Vite restarts.
 
