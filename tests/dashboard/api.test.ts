@@ -236,7 +236,7 @@ describe('ensureWsConnected + fetchAllEvents (WebSocket)', () => {
 			installTrackerConfig(makeConfig({ wsEndpoint: '' }));
 			mockWs.readyState = 3;
 			mockWs._emit('close');
-			await expect(vi.advanceTimersByTimeAsync(3000)).resolves.not.toThrow();
+			await expect(vi.advanceTimersByTimeAsync(5000)).resolves.not.toThrow();
 			expect(vi.mocked(WebSocket)).toHaveBeenCalledTimes(1);
 			vi.useRealTimers();
 		});
@@ -290,7 +290,7 @@ describe('ensureWsConnected + fetchAllEvents (WebSocket)', () => {
 
 			const newMockWs = makeMockWebSocket();
 			vi.mocked(WebSocket).mockImplementation(() => newMockWs as unknown as WebSocket);
-			await vi.advanceTimersByTimeAsync(3000);
+			await vi.advanceTimersByTimeAsync(5000);
 
 			expect(vi.mocked(WebSocket)).toHaveBeenCalledTimes(2);
 			vi.useRealTimers();

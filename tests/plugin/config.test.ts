@@ -71,9 +71,9 @@ describe('resolveOptions()', () => {
 			expect(r.storage.batchSize).toBe(25);
 		});
 
-		it('storage.flushInterval is 3000 by default', () => {
+		it('storage.flushInterval is 5000 by default', () => {
 			const r = resolveOptions(baseOpts());
-			expect(r.storage.flushInterval).toBe(3000);
+			expect(r.storage.flushInterval).toBe(5000);
 		});
 
 		it('storage.maxBufferSize is 500000 by default', () => {
@@ -123,9 +123,9 @@ describe('resolveOptions()', () => {
 			expect(r.dashboard.auth).toBe(false);
 		});
 
-		it('dashboard.pollInterval is 3000 by default', () => {
+		it('dashboard.pollInterval is 10000 by default', () => {
 			const r = resolveOptions(baseOpts());
-			expect(r.dashboard.pollInterval).toBe(3000);
+			expect(r.dashboard.pollInterval).toBe(10000);
 		});
 
 		it('overlay.enabled is false by default', () => {

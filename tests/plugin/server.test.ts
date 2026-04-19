@@ -27,6 +27,7 @@ function makeLogger() {
 
 function makeEvent(overrides: Partial<TrackerEvent> = {}): TrackerEvent {
 	return {
+		id: 'evt-test-id',
 		type: 'console',
 		level: 'info',
 		timestamp: new Date().toISOString(),
@@ -102,6 +103,33 @@ describe('createRequestHandler()', () => {
 			expect(buffer.push).toHaveBeenCalledWith(events);
 			expect(logger.writeEvent).toHaveBeenCalledWith(events[0]);
 			expect((res as any).getBody()).toMatchObject({ ok: true, saved: 1 });
+		});
+
+		it('assigns a UUID id to events that arrive without one', async () => {
+			const logger = makeLogger();
+			const buffer = { push: vi.fn(), query: vi.fn(), all: vi.fn(), size: vi.fn().mockReturnValue(1) } as any;
+			const handler = createRequestHandler(makeOpts(), buffer, logger);
+			const eventWithoutId = { ...makeEvent(), id: undefined } as unknown as TrackerEvent;
+			const { req, res } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { type: "ingest", events: [eventWithoutId] } });
+
+			await handler(req, res);
+			const pushedEvents: TrackerEvent[] = buffer.push.mock.calls[0][0];
+			expect(pushedEvents[0].id).toBeDefined();
+			expect(typeof pushedEvents[0].id).toBe('string');
+			expect(pushedEvents[0].id!.length).toBeGreaterThan(0);
+		});
+
+		it('preserves existing id when event already has one', async () => {
+			const logger = makeLogger();
+			const buffer = { push: vi.fn(), query: vi.fn(), all: vi.fn(), size: vi.fn().mockReturnValue(1) } as any;
+			const handler = createRequestHandler(makeOpts(), buffer, logger);
+			const existingId = 'already-set-id';
+			const event = makeEvent({ id: existingId });
+			const { req, res } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { type: "ingest", events: [event] } });
+
+			await handler(req, res);
+			const pushedEvents: TrackerEvent[] = buffer.push.mock.calls[0][0];
+			expect(pushedEvents[0].id).toBe(existingId);
 		});
 
 		it('responds 400 when the body is malformed JSON', async () => {

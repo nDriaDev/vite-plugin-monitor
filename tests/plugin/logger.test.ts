@@ -74,6 +74,7 @@ function setupFsMock(opts: { existsSync?: boolean; readdirSync?: string[]; strea
 
 function makeEvent(overrides: Partial<TrackerEvent> = {}): TrackerEvent {
 	return {
+		id: 'evt-logger-test',
 		type: 'console',
 		level: 'info',
 		timestamp: new Date().toISOString(),

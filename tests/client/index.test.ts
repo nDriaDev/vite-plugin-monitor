@@ -215,7 +215,7 @@ describe('setupTrackers()', () => {
 			dashboard: {
 				enabled: true,
 				route: '/_dashboard',
-				pollInterval: 3000,
+				pollInterval: 10000,
 				auth: false as const
 			},
 			track: {

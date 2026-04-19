@@ -275,6 +275,39 @@ describe('store', () => {
 			expect(store.get().eventsError).toBeNull();
 			expect(listener).toHaveBeenCalled();
 		});
+
+		it('emits rawEvents:update with the full unfiltered list', async () => {
+			const { store } = await import('../../src/dashboard/state');
+			const listener = vi.fn();
+			store.on('rawEvents:update', listener);
+			const events = [makeEvent({ type: 'click' }), makeEvent({ type: 'error' })];
+			store.setEvents(events, 2);
+			expect(listener).toHaveBeenCalledWith(events);
+		});
+
+		it('updates state.rawEvents with the full unfiltered list', async () => {
+			const { store } = await import('../../src/dashboard/state');
+			const events = [makeEvent({ type: 'click' }), makeEvent({ type: 'error' })];
+			store.setEvents(events, 2);
+			expect(store.get().rawEvents).toEqual(events);
+		});
+	});
+
+	describe('getRawEvents', () => {
+		it('returns the full unfiltered event list regardless of active filter', async () => {
+			const { store } = await import('../../src/dashboard/state');
+			const events = [makeEvent({ type: 'click' }), makeEvent({ type: 'error' })];
+			store.setEvents(events, 2);
+			store.setEventsFilter({ type: 'click' });
+			expect(store.get().events).toHaveLength(1);
+			expect(store.getRawEvents()).toHaveLength(2);
+			expect(store.getRawEvents()).toEqual(events);
+		});
+
+		it('returns empty array before any events are set', async () => {
+			const { store } = await import('../../src/dashboard/state');
+			expect(store.getRawEvents()).toEqual([]);
+		});
 	});
 
 	describe('setEventsFilter', () => {

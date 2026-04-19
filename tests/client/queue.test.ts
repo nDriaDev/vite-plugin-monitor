@@ -83,6 +83,7 @@ let eventCounter = 0;
 function makeEvent(id?: string): TrackerEvent {
 	const n = id ?? String(++eventCounter);
 	return {
+		id: `evt-${n}`,
 		timestamp: new Date().toISOString(),
 		type: 'custom',
 		level: 'info',
@@ -211,7 +212,7 @@ describe('EventQueue', () => {
 			const ws = MockWebSocket.latest();
 			ws.simulateOpen();
 			ws.simulateClose(1008);
-			vi.advanceTimersByTime(3000);
+			vi.advanceTimersByTime(5000);
 			expect(MockWebSocket.instances).toHaveLength(1);
 			expect((queue as any).stopped).toBe(true);
 		});
@@ -253,7 +254,7 @@ describe('EventQueue', () => {
 
 			expect(MockWebSocket.instances).toHaveLength(1);
 
-			vi.advanceTimersByTime(3000);
+			vi.advanceTimersByTime(5000);
 
 			expect(MockWebSocket.instances).toHaveLength(2);
 		})
@@ -264,7 +265,7 @@ describe('EventQueue', () => {
 			MockWebSocket.latest().simulateClose();
 
 			(queue as any).opts.wsEndpoint = '';
-			vi.advanceTimersByTime(3000);
+			vi.advanceTimersByTime(5000);
 
 			expect(MockWebSocket.instances).toHaveLength(1);
 		});
@@ -741,7 +742,7 @@ describe('EventQueue', () => {
 		});
 
 		it('the timer calls flush() when flushInterval expires', async () => {
-			const queue = new EventQueue(makeOpts({ flushInterval: 3000 }));
+			const queue = new EventQueue(makeOpts({ flushInterval: 5000 }));
 			queue.enqueue(makeEvent());
 			queue.init();
 
