@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Connect } from "vite";
 import { randomUUID } from "node:crypto";
 import { version } from '../../package.json';
+import { gzip } from "node:zlib";
 
 
 
@@ -98,6 +99,34 @@ function parseQs(url: string): Record<string, string> {
 	return Object.fromEntries(new URLSearchParams(qs));
 }
 
+/* v8 ignore start */
+function jsonCompressed(res: ServerResponse, status: number, data: unknown): Promise<void> {
+	return new Promise<void>((resolve, rej) => {
+		try {
+			const body = JSON.stringify(data);
+			gzip(body, { level: 1 }, (err, compressed) => {
+				if (err) {
+					res.writeHead(status, { 'Content-Type': 'application/json' });
+					res.end(body);
+				} else {
+					res.writeHead(status, {
+						'Content-Type': 'application/json',
+						'Content-Encoding': 'gzip',
+						'Access-Control-Allow-Origin': '*',
+						'Access-Control-Allow-Headers': 'Content-Type, X-Tracker-Key',
+						'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+					});
+					res.end(compressed);
+				}
+				resolve();
+			});
+		} catch (error) {
+			rej(error);
+		}
+	});
+}
+/* v8 ignore close */
+
 function json(res: ServerResponse, status: number, data: unknown) {
 	const body = JSON.stringify(data);
 	res.writeHead(status, {
@@ -189,7 +218,7 @@ export function createRequestHandler(opts: ResolvedTrackerOptions, buffer: RingB
 				limit,
 				nextCursor
 			}
-			json(res, 200, response);
+			await jsonCompressed(res, 200, response);
 			return true;
 		}
 
