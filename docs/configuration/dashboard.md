@@ -1,221 +1,136 @@
 # Dashboard
 
-The `dashboard` option controls the built-in analytics dashboard — a standalone Vanilla TypeScript SPA served directly by the plugin.
+The vite-plugin-monitor dashboard is a standalone Vanilla TypeScript SPA with no framework dependencies. It is served directly by the plugin and isolated in the browser with no interference from your application styles.
 
-```typescript
-trackerPlugin({
-  appId: 'my-app',
-  dashboard: {
-    enabled:        true,
-    route:          '/_dashboard',
-    auth:           { username: 'admin', password: 'secret' },
-    includeInBuild: false,
-    pollInterval:   3000,
-  },
-})
+## Accessing the Dashboard
+
+In development (middleware mode), the dashboard is available at:
+
+```
+http://localhost:5173/_dashboard    (default route)
 ```
 
-## Options
+After `vite dev` starts, the tracker API and dashboard URLs are printed in the terminal:
 
-### `dashboard.enabled`
+```
+  ➜  Local:   http://localhost:5173/
+  ➜  vite-plugin-monitor Tracker API:   http://localhost:5173/_tracker
+  ➜  vite-plugin-monitor Dashboard:     http://localhost:5173/_dashboard
+```
 
-**Type:** `boolean` · **Default:** `false`
+## Login Gate
 
-Enable the dashboard SPA. When `true`, the plugin serves the dashboard at `dashboard.route`.
-
----
-
-### `dashboard.route`
-
-**Type:** `string` · **Default:** `'/_dashboard'`
-
-URL path where the dashboard is mounted. Must start with `/`. Should not collide with your application's own routes.
+If `dashboard.auth` is configured, the dashboard shows a login form before granting access.
 
 ```typescript
 dashboard: {
-  enabled: true,
-  route:   '/_dashboard',  // http://localhost:5173/_dashboard
+  auth: { username: 'admin', password: 'secret' },
 }
 ```
 
-The plugin serves the dashboard as a SPA — all sub-paths (e.g. `/_dashboard/events`) are handled by the same `index.html` with client-side routing.
+Credentials are HMAC-hashed with `appId` client-side. See [Security](/advanced/security) for details.
 
-::: info Dashboard self-exclusion
-The dashboard route is automatically injected into `ignoreRoutes` for the click and
-navigation trackers. The HTTP tracker excludes only the tracker's own endpoints
-(writeEndpoint, readEndpoint, pingEndpoint).
-:::
+## Time Range Selector
 
----
+The header contains a time range picker with six presets:
 
-### `dashboard.auth`
+| Range | Mode |
+|-------|------|
+| **Live** | Auto-polls at `pollInterval` ms |
+| **1h** | Last 1 hour, fetched once |
+| **6h** | Last 6 hours |
+| **24h** | Last 24 hours |
+| **7d** | Last 7 days |
+| **30d** | Last 30 days |
 
-**Type:** `{ username: string; password: string } | false` · **Default:** `false`
+In **Live** mode the KPI cards, charts, and top lists update automatically. All other modes require a manual refresh (navigating away and back, or changing the time range).
 
-Optional login gate protecting the dashboard. When configured, the dashboard shows a login form before granting access.
+## Metrics Tab
 
-```typescript
-dashboard: {
-  auth: { username: 'admin', password: 'secret123' },
-}
-```
+### KPI Cards
 
-When `false` (default), the dashboard is publicly accessible — no login required.
+Four summary cards at the top of the Metrics tab:
 
-::: warning Client-side only
-Dashboard authentication is **client-side only**. The credentials are HMAC-hashed with `appId` using SHA-256 before being written to `window.__TRACKER_CONFIG__`, so they are not stored in plaintext.
+| Card | Description |
+|------|-------------|
+| **Active Sessions** | Distinct `sessionId` values with at least one event in the last 5 minutes |
+| **Total Events** | Total count of all events |
+| **Unique Users** | Distinct `userId` values (anonymous IDs counted separately) |
+| **App Error Rate** | Percentage of events with `type: 'error'` (JS errors only — HTTP 4xx/5xx excluded) |
 
-This is suitable as a **friction barrier** for dev/staging environments. For production security, protect the dashboard route at the **reverse proxy or server level** (HTTP Basic Auth, IP allowlist, VPN, etc.).
-:::
+### Top Lists
 
-**How it works:**
-1. You configure `{ username: 'admin', password: 'secret' }`.
-2. The plugin computes `HMAC-SHA256(appId, 'admin')` and `HMAC-SHA256(appId, 'secret')`.
-3. Only the hashed values are injected into `window.__TRACKER_CONFIG__`.
-4. The login form hashes the user's input on the client and compares.
-5. The original credentials are never stored anywhere.
+Four ranked lists:
 
----
+| List | Description |
+|------|-------------|
+| **Top Pages** | Most visited routes (from `meta.route`) |
+| **Top App Errors** | Most frequent error messages (from `ErrorPayload.message`) |
+| **Navigation Funnel** | Most common navigation sequences (`from` → `to`) |
+| **Top Endpoints** | Most called HTTP endpoints (method + URL pattern) |
 
-### `dashboard.includeInBuild`
+### HTTP Metrics
 
-**Type:** `boolean` · **Default:** `false`
+Aggregated HTTP statistics for the selected time window:
 
-When `true`, copies the pre-built dashboard SPA into the Vite build output directory (`dist/`) at `<route>/`.
+| Metric | Description |
+|--------|-------------|
+| **Most Called Endpoint** | Highest request count endpoint |
+| **Avg HTTP Duration** | Mean response time across all HTTP events |
+| **HTTP Error Rate** | Percentage of HTTP events with status 4xx or 5xx |
+| **Slowest Endpoint** | Endpoint with highest average duration |
+| **Total Requests** | Total HTTP event count |
+| **2xx / 4xx / 5xx** | Count breakdown by HTTP status class |
 
-```typescript
-dashboard: {
-  enabled:        true,
-  route:          '/_dashboard',
-  includeInBuild: true,  // copies to dist/_dashboard/
-}
-```
+### Charts
 
-After `vite build`, your reverse proxy or static file server must:
-1. Serve `/_dashboard/index.html` (and all sub-paths) as a SPA fallback.
-2. Forward API requests to your backend (when using `mode: 'http'`).
+Two time-series charts:
 
-::: warning Requires prior dashboard build
-The plugin's `closeBundle` hook copies the **pre-built** dashboard dist. If the dashboard dist is absent (you haven't run `pnpm build:dashboard` yet), the plugin logs a warning and skips the copy — **the main build does not fail**.
+- **Event Volume** — Total event count over time (configurable as line or bar chart)
+- **Error Rate %** — Percentage of error-level events over time
 
-```bash
-# Always run this before vite build when includeInBuild: true
-pnpm build:dashboard
-vite build
-```
-:::
+## Events Tab
 
----
+A paginated, filterable table of all tracked events.
 
-### `dashboard.pollInterval`
+### Filters
 
-**Type:** `number` · **Default:** `3000`
+| Filter | Description |
+|--------|-------------|
+| **Type** | Filter by event type: `click`, `http`, `error`, `navigation`, `console`, `custom`, `session` |
+| **Level** | Filter by severity: `debug`, `info`, `warn`, `error` |
+| **User ID** | Filter events from a specific user |
+| **Route** | Filter events from a specific route |
+| **Search** | Full-text search across all event fields |
 
-Polling interval in milliseconds between dashboard data refresh requests.
+### Event Detail Panel
 
-- In **Live** mode: the dashboard polls at this interval continuously.
-- In **other time ranges** (1h, 6h, 24h, 7d, 30d): data is fetched once and refreshed only on manual filter changes.
+Click any row in the events table to open the detail panel. It shows:
 
-```typescript
-dashboard: {
-  pollInterval: 5000,  // refresh every 5 seconds in Live mode
-}
-```
+- Full `payload` object (type-specific fields)
+- Full `meta` object (browser metadata)
+- `sessionId`, `userId`, `appId`, `groupId`
+- `timestamp`, `level`, `type`
 
----
+## Backend Status Indicator
 
-## Dashboard Layout
+The header shows a coloured status dot:
 
-The dashboard is divided into two tabs: **Metrics** and **Events**.
+- 🟢 **Online** — backend is reachable
+- 🔴 **Offline** — `pingEndpoint` unreachable or returning errors
 
-### Metrics Tab
+In middleware mode, the backend is the Vite dev server itself. The ping endpoint is always `/_tracker/ping`.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Header: Logo | Time Range | Tab Switcher | Backend Status  │
-├─────────────────────────────────────────────────────────────┤
-│  KPI Row:                                                   │
-│    Active Sessions  │  Total Events  │  Unique Users  │  App Error Rate  │
-├─────────────────────────────────────────────────────────────┤
-│  Top Lists Row:                                             │
-│    Top Pages  │  Top App Errors  │  Nav Funnel  │  Top Endpoints  │
-├─────────────────────────────────────────────────────────────┤
-│  HTTP Metrics Row:                                          │
-│    Most Called EP  │  Avg Duration  │  Error Rate  │  Slowest EP  │
-├─────────────────────────────────────────────────────────────┤
-│  HTTP Status Row:                                           │
-│    Total Requests  │  2xx Count  │  4xx Count  │  5xx Count  │
-├─────────────────────────────────────────────────────────────┤
-│  Charts Row:                                                │
-│    Event Volume (line/bar)  │  Error Rate % Timeline       │
-└─────────────────────────────────────────────────────────────┘
-```
+## Aggregation Architecture
 
-### Events Tab
+All filtering and aggregation is performed **client-side in the browser**. A single unified polling loop handles both the Metrics tab and the Events tab:
 
-A paginated, filterable events table with:
-- **Type filter** — filter by event type (click, http, error, navigation, console, custom, session)
-- **Level filter** — filter by severity (debug, info, warn, error)
-- **User ID filter** — filter events from a specific user
-- **Route filter** — filter events from a specific route
-- **Full-text search** — search across all event fields
-- **Event detail panel** — click any row to inspect the full event payload, metadata, and all fields
+1. One `fetchAllEvents(since, until)` request per tick — the same payload is shared between both pipelines, eliminating the double-fetch that existed in earlier versions.
+2. `computeAll()` runs a single pass over the event array, producing KPI metrics, top lists, stats, and both chart time-series (Event Volume and Error Rate) simultaneously. The three independently-configurable chart bucket granularities are computed in the same pass with no redundant iterations.
+3. The in-memory `rawEvents` buffer is stored in the dashboard state and reused by filter handlers — changing the Event Volume or Error Rate bucket granularity re-aggregates the cached events without a new network request.
 
-### Time Ranges
-
-| Range | Description |
-|-------|-------------|
-| **Live** | Auto-polls at `pollInterval` ms. Shows the last 1 hour window. |
-| **1h** | Last 1 hour of events, fetched once. |
-| **6h** | Last 6 hours. |
-| **24h** | Last 24 hours. |
-| **7d** | Last 7 days. |
-| **30d** | Last 30 days. |
-
-### Backend Status Indicator
-
-The coloured dot in the header shows the backend connectivity status:
-
-- 🟢 **Online** — `pingEndpoint` returned `2xx` (or no `pingEndpoint` is configured)
-- 🔴 **Offline** — `pingEndpoint` is unreachable or returned a non-`2xx` response
-
----
-
-## Production Build Setup
-
-For a complete production deployment with dashboard included:
-
-```typescript
-// vite.config.ts
-trackerPlugin({
-  appId: 'my-app',
-  storage: {
-    mode:          'http',
-    writeEndpoint: 'https://api.myapp.com/tracker/events',
-    readEndpoint:  'https://api.myapp.com/tracker',
-    pingEndpoint:  'https://api.myapp.com/health',
-  },
-  dashboard: {
-    enabled:        true,
-    route:          '/_dashboard',
-    auth:           { username: 'ops', password: process.env.DASHBOARD_PASSWORD },
-    includeInBuild: true,
-    pollInterval:   5000,
-  },
-})
-```
-
-```bash
-pnpm build:dashboard  # build the dashboard SPA first
-vite build            # then build your app (dashboard is copied into dist/)
-```
-
-**Nginx config example (SPA fallback for dashboard):**
-
-```nginx
-location /_dashboard {
-  try_files $uri $uri/ /_dashboard/index.html;
-}
-```
-
-See [Production Builds](/advanced/production) for the complete production guide.
+This design means:
+- Your backend only needs to implement time-range filtering
+- Re-filtering (by type, level, user, route, search) is instant with no latency
+- Changing chart bucket granularities costs zero network round-trips
+- The full dataset is available for the Events table without server-side pagination

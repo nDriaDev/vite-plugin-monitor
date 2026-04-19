@@ -5,7 +5,7 @@ vite-plugin-monitor supports three storage modes, each designed for a different 
 ## Comparison
 
 | Mode | Transport | Server | Ideal for |
-|------|-----------|--------|-----------| 
+|------|-----------|--------|-----------|
 | `middleware` | HTTP (same-origin) | Vite dev server | Local development |
 | `http` | HTTP (custom endpoint) | Your own backend | Production |
 | `websocket` | WebSocket | Your own backend | Production with real-time needs |
@@ -84,7 +84,7 @@ trackerPlugin({
     pingEndpoint:  'https://api.myapp.com/health',          // optional
     apiKey:        process.env.TRACKER_API_KEY,             // optional
     batchSize:     50,                                       // default: 25
-    flushInterval: 5000,                                    // default: 3000ms
+    flushInterval: 5000,                                    // default: 5000ms
   },
 })
 ```
@@ -100,6 +100,10 @@ X-Tracker-Key: <apiKey>   (only when configured)
 ```
 
 Any `2xx` response is treated as success. Non-`2xx` causes the batch to be re-queued and retried on the next flush interval.
+
+::: warning Assign `id` on every ingested event
+Events arrive with `id: ""`. Your ingest handler must assign a unique, non-empty `id` to each event before persisting it (e.g. `crypto.randomUUID()`). See [API Contracts](/reference/api-contracts#ingest-endpoint-http) for a full example.
+:::
 
 **Optional — read endpoint for the dashboard:**
 
@@ -131,7 +135,7 @@ trackerPlugin({
     pingEndpoint: 'https://api.myapp.com/health',     // optional
     apiKey:       process.env.TRACKER_API_KEY,        // optional
     batchSize:    25,
-    flushInterval: 3000,
+    flushInterval: 5000,
   },
 })
 ```
@@ -145,6 +149,10 @@ Your server must implement the tracker WebSocket sub-protocol:
 | Dashboard → Server | `{ "type": "events:query", "reqId": "uuid", "query": { "since": "...", "until": "..." } }` |
 | Server → Dashboard | `{ "type": "events:response", "reqId": "uuid", "response": { "events": [...], "total": 123, "page": 1, "limit": 5 } }` |
 | Server → Browser (push) | `{ "type": "push", "events": TrackerEvent[] }` (optional) |
+
+::: warning Assign `id` on every ingested event
+Events arrive with `id: ""`. Your server must assign a unique, non-empty `id` to each event before persisting it. See [API Contracts](/reference/api-contracts#ingest-endpoint-http) for a full example.
+:::
 
 See [WebSocket Protocol](/reference/api-contracts#websocket-protocol) for the full specification.
 

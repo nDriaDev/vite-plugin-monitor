@@ -190,7 +190,7 @@ export default defineConfig({
       storage: {
         mode:          'auto',
         batchSize:     25,
-        flushInterval: 3000,
+        flushInterval: 5000,
         maxBufferSize: 500000,
         port:          4242,
       },
@@ -215,7 +215,7 @@ export default defineConfig({
         route:          '/_dashboard',
         auth:           false,
         includeInBuild: false,
-        pollInterval:   3000,
+        pollInterval:   10000,
       },
 
       overlay: {

@@ -19,9 +19,9 @@ The log directory is created recursively on `buildStart` (i.e. when you run `vit
 ### JSONL (JSON Lines)
 
 ```json
-{"timestamp":"2024-03-15T10:23:45.123Z","level":"info","type":"navigation","appId":"my-app","sessionId":"sess_abc","userId":"user_123","payload":{"from":"/home","to":"/products","trigger":"pushState","duration":4230},"meta":{"userAgent":"Mozilla/5.0...","route":"/products","viewport":"1440x900","language":"en-US"}}
-{"timestamp":"2024-03-15T10:23:46.500Z","level":"info","type":"http","appId":"my-app","sessionId":"sess_abc","userId":"user_123","payload":{"method":"GET","url":"https://api.myapp.com/products","status":200,"duration":142},"meta":{...}}
-{"timestamp":"2024-03-15T10:23:47.200Z","level":"error","type":"error","appId":"my-app","sessionId":"sess_abc","userId":"user_123","payload":{"message":"Cannot read properties of undefined","stack":"TypeError: ...","errorType":"TypeError"},"meta":{...}}
+{"id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890","timestamp":"2024-03-15T10:23:45.123Z","level":"info","type":"navigation","appId":"my-app","sessionId":"sess_abc","userId":"user_123","payload":{"from":"/home","to":"/products","trigger":"pushState","duration":4230},"meta":{"userAgent":"Mozilla/5.0...","route":"/products","viewport":"1440x900","language":"en-US"}}
+{"id":"b2c3d4e5-f6a7-8901-bcde-f12345678901","timestamp":"2024-03-15T10:23:46.500Z","level":"info","type":"http","appId":"my-app","sessionId":"sess_abc","userId":"user_123","payload":{"method":"GET","url":"https://api.myapp.com/products","status":200,"duration":142},"meta":{...}}
+{"id":"c3d4e5f6-a7b8-9012-cdef-123456789012","timestamp":"2024-03-15T10:23:47.200Z","level":"error","type":"error","appId":"my-app","sessionId":"sess_abc","userId":"user_123","payload":{"message":"Cannot read properties of undefined","stack":"TypeError: ...","errorType":"TypeError"},"meta":{...}}
 ```
 
 One `TrackerEvent` per line. Machine-readable, grep-friendly, and easy to import into log analysis tools (Splunk, Datadog, ELK, etc.).

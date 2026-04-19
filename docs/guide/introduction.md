@@ -32,7 +32,7 @@ Every interaction captured by the plugin is represented as a `TrackerEvent` — 
 
 ```typescript
 interface TrackerEvent {
-  id?:        string           // Assigned by backend on ingest
+  id:         string           // Set to "" by the browser client; assigned by the backend on ingest
   timestamp:  string           // ISO 8601 UTC (when captured, not flushed)
   level:      LogLevel         // 'debug' | 'info' | 'warn' | 'error'
   type:       TrackerEventType // Discriminant for the payload union
@@ -54,7 +54,7 @@ A session is scoped to a single browser tab lifetime. The session ID (`sess_` pr
 
 The client-side `EventQueue` batches events and flushes them:
 - When `batchSize` events have accumulated (default: 25)
-- After `flushInterval` ms (default: 3000 ms)
+- After `flushInterval` ms (default: 5000 ms)
 - On page unload via `navigator.sendBeacon` (guaranteed delivery)
 - Automatically retries on network failure
 

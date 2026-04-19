@@ -6,7 +6,7 @@ Every interaction captured by vite-plugin-monitor is represented as a `TrackerEv
 
 ```typescript
 interface TrackerEvent {
-  id?:        string           // Assigned by backend on ingest (absent on client)
+  id:         string           // Unique event identifier. Set to "" by the browser client; assigned by the backend on ingest.
   timestamp:  string           // ISO 8601 UTC: "2024-03-15T10:23:45.123Z"
   level:      LogLevel         // 'debug' | 'info' | 'warn' | 'error'
   type:       TrackerEventType // Discriminant for the payload union
@@ -19,6 +19,12 @@ interface TrackerEvent {
   meta:       EventMeta        // Browser metadata
 }
 ```
+
+::: info `id` field and external backends
+The browser client always sends events with `id: ""` (an empty string). The built-in middleware server assigns a `crypto.randomUUID()` to each event at ingest time, before storing it in the ring buffer and writing it to the log file.
+
+**If you are using an external backend** (`mode: 'http'` or `mode: 'websocket'`), your ingest handler **must** assign a unique, non-empty `id` to every event before persisting it. Any unique string format is acceptable — UUID v4, MongoDB ObjectId, ULID, etc. The dashboard uses `id` to identify table rows without serializing the full event payload.
+:::
 
 ### `LogLevel`
 

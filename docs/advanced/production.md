@@ -82,6 +82,21 @@ X-Tracker-Key: <apiKey>
 → 200 OK  (or any 2xx)
 ```
 
+::: warning Assign `id` on every ingested event
+The browser client sends events with `id: ""`. Your ingest handler must assign a unique, non-empty `id` to each event before persisting it:
+
+```typescript
+import { randomUUID } from 'node:crypto'
+
+for (const event of body.events) {
+  event.id = randomUUID()
+  await persist(event)
+}
+```
+
+The dashboard uses `id` to identify rows in the events table without serializing the full event payload. The built-in middleware mode handles this automatically.
+:::
+
 **Read endpoint (required for dashboard):**
 ```
 GET /tracker?since=2024-01-01T00:00:00.000Z&until=2024-01-02T00:00:00.000Z
@@ -193,7 +208,7 @@ trackerPlugin({
     pingEndpoint: process.env.VITE_TRACKER_PING_URL,
     apiKey:       process.env.VITE_TRACKER_API_KEY,
     batchSize:    25,
-    flushInterval: 3000,
+    flushInterval: 5000,
   },
   track: { clicks: true, http: true, errors: true, navigation: true },
 })
@@ -260,7 +275,7 @@ export default defineConfig(({ mode }) => {
 
 - [ ] `storage.mode` explicitly set to `'http'` or `'websocket'`
 - [ ] `storage.writeEndpoint` set and reachable
-- [ ] Backend implements the [ingest endpoint](/reference/api-contracts#ingest-endpoint-http)
+- [ ] Backend implements the [ingest endpoint](/reference/api-contracts#ingest-endpoint-http) **and assigns a unique `id` to every ingested event**
 - [ ] `track.console` set to `false` or restricted to `['error', 'warn']`
 - [ ] `dashboard.auth` configured if dashboard is included in build
 - [ ] Dashboard route protected at the reverse proxy level for production security

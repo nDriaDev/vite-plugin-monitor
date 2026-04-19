@@ -30,6 +30,22 @@ X-Tracker-Key: <storage.apiKey>    (only when apiKey is configured)
 
 The `events` array contains one or more `TrackerEvent` objects. A single flush can contain up to `storage.batchSize` events (default: 25).
 
+::: warning Assign `id` on every ingested event
+The browser client always sends events with `id: ""` (an empty string). Your ingest handler **must** assign a unique, non-empty `id` to every event before persisting it — for example:
+
+```typescript
+// Node.js / TypeScript
+import { randomUUID } from 'node:crypto'
+
+for (const event of body.events) {
+  event.id = randomUUID()
+  await db.collection('events').insertOne(event)
+}
+```
+
+Any unique string format is valid: UUID v4, MongoDB ObjectId, ULID, etc. The dashboard requires a non-empty `id` on every event to identify table rows without serializing the full payload. The built-in middleware mode handles this automatically.
+:::
+
 ### Response
 
 | Status | Behavior |
@@ -172,6 +188,10 @@ The browser sends batched events:
   "events": TrackerEvent[]
 }
 ```
+
+::: warning Assign `id` on every ingested event
+Events arrive with `id: ""`. Your server must assign a unique `id` to each event before persisting it (e.g. `randomUUID()`). See the [Ingest Endpoint](#ingest-endpoint-http) warning for a complete example.
+:::
 
 ---
 
