@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.0.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v2.0.0) - 2026-04-19
+
+### Bug Fixes
+
+- click on event ([a63a2df](https://github.com/nDriaDev/vite-plugin-monitor/commit/a63a2df))
+- dashboard style + responsiveness ([b61730f](https://github.com/nDriaDev/vite-plugin-monitor/commit/b61730f))
+- removed standalone-server mode ([f64d3b0](https://github.com/nDriaDev/vite-plugin-monitor/commit/f64d3b0))
+
+### Performance Improvements
+
+- add gzip compression to get events from middleware ([2c9a053](https://github.com/nDriaDev/vite-plugin-monitor/commit/2c9a053))
+- chage id event from optional to required + change default interval for flush and polling events + optimize dashboard reading events logic ([6201020](https://github.com/nDriaDev/vite-plugin-monitor/commit/6201020))
+
+### Documentation
+
+- update docs ([06dc047](https://github.com/nDriaDev/vite-plugin-monitor/commit/06dc047))
+- update docs for previous changes ([843d2d3](https://github.com/nDriaDev/vite-plugin-monitor/commit/843d2d3))
+
+### Other Changes
+
+- update tests for previous changes ([7302517](https://github.com/nDriaDev/vite-plugin-monitor/commit/7302517))
+
 ## [1.7.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v1.7.0) - 2026-04-16
 
 ### Bug Fixes
