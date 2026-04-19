@@ -111,6 +111,14 @@ export function createEventsTable(): HTMLElement {
 	let sortDir: SortDir = DEFAULT_SORT_DIR;
 	let lastEvents: TrackerEvent[] = [];
 
+	/**
+	 * INFO Selection state — kept local to this closure so multiple instances
+	 * never share state, and so the click handler always reads the current value
+	 * from the same scope that events:select writes to.
+	 */
+	let selectedRow: HTMLTableRowElement | null = null;
+	let selectedEventId: string | null = null;
+
 	const sortHeaders = Array.from(container.querySelectorAll<HTMLElement>('th[data-sort]'));
 
 	function syncSortHeaders() {
@@ -182,11 +190,9 @@ export function createEventsTable(): HTMLElement {
 	const resetBtn = qs<HTMLButtonElement>('#filter-reset', container);
 
 	on(resetBtn, 'click', () => {
-		// INFO Reset filter in store
 		store.selectEvent(null);
 		store.resetSelectEvent();
 		store.setEventsFilter({});
-		// INFO Reset sort to default
 		sortKey = DEFAULT_SORT_KEY;
 		sortDir = DEFAULT_SORT_DIR;
 		syncSortHeaders();
@@ -218,13 +224,12 @@ export function createEventsTable(): HTMLElement {
 
 	// INFO Rendering
 	const rowEventMap = new WeakMap<HTMLTableRowElement, string>();
-	let selectedRow: HTMLTableRowElement | null = null;
-	let selectedEventId: string | null = null;
 
 	function buildRow(event: TrackerEvent, opts: { wasSelected: boolean }): HTMLTableRowElement {
 		const eventId = event.id;
-		opts.wasSelected = selectedEventId === eventId;
-		const tr = el('tr', { class: `event-row ${LEVEL_CLASS[event.level]}${opts.wasSelected ? ' selected' : ''}` });
+		const isSelected = selectedEventId === eventId;
+		if (isSelected) opts.wasSelected = true;
+		const tr = el('tr', { class: `event-row ${LEVEL_CLASS[event.level]}${isSelected ? ' selected' : ''}` });
 		const value = getEventDetail(event);
 
 		tr.innerHTML = `
@@ -236,22 +241,29 @@ export function createEventsTable(): HTMLElement {
     `;
 
 		rowEventMap.set(tr, eventId);
-		on(tr, 'click', () => store.selectEvent(event));
+		on(tr, 'click', () => {
+			store.selectEvent(selectedEventId === eventId ? null : event);
+		});
 		return tr;
 	}
 
 	function renderAll(events: TrackerEvent[]) {
 		lastEvents = events;
 		const sorted = sortEvents(events);
+		selectedRow = null;
+
 		empty(tbody);
 		toggleVisible(emptyEl, sorted.length === 0);
 		const frag = document.createDocumentFragment();
 		const opts = { wasSelected: false };
 		for (const e of sorted) {
-			frag.append(buildRow(e, opts));
+			const tr = buildRow(e, opts);
+			if (opts.wasSelected && rowEventMap.get(tr) === selectedEventId) {
+				selectedRow = tr;
+			}
+			frag.append(tr);
 		}
 		if (!opts.wasSelected) {
-			selectedRow = null;
 			selectedEventId = null;
 		}
 		tbody.append(frag);
@@ -274,23 +286,23 @@ export function createEventsTable(): HTMLElement {
 	store.on('events:update', (events) => {
 		populateUsers();
 		renderAll(events);
-		if (selectedRow) {
-
-		}
 	});
 
 	store.on('events:loading', (loading) => {
 		toggleVisible(loadingEl, loading);
-	})
+	});
 
 	store.on('events:select', (selected) => {
 		if (selectedRow) {
 			selectedRow.classList.remove('selected');
 			selectedRow = null;
 		}
+
 		if (!selected) {
+			selectedEventId = null;
 			return;
 		}
+
 		const eventId = selected.id;
 		for (const row of Array.from(tbody.rows) as HTMLTableRowElement[]) {
 			if (rowEventMap.get(row) === eventId) {
@@ -298,9 +310,11 @@ export function createEventsTable(): HTMLElement {
 				selectedEventId = eventId;
 				row.classList.add('selected');
 				row.scrollIntoView({ block: 'nearest' });
-				break;
+				return;
 			}
 		}
+
+		selectedEventId = null;
 	});
 
 	store.on('events:filter', (filter) => {
