@@ -60,7 +60,7 @@
 		"version": "pnpm run changelog && git add CHANGELOG.md"
 	},
 	"engines": {
-		"node": ">=20.19.0"
+		"node": ">=16.13.0"
 	},
 	"peerDependencies": {
 		"vite": ">=4.0.0"
