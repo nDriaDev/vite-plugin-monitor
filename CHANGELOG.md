@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.1.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v2.1.0) - 2026-04-27
+
+### Bug Fixes
+
+- time range dashboard ([727c1ff](https://github.com/nDriaDev/vite-plugin-monitor/commit/727c1ff))
+- incompatibility node versions to read file ([7d3953d](https://github.com/nDriaDev/vite-plugin-monitor/commit/7d3953d))
+
+### Chores
+
+- node engines compatibility ([b4d82ca](https://github.com/nDriaDev/vite-plugin-monitor/commit/b4d82ca))
+
 ## [2.0.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v2.0.0) - 2026-04-19
 
 ### Bug Fixes
