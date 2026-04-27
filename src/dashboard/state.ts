@@ -101,7 +101,14 @@ function createStore() {
 	 */
 	function applyFilter(): void {
 		const f = state.eventsFilter;
-		const { from, to } = effectiveTimeRange(state.timeRange);
+		const range = !['live', 'custom'].includes(state.timeRange.preset)
+			? {
+				from: presetToRange(state.timeRange.preset as TimePreset).from,
+				to: new Date().toISOString()
+			}
+			: effectiveTimeRange(state.timeRange);
+
+		const { from, to } = range;
 
 		let result = rawEvents.filter(e => e.timestamp >= from && e.timestamp <= to);
 
