@@ -34,6 +34,32 @@ function copyDirSync(src: string, dest: string): void {
 	}
 }
 
+/* v8 ignore start */
+/**
+ * INFO
+ * Unconditional manual recursive function for incompatibility between node versions.
+ * It is simpler, has no edge cases to manage, and the overhead is negligible since
+ * it is called only once at server startup
+ */
+function readdirRecursive(dir: string): string[] {
+	const result: string[] = [];
+	const entries = readdirSync(dir, { withFileTypes: true });
+	for (const entry of entries) {
+		if (typeof entry === 'string') {
+			result.push(resolve(join(dir, entry)));
+		} else {
+			const fullPath = join(dir, entry.name);
+			if (entry.isDirectory()) {
+				result.push(...readdirRecursive(fullPath));
+			} else {
+				result.push(fullPath);
+			}
+		}
+	}
+	return result;
+}
+/* v8 ignore stop */
+
 function getMimeType(filePath: string): string {
 	const ext = extname(filePath).toLowerCase();
 	return mimeTypeMap[ext] ?? 'application/octet-stream';
@@ -161,7 +187,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 		if (opts.dashboard.enabled) {
 			const dashDir = dashboardDistDir();
 			const resolvedDashDir = resolve(dashDir);
-			const dashAssets = new Set((readdirSync(dashDir, { recursive: true }) as string[]).map(f => resolve(join(dashDir, f))));
+			const dashAssets = new Set(readdirRecursive(dashDir).map(f => resolve(f)));
 
 			server.middlewares.use(opts.dashboard.route, (req, res, next) => {
 				const url = req.url ?? '/';
@@ -213,7 +239,6 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				originalPrint.call(server);
 				const host = resolvedHost();
 				const port = viteConfig.server?.port ?? 5173;
-				const base = (viteConfig.base ?? '/').replace(/\/$/, '');
 				const dash = opts.dashboard.route;
 				const apiUrl = mode === 'http'
 					? opts.storage.readEndpoint
@@ -221,7 +246,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 						: opts.storage.writeEndpoint.replace(/\/events\/?$/, "")
 					: mode === 'websocket'
 						? opts.storage.wsEndpoint
-						: `http://${host}:${port}${base}/_tracker`;
+						: `http://${host}:${port}/_tracker`;
 
 				console.log(
 					`  \x1b[32m➜\x1b[0m  \x1b[1mvite-plugin-monitor Tracker API\x1b[0m:       ` +
@@ -231,7 +256,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				if (opts.dashboard.enabled) {
 					console.log(
 						`  \x1b[32m➜\x1b[0m  \x1b[1mvite-plugin-monitor Dashboard\x1b[0m:       ` +
-						`\x1b[36mhttp://${host}:${port}${base}${dash}\x1b[0m`
+						`\x1b[36mhttp://${host}:${port}${dash}\x1b[0m`
 					);
 				}
 			}
