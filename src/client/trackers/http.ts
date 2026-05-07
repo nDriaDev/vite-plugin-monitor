@@ -122,15 +122,6 @@ function headersToRecord(headers: HeadersInit | undefined | null): Record<string
 	if (Array.isArray(headers)) {
 		return Object.fromEntries(headers);
 	}
-	/**
-	 * INFO Duck-typing fallback: handles cross-realm Headers instances (e.g. jsdom vs undici)
-	 * where instanceof check fails but the object still has a forEach method like Headers.
-	 */
-	if (typeof (headers as any).forEach === 'function' && typeof (headers as any).get === 'function') {
-		const out: Record<string, string> = {};
-		(headers as any).forEach((v: string, k: string) => { out[k] = v });
-		return out;
-	}
 	return { ...(headers as Record<string, string>) };
 }
 
@@ -252,45 +243,43 @@ function patchFetch(httpOpts: ResolvedHttpOpts, onEvent: (payload: HttpPayload, 
 		try {
 			// INFO Clone the request so we can read the response body without consuming it
 			const response = await originalFetch.call(this, input, init);
-			const duration = Math.round(performance.now() - start);
-
-			// INFO Response body - must clone to avoid consuming the real stream
-			let resBody: unknown;
-			let resSize: number | undefined;
-			let resHeaders: Record<string, string> | undefined;
+			const responseContentType = response.headers.get("content-type")?.toLowerCase() || '';
+			const responseBodyIsValideToCapture = responseContentType.includes('json') || responseContentType.includes('text/') || responseContentType.includes('application/xml') || responseContentType.includes('application/javascript');
+			const payload: HttpPayload = {
+				method, url,
+				status: response.status,
+				duration: Math.round(performance.now() - start),
+				requestHeaders: reqHeaders,
+				requestBody: reqBody,
+				requestSize: reqSize
+			}
 
 			if (httpOpts.captureResponseHeaders) {
-				resHeaders = sanitizeHeaders(
+				payload.responseHeaders = sanitizeHeaders(
 					headersToRecord(response.headers),
 					httpOpts.excludeHeaders,
 				);
 			}
 
-			if (httpOpts.captureResponseBody) {
-				try {
-					const cloned = response.clone();
-					const text = await cloned.text();
-					resSize = text.length;
-					resBody = parseBody(text, httpOpts.maxBodySize, httpOpts.redactKeys);
-				} catch {
-					resBody = '[unreadable]';
-				}
+			if (httpOpts.captureResponseBody && responseBodyIsValideToCapture) {
+				void response
+					.clone()
+					.text()
+					.then(text => ({
+						responseSize: text.length,
+						responseBody: parseBody(text, httpOpts.maxBodySize, httpOpts.redactKeys)
+					}))
+					.catch(() => ({
+						responseBody: '[unreadable]'
+					}))
+					.then((extra) => {
+						onEvent({...payload, ...extra}, levelFromStatus(response.status));
+					});
+			} else {
+				onEvent(payload, levelFromStatus(response.status));
 			}
 
-			const payload: HttpPayload = {
-				method, url,
-				status: response.status,
-				duration,
-				requestHeaders: reqHeaders,
-				requestBody: reqBody,
-				requestSize: reqSize,
-				responseHeaders: resHeaders,
-				responseBody: resBody,
-				responseSize: resSize,
-			}
-			onEvent(payload, levelFromStatus(response.status));
 			return response;
-
 		} catch (err) {
 			const duration = Math.round(performance.now() - start);
 			onEvent(
