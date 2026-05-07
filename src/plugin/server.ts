@@ -230,8 +230,7 @@ export function createMiddleware(opts: ResolvedTrackerOptions, logger: Logger): 
 	const buffer = new RingBuffer(opts.storage.maxBufferSize);
 	const handler = createRequestHandler(opts, buffer, logger);
 
-	// eslint-disable-next-line @typescript-eslint/no-floating-promises
-	logger.startHydration(
+	void logger.startHydration(
 		(events) => buffer.push(events),
 		({ loaded, skippedMalformed, skippedInvalid, limitReached }) => {
 			if (loaded > 0) {
@@ -249,14 +248,16 @@ export function createMiddleware(opts: ResolvedTrackerOptions, logger: Logger): 
 		}
 	);
 
-	// eslint-disable-next-line @typescript-eslint/no-misused-promises
-	return async function trackerMiddleware(req: IncomingMessage, res: ServerResponse, next: Connect.NextFunction) {
+	return function trackerMiddleware(req: IncomingMessage, res: ServerResponse, next: Connect.NextFunction) {
 		if (!req.url?.startsWith('/_tracker')) {
 			return next();
 		}
-		const handled = await handler(req, res);
-		if (!handled) {
-			next();
-		}
+		handler(req, res)
+			.then((handled) => {
+				if (!handled) {
+					next();
+				}
+			})
+			.catch(next);
 	}
 }

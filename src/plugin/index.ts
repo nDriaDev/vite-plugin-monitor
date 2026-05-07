@@ -177,7 +177,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			server.middlewares.use(createMiddleware(opts, logger));
 		}
 
-		server.httpServer?.once('close', cleanup);
+		server.httpServer?.once('close', () => { void cleanup() });
 
 		server.middlewares.use('/_tracker/ping', (_req, res) => {
 			res.setHeader('Content-Type', 'application/json');
