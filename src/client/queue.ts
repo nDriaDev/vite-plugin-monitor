@@ -114,7 +114,7 @@ export class EventQueue {
 		}
 	}
 
-	flush() {
+	flush(opts?: {keepalive?: boolean}) {
 		if (this.timer) {
 			clearTimeout(this.timer);
 			this.timer = null;
@@ -156,7 +156,7 @@ export class EventQueue {
 			return;
 		}
 
-		fetch(this.opts.writeEndpoint, { method: 'POST', headers, body, keepalive: true })
+		fetch(this.opts.writeEndpoint, { method: 'POST', headers, body, keepalive: opts?.keepalive ?? false })
 			.then((res) => {
 				if (!res.ok) {
 					console.debug(`[vite-plugin-monitor] Server responded with ${res.status}, requeueing batch`);

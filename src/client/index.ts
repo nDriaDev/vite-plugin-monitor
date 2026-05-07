@@ -143,7 +143,7 @@ class TrackerClient implements ITrackerClient {
 
 		window.addEventListener('visibilitychange', () => {
 			if (document.visibilityState === 'hidden') {
-				this.queue.flush();
+				this.queue.flush({ keepalive: true });
 			}
 		});
 		window.addEventListener('beforeunload', () => {
@@ -152,7 +152,7 @@ class TrackerClient implements ITrackerClient {
 			 * in the final sendBeacon batch and reaches the backend before the tab closes.
 			 */
 			this.emitSession('end', 'unload');
-			this.queue.flush();
+			this.queue.flush({ keepalive: true });
 		});
 	}
 
