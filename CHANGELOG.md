@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.1.1](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v2.1.1) - 2026-05-07
+
+### Bug Fixes
+
+- capture response body http request logic ([b79ade0](https://github.com/nDriaDev/vite-plugin-monitor/commit/b79ade0))
+- remove keepalive from write events ([95e6c41](https://github.com/nDriaDev/vite-plugin-monitor/commit/95e6c41))
+
+### Performance Improvements
+
+- optimization code ([165d9d8](https://github.com/nDriaDev/vite-plugin-monitor/commit/165d9d8))
+
+### Other Changes
+
+- update test for previous fix ([373bc91](https://github.com/nDriaDev/vite-plugin-monitor/commit/373bc91))
+
 ## [2.1.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v2.1.0) - 2026-04-27
 
 ### Bug Fixes
