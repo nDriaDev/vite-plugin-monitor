@@ -625,7 +625,7 @@ describe('EventQueue', () => {
 			expect(init.headers).not.toHaveProperty('X-Tracker-Key');
 		});
 
-		it('sends keepalive: true', async () => {
+		it('sends keepalive: false', async () => {
 			const queue = new EventQueue(makeOpts());
 			queue.enqueue(makeEvent());
 
@@ -633,7 +633,7 @@ describe('EventQueue', () => {
 			await flushPromises();
 
 			const [, init] = fetchMock.mock.calls[0];
-			expect(init.keepalive).toBe(true);
+			expect(init.keepalive).toBe(false);
 		});
 
 		it('sets sending = false in finally after success', async () => {

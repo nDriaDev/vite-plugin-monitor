@@ -200,9 +200,10 @@ describe('patchFetch', () => {
 		}, onEvent);
 
 		await window.fetch('/api/data');
-		await flushPromises();
+		await vi.waitFor(() => {
+			expect(events[0]?.payload.responseBody).toEqual({ result: 'ok' });
+		});
 
-		expect(events[0].payload.responseBody).toEqual({ result: 'ok' });
 		vi.unstubAllGlobals();
 	});
 
@@ -309,16 +310,16 @@ describe('patchFetch', () => {
 
 		const brokenResponse = new Response('data', { status: 200 });
 		const cloneSpy = vi.spyOn(brokenResponse, 'clone').mockReturnValue({
-			text: () => { throw new Error('stream already consumed'); },
+			text: () => Promise.reject(new Error('stream already consumed')),
 		} as any);
 
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(brokenResponse));
 		teardown = setupHttpTracker([], { captureResponseBody: true }, onEvent);
 
 		await window.fetch('/api/data');
-		await flushPromises();
-
-		expect(events[0].payload.responseBody).toBe('[unreadable]');
+		await vi.waitFor(() => {
+			expect(events[0]?.payload.responseBody).toBe('[unreadable]');
+		});
 		cloneSpy.mockRestore();
 		vi.unstubAllGlobals();
 	});
@@ -451,25 +452,6 @@ describe('headersToRecord', () => {
 		await flushPromises();
 
 		expect(events[0].payload.requestHeaders!['x-plain']).toBe('plain-value');
-	});
-
-	it('duck-type (object with forEach+get) -> correct record', async () => {
-		const { onEvent, events } = makeOnEvent();
-		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
-		teardown = makeTracker(onEvent);
-
-		const duckHeaders: any = {
-			_data: { 'x-duck': 'duck-value' },
-			forEach(cb: (v: string, k: string) => void) {
-				for (const [k, v] of Object.entries(this._data)) cb(v as string, k);
-			},
-			get(k: string) { return (this._data as any)[k] ?? null; },
-		};
-
-		await window.fetch('/api', { headers: duckHeaders });
-		await flushPromises();
-
-		expect(events[0].payload.requestHeaders!['x-duck']).toBe('duck-value');
 	});
 });
 

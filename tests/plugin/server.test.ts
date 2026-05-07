@@ -350,9 +350,13 @@ describe('createMiddleware()', () => {
 		const next = vi.fn();
 		const events = [makeEvent()];
 		const { req, res } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { events } });
-		await middleware(req, res, next);
-		expect(next).not.toHaveBeenCalled();
-		expect((res as any).writeHead).toHaveBeenCalledWith(200, expect.any(Object));
+
+		middleware(req, res, next);
+
+		await vi.waitFor(() => {
+			expect(next).not.toHaveBeenCalled();
+			expect((res as any).writeHead).toHaveBeenCalledWith(200, expect.any(Object));
+		});
 	});
 
 	it('calls next() for unhandled /_tracker routes', async () => {
@@ -387,15 +391,18 @@ describe('RingBuffer (via createMiddleware)', () => {
 			makeEvent({ timestamp: '2024-01-03T00:00:00.000Z' }),
 		];
 		const { req: r1, res: s1 } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { events } });
-		await mw(r1, s1, next);
-
+		mw(r1, s1, next);
+		await vi.waitFor(() => {
+			expect((s1 as any).writeHead).toHaveBeenCalledWith(200, expect.any(Object));
+		});
 		const { req: r2, res: s2 } = makeReqRes({ method: 'GET', url: '/_tracker?limit=100&page=1' });
-		await mw(r2, s2, next);
-
-		const body = (s2 as any).getBody() as { events: TrackerEvent[]; total: number };
-		expect(body.total).toBe(2);
-		expect(body.events[0].timestamp).toBe('2024-01-03T00:00:00.000Z');
-		expect(body.events[1].timestamp).toBe('2024-01-02T00:00:00.000Z');
+		mw(r2, s2, next);
+		await vi.waitFor(() => {
+			const body = (s2 as any).getBody() as { events: TrackerEvent[]; total: number };
+			expect(body.total).toBe(2);
+			expect(body.events[0].timestamp).toBe('2024-01-03T00:00:00.000Z');
+			expect(body.events[1].timestamp).toBe('2024-01-02T00:00:00.000Z');
+		});
 	});
 
 	it('returns events from most recent to least recent', async () => {
@@ -407,14 +414,18 @@ describe('RingBuffer (via createMiddleware)', () => {
 			makeEvent({ timestamp: '2024-06-01T00:00:00.000Z' }),
 		];
 		const { req: r1, res: s1 } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { events } });
-		await mw(r1, s1, next);
+		mw(r1, s1, next);
+		await vi.waitFor(() => {
+			expect((s1 as any).writeHead).toHaveBeenCalledWith(200, expect.any(Object));
+		});
 
 		const { req: r2, res: s2 } = makeReqRes({ method: 'GET', url: '/_tracker?limit=100&page=1' });
-		await mw(r2, s2, next);
-
-		const body = (s2 as any).getBody() as { events: TrackerEvent[] };
-		expect(body.events[0].timestamp).toBe('2024-06-01T00:00:00.000Z');
-		expect(body.events[1].timestamp).toBe('2024-01-01T00:00:00.000Z');
+		mw(r2, s2, next);
+		await vi.waitFor(() => {
+			const body = (s2 as any).getBody() as { events: TrackerEvent[] };
+			expect(body.events[0].timestamp).toBe('2024-06-01T00:00:00.000Z');
+			expect(body.events[1].timestamp).toBe('2024-01-01T00:00:00.000Z');
+		});
 	});
 
 	it('filters events via since', async () => {
@@ -426,17 +437,21 @@ describe('RingBuffer (via createMiddleware)', () => {
 			makeEvent({ timestamp: '2024-06-01T00:00:00.000Z' }),
 		];
 		const { req: r1, res: s1 } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { events } });
-		await mw(r1, s1, next);
+		mw(r1, s1, next);
+		await vi.waitFor(() => {
+			expect((s1 as any).writeHead).toHaveBeenCalledWith(200, expect.any(Object));
+		});
 
 		const { req: r2, res: s2 } = makeReqRes({
 			method: 'GET',
 			url: '/_tracker?since=2024-03-01T00:00:00.000Z&limit=100&page=1',
 		});
-		await mw(r2, s2, next);
-
-		const body = (s2 as any).getBody() as { events: TrackerEvent[]; total: number };
-		expect(body.total).toBe(1);
-		expect(body.events[0].timestamp).toBe('2024-06-01T00:00:00.000Z');
+		mw(r2, s2, next);
+		await vi.waitFor(() => {
+			const body = (s2 as any).getBody() as { events: TrackerEvent[]; total: number };
+			expect(body.total).toBe(1);
+			expect(body.events[0].timestamp).toBe('2024-06-01T00:00:00.000Z');
+		});
 	});
 
 	it('filters events via until', async () => {
@@ -448,17 +463,21 @@ describe('RingBuffer (via createMiddleware)', () => {
 			makeEvent({ timestamp: '2024-12-01T00:00:00.000Z' }),
 		];
 		const { req: r1, res: s1 } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { events } });
-		await mw(r1, s1, next);
+		mw(r1, s1, next);
+		await vi.waitFor(() => {
+			expect((s1 as any).writeHead).toHaveBeenCalledWith(200, expect.any(Object));
+		});
 
 		const { req: r2, res: s2 } = makeReqRes({
 			method: 'GET',
 			url: '/_tracker?until=2024-06-01T00:00:00.000Z&limit=100&page=1',
 		});
-		await mw(r2, s2, next);
-
-		const body = (s2 as any).getBody() as { events: TrackerEvent[]; total: number };
-		expect(body.total).toBe(1);
-		expect(body.events[0].timestamp).toBe('2024-01-01T00:00:00.000Z');
+		mw(r2, s2, next);
+		await vi.waitFor(() => {
+			const body = (s2 as any).getBody() as { events: TrackerEvent[]; total: number };
+			expect(body.total).toBe(1);
+			expect(body.events[0].timestamp).toBe('2024-01-01T00:00:00.000Z');
+		});
 	});
 
 	it('filters events via after (cursor)', async () => {
@@ -471,17 +490,21 @@ describe('RingBuffer (via createMiddleware)', () => {
 			makeEvent({ timestamp: '2024-12-01T00:00:00.000Z' }),
 		];
 		const { req: r1, res: s1 } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { events } });
-		await mw(r1, s1, next);
+		mw(r1, s1, next);
+		await vi.waitFor(() => {
+			expect((s1 as any).writeHead).toHaveBeenCalledWith(200, expect.any(Object));
+		});
 
 		const { req: r2, res: s2 } = makeReqRes({
 			method: 'GET',
 			url: '/_tracker?after=2024-06-01T00:00:00.000Z&limit=100&page=1',
 		});
-		await mw(r2, s2, next);
-
-		const body = (s2 as any).getBody() as { events: TrackerEvent[]; total: number };
-		expect(body.total).toBe(1);
-		expect(body.events[0].timestamp).toBe('2024-12-01T00:00:00.000Z');
+		mw(r2, s2, next);
+		await vi.waitFor(() => {
+			const body = (s2 as any).getBody() as { events: TrackerEvent[]; total: number };
+			expect(body.total).toBe(1);
+			expect(body.events[0].timestamp).toBe('2024-12-01T00:00:00.000Z');
+		});
 	});
 
 	it('respects pagination with limit and page', async () => {
@@ -494,21 +517,28 @@ describe('RingBuffer (via createMiddleware)', () => {
 			makeEvent({ timestamp: '2024-03-01T00:00:00.000Z' }),
 		];
 		const { req: r1, res: s1 } = makeReqRes({ method: 'POST', url: '/_tracker/events', body: { events } });
-		await mw(r1, s1, next);
+		mw(r1, s1, next);
+		await vi.waitFor(() => {
+			expect((s1 as any).writeHead).toHaveBeenCalledWith(200, expect.any(Object));
+		});
 
 		const { req: r2, res: s2 } = makeReqRes({ method: 'GET', url: '/_tracker?limit=2&page=1' });
-		await mw(r2, s2, next);
-		const body1 = (s2 as any).getBody() as { events: TrackerEvent[]; total: number };
-		expect(body1.total).toBe(3);
-		expect(body1.events).toHaveLength(2);
-		expect(body1.events[0].timestamp).toBe('2024-03-01T00:00:00.000Z');
+		mw(r2, s2, next);
+		await vi.waitFor(() => {
+			const body1 = (s2 as any).getBody() as { events: TrackerEvent[]; total: number };
+			expect(body1.total).toBe(3);
+			expect(body1.events).toHaveLength(2);
+			expect(body1.events[0].timestamp).toBe('2024-03-01T00:00:00.000Z');
+		});
 
 		const { req: r3, res: s3 } = makeReqRes({ method: 'GET', url: '/_tracker?limit=2&page=2' });
-		await mw(r3, s3, next);
-		const body2 = (s3 as any).getBody() as { events: TrackerEvent[]; total: number };
-		expect(body2.total).toBe(3);
-		expect(body2.events).toHaveLength(1);
-		expect(body2.events[0].timestamp).toBe('2024-01-01T00:00:00.000Z');
+		mw(r3, s3, next);
+		await vi.waitFor(() => {
+			const body2 = (s3 as any).getBody() as { events: TrackerEvent[]; total: number };
+			expect(body2.total).toBe(3);
+			expect(body2.events).toHaveLength(1);
+			expect(body2.events[0].timestamp).toBe('2024-01-01T00:00:00.000Z');
+		});
 	});
 });
 
@@ -537,9 +567,10 @@ describe('hydration via logger.startHydration() (createMiddleware)', () => {
 		onBatch([ev]);
 
 		const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker?limit=100&page=1' });
-		await mw(req, res, next);
-
-		expect((res as any).getBody().total).toBe(1);
+		mw(req, res, next);
+		await vi.waitFor(() => {
+			expect((res as any).getBody().total).toBe(1);
+		});
 	});
 
 	it('onDone logs info when events were loaded', () => {
