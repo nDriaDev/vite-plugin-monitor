@@ -187,6 +187,7 @@ class StreamTransport {
 				if (today !== this.currentDate) {
 					await this.closeStream();
 					await this.openStream(this.resolveTargetPath(), onError);
+					this.cleanupOldFiles();
 				}
 			} else if (this.transport.rotation?.strategy === 'size') {
 				if (this.stream!.bytesWritten >= this.bytesLimit) {
