@@ -16,7 +16,7 @@ trackerPlugin({
     pingEndpoint:  'https://api.myapp.com/health',
     apiKey:        process.env.TRACKER_API_KEY,
     batchSize:     25,
-    flushInterval: 5000,
+    flushInterval: 7000,
     maxBufferSize: 500000,
   },
 })
@@ -125,14 +125,14 @@ Increase for high-traffic pages. Decrease for near-real-time dashboard updates.
 
 ### `flushInterval`
 
-**Type:** `number` · **Default:** `5000`
+**Type:** `number` · **Default:** `7000`
 
 Maximum milliseconds between automatic flushes. Even if `batchSize` hasn't been reached, a flush is triggered after this interval.
 
 ```typescript
 storage: {
   batchSize:     50,
-  flushInterval: 5000, // flush every 5s or every 50 events, whichever comes first
+  flushInterval: 7000, // flush every 5s or every 50 events, whichever comes first
 }
 ```
 
@@ -171,7 +171,7 @@ trackerPlugin({
     pingEndpoint: 'https://api.myapp.com/health',   // optional
     apiKey:       process.env.TRACKER_API_KEY,      // optional
     batchSize:    25,
-    flushInterval: 5000,
+    flushInterval: 7000,
   },
 })
 ```

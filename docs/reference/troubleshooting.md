@@ -232,6 +232,57 @@ The ring buffer automatically evicts the oldest events (FIFO) when capacity is e
 
 ---
 
+## Slow Ingest Requests or Proxy Interference in Middleware Mode
+
+If you run the application via `vite preview` with a proxy configured, and backend calls
+intermittently fail with `CONNECTION_RESET` or remain pending for a long time, the likely
+cause is the size of the ingest request body.
+
+When `http.captureResponseBody`, `http.captureRequestBody`, or `http.captureResponseHeaders`
+are enabled with a large `batchSize`, each POST to `/_tracker/events` can carry several
+hundred KB of payload. This keeps the socket occupied long enough to interfere with
+concurrent proxied backend calls sharing the same Vite server.
+
+**Mitigations, in order of effectiveness:**
+
+1. **Request body compression (built-in):** The client automatically gzip-compresses the
+   ingest body when the browser supports the `CompressionStream` API. This reduces payload
+   size by 80–95% with no configuration needed. Ensure your Vite version is recent enough
+   to include this feature.
+
+2. **Reduce `batchSize`:** Lower the number of events sent per flush:
+```typescript
+   storage: { batchSize: 10 }  // default: 25
+```
+
+3. **Reduce `maxBodySize`:** Limit how many bytes of request/response bodies are captured:
+```typescript
+   track: {
+     http: {
+       captureResponseBody: true,
+       maxBodySize: 512,  // default: 2048
+     }
+   }
+```
+
+4. **Disable body capture for noisy endpoints:** Use `ignoreUrls` to exclude endpoints
+   that return large payloads:
+```typescript
+   track: {
+     http: {
+       captureResponseBody: true,
+       ignoreUrls: [/\/api\/large-endpoint/],
+     }
+   }
+```
+
+5. **Stagger `flushInterval`:** If your app has polling calls on a fixed interval,
+   set `flushInterval` to a value that doesn't align with the polling cadence to reduce
+   the chance of concurrent requests:
+```typescript
+   storage: { flushInterval: 7000 }  // if polling is every 10s, avoid 5000 or 10000
+```
+
 ## Getting Help
 
 If none of the above resolves your issue:

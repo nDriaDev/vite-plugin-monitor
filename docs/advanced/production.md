@@ -34,7 +34,7 @@ export default defineConfig(({ mode }) => ({
         pingEndpoint:  process.env.VITE_TRACKER_PING_URL,
         apiKey:        process.env.VITE_TRACKER_API_KEY,
         batchSize:     50,
-        flushInterval: 5000,
+        flushInterval: 7000,
       },
 
       track: {
@@ -208,7 +208,7 @@ trackerPlugin({
     pingEndpoint: process.env.VITE_TRACKER_PING_URL,
     apiKey:       process.env.VITE_TRACKER_API_KEY,
     batchSize:    25,
-    flushInterval: 5000,
+    flushInterval: 7000,
   },
   track: { clicks: true, http: true, errors: true, navigation: true },
 })

@@ -590,7 +590,7 @@ storage: {
 
   /**
    * Max milliseconds between automatic flushes.
-   * @default 5000
+   * @default 7000
    */
   flushInterval?: number;
 
@@ -615,7 +615,7 @@ storage: {
   pingEndpoint?: string;    // Optional health check URL
   apiKey?:       string;    // Optional API key
   batchSize?:    number;    // @default 25
-  flushInterval?: number;   // @default 5000
+  flushInterval?: number;   // @default 7000
 }
 ```
 
@@ -908,7 +908,7 @@ trackerPlugin({
     pingEndpoint:  'https://api.myapp.com/health',
     apiKey:        process.env.TRACKER_API_KEY,
     batchSize:     50,
-    flushInterval: 5000,
+    flushInterval: 7000,
   },
   track: {
     clicks:     true,

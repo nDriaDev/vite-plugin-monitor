@@ -54,7 +54,7 @@ A session is scoped to a single browser tab lifetime. The session ID (`sess_` pr
 
 The client-side `EventQueue` batches events and flushes them:
 - When `batchSize` events have accumulated (default: 25)
-- After `flushInterval` ms (default: 5000 ms)
+- After `flushInterval` ms (default: 7000 ms)
 - On page unload via `navigator.sendBeacon` (guaranteed delivery)
 - Automatically retries on network failure
 

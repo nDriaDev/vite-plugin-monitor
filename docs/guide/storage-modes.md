@@ -84,7 +84,7 @@ trackerPlugin({
     pingEndpoint:  'https://api.myapp.com/health',          // optional
     apiKey:        process.env.TRACKER_API_KEY,             // optional
     batchSize:     50,                                       // default: 25
-    flushInterval: 5000,                                    // default: 5000ms
+    flushInterval: 7000,                                    // default: 7000ms
   },
 })
 ```
@@ -135,7 +135,7 @@ trackerPlugin({
     pingEndpoint: 'https://api.myapp.com/health',     // optional
     apiKey:       process.env.TRACKER_API_KEY,        // optional
     batchSize:    25,
-    flushInterval: 5000,
+    flushInterval: 7000,
   },
 })
 ```

@@ -190,7 +190,7 @@ export default defineConfig({
       storage: {
         mode:          'auto',
         batchSize:     25,
-        flushInterval: 5000,
+        flushInterval: 7000,
         maxBufferSize: 500000,
         port:          4242,
       },

@@ -25,6 +25,40 @@ X-Tracker-Key: <storage.apiKey>    (only when apiKey is configured)
 |--------|-------|------|
 | `Content-Type` | `application/json` | Always |
 | `X-Tracker-Key` | The configured `apiKey` | Only when `storage.apiKey` is set |
+| `Content-Encoding` | `gzip` | When the browser supports the `CompressionStream` API |
+
+::: info Request body compression
+When the browser supports the [`CompressionStream` API](https://developer.mozilla.org/en-US/docs/Web/API/CompressionStream) (Chrome 80+, Firefox 113+, Safari 16.4+), the client **gzip-compresses** the request body before sending it and adds `Content-Encoding: gzip` to the request headers.
+
+If the API is not available, the body is sent as plain JSON with no `Content-Encoding` header. Your ingest handler must support **both** cases.
+
+**Compression is skipped** in the following situations, regardless of browser support:
+- When `keepalive: true` is used (flush triggered by `visibilitychange` or `beforeunload`)
+- When `navigator.sendBeacon` is used (page unload fallback)
+
+If you implement a custom backend for `mode: 'http'`, decompress the body when `Content-Encoding: gzip` is present:
+
+```typescript
+// Node.js / TypeScript
+import { gunzip } from 'node:zlib'
+import { promisify } from 'node:util'
+
+const gunzipAsync = promisify(gunzip)
+
+async function parseBody(req: IncomingMessage): Promise<string> {
+  const chunks: Buffer[] = []
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+  }
+  const raw = Buffer.concat(chunks)
+  if (req.headers['content-encoding'] === 'gzip') {
+    const decompressed = await gunzipAsync(raw)
+    return decompressed.toString('utf8')
+  }
+  return raw.toString('utf8')
+}
+```
+:::
 
 **Body:**
 
@@ -72,7 +106,7 @@ Content-Type: application/json
 ```
 
 ::: info `Content-Type` on Beacon requests
-The plugin wraps the payload in a `Blob({ type: 'application/json' })` before passing it to `navigator.sendBeacon`. This causes the browser to send the request with `Content-Type: application/json`, the same header used by regular fetch flushes. Your backend does not need special handling for beacon requests.
+The plugin wraps the payload in a `Blob({ type: 'application/json' })` before passing it to `navigator.sendBeacon`. This causes the browser to send the request with `Content-Type: application/json`. The body is **never compressed** for beacon requests — `sendBeacon` does not support custom headers, so `Content-Encoding` cannot be set. Your backend does not need special handling for beacon requests beyond standard JSON parsing.
 :::
 
 ---

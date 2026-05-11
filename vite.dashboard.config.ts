@@ -27,7 +27,7 @@ function injectDevConfig(): Plugin {
 				wsEndpoint: '',
 				apiKey: '',
 				batchSize: 25,
-				flushInterval: 5000,
+				flushInterval: 7000,
 				track: {
 					clicks: true,
 					http: true,
