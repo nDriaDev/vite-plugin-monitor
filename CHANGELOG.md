@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.2.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v2.2.0) - 2026-05-11
+
+### Features
+
+- compression mode for write events requests ([879dff0](https://github.com/nDriaDev/vite-plugin-monitor/commit/879dff0))
+
+### Bug Fixes
+
+- cleanup old log files ([33a2cf4](https://github.com/nDriaDev/vite-plugin-monitor/commit/33a2cf4))
+
+### Performance Improvements
+
+- register middleware after default vite middleware ([7506460](https://github.com/nDriaDev/vite-plugin-monitor/commit/7506460))
+
+### Documentation
+
+- update docs ([7f0396c](https://github.com/nDriaDev/vite-plugin-monitor/commit/7f0396c))
+
+### Other Changes
+
+- update tests ([af853cc](https://github.com/nDriaDev/vite-plugin-monitor/commit/af853cc))
+
 ## [2.1.1](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v2.1.1) - 2026-05-07
 
 ### Bug Fixes
