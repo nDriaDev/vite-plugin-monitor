@@ -1,5 +1,5 @@
 import type { Logger, ResolvedTrackerOptions, TrackerPluginOptions } from "@tracker/types";
-import { normalizePath, type Plugin, type PreviewServer, type ResolvedConfig, type ViteDevServer } from "vite";
+import { normalizePath, version as viteVersion, type Plugin, type PreviewServer, type ResolvedConfig, type ViteDevServer } from "vite";
 import { resolveOptions } from "./config";
 import { createLogger } from "./logger";
 import { createMiddleware } from "./server";
@@ -8,6 +8,8 @@ import { version } from '../../package.json';
 import { copyFileSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, extname, join, resolve, sep } from "node:path";
+
+const viteMajor = parseInt(viteVersion.split('.')[0], 10);
 
 const mimeTypeMap: Record<string, string> = {
 	'.html': 'text/html',
@@ -148,6 +150,67 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			return join(__dirname, 'dashboard');
 		}
 	}
+
+	function registerMiddleware(server: ViteDevServer | PreviewServer,) {
+		return () => {
+			if (mode === 'middleware') {
+				server.middlewares.use(createMiddleware(opts, logger));
+			}
+			server.middlewares.use('/_tracker/ping', (_req, res) => {
+				res.setHeader('Content-Type', 'application/json');
+				res.end(JSON.stringify({ ok: true, appId: opts.appId, mode, version }));
+			});
+			if (opts.dashboard.enabled) {
+				const dashDir = dashboardDistDir();
+				const resolvedDashDir = resolve(dashDir);
+				const dashAssets = new Set(readdirRecursive(dashDir).map(f => resolve(f)));
+
+				server.middlewares.use(opts.dashboard.route, (req, res, next) => {
+					const url = req.url ?? '/';
+					const safeUrl = url.split('?')[0];
+					const filePath = join(dashDir, safeUrl);
+					const resolvedPath = resolve(filePath);
+					if (resolvedPath !== resolvedDashDir && !resolvedPath.startsWith(resolvedDashDir + sep)) {
+						res.writeHead(403);
+						res.end();
+						return;
+					}
+					if (dashAssets.has(resolvedPath)) {
+						res.setHeader('Content-Type', getMimeType(filePath));
+						const stream = createReadStream(filePath);
+						stream.on("error", (err: NodeJS.ErrnoException) => {
+							if (!res.headersSent) {
+								res.writeHead(err.code === "ENOENT" ? 404 : 500);
+							}
+							res.end();
+						});
+						stream.pipe(res);
+						return;
+					}
+
+					if (!cachedDashboardHtml) {
+						const indexPath = join(dashDir, 'index.html');
+						if (!existsSync(indexPath)) {
+							logger.warn(
+								`Dashboard HTML not found at ${indexPath}. ` +
+								`Run 'pnpm build:dashboard' to build the dashboard first.`
+							);
+							return next();
+						}
+						let html = readFileSync(indexPath, 'utf8');
+						const dashRoute = opts.dashboard.route.replace(/\/$/, '') + '/';
+						html = html.replace(/(src|href)="\.\//g, `$1="${dashRoute}`);
+						const configScript = `<script>${generateConfigScript(opts)}</script>`;
+						html = html.replace('</head>', `${configScript}\n</head>`);
+						cachedDashboardHtml = html;
+					}
+
+					res.setHeader('Content-Type', 'text/html');
+					res.end(cachedDashboardHtml);
+				});
+			}
+		}
+	}
 	/* v8 ignore stop */
 
 	function configureServer(server: ViteDevServer | PreviewServer) {
@@ -173,66 +236,7 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 
 		logger = createLogger(opts.appId, opts.logging);
 
-		if (mode === 'middleware') {
-			server.middlewares.use(createMiddleware(opts, logger));
-		}
-
 		server.httpServer?.once('close', () => { void cleanup() });
-
-		server.middlewares.use('/_tracker/ping', (_req, res) => {
-			res.setHeader('Content-Type', 'application/json');
-			res.end(JSON.stringify({ ok: true, appId: opts.appId, mode, version }));
-		});
-
-		if (opts.dashboard.enabled) {
-			const dashDir = dashboardDistDir();
-			const resolvedDashDir = resolve(dashDir);
-			const dashAssets = new Set(readdirRecursive(dashDir).map(f => resolve(f)));
-
-			server.middlewares.use(opts.dashboard.route, (req, res, next) => {
-				const url = req.url ?? '/';
-				const safeUrl = url.split('?')[0];
-				const filePath = join(dashDir, safeUrl);
-				const resolvedPath = resolve(filePath);
-				if (resolvedPath !== resolvedDashDir && !resolvedPath.startsWith(resolvedDashDir + sep)) {
-					res.writeHead(403);
-					res.end();
-					return;
-				}
-				if (dashAssets.has(resolvedPath)) {
-					res.setHeader('Content-Type', getMimeType(filePath));
-					const stream = createReadStream(filePath);
-					stream.on("error", (err: NodeJS.ErrnoException) => {
-						if (!res.headersSent) {
-							res.writeHead(err.code === "ENOENT" ? 404 : 500);
-						}
-						res.end();
-					});
-					stream.pipe(res);
-					return;
-				}
-
-				if (!cachedDashboardHtml) {
-					const indexPath = join(dashDir, 'index.html');
-					if (!existsSync(indexPath)) {
-						logger.warn(
-							`Dashboard HTML not found at ${indexPath}. ` +
-							`Run 'pnpm build:dashboard' to build the dashboard first.`
-						);
-						return next();
-					}
-					let html = readFileSync(indexPath, 'utf8');
-					const dashRoute = opts.dashboard.route.replace(/\/$/, '') + '/';
-					html = html.replace(/(src|href)="\.\//g, `$1="${dashRoute}`);
-					const configScript = `<script>${generateConfigScript(opts)}</script>`;
-					html = html.replace('</head>', `${configScript}\n</head>`);
-					cachedDashboardHtml = html;
-				}
-
-				res.setHeader('Content-Type', 'text/html');
-				res.end(cachedDashboardHtml);
-			});
-		}
 
 		server.printUrls = (function (originalPrint) {
 			return function () {
@@ -261,6 +265,8 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				}
 			}
 		})(server.printUrls);
+
+		return registerMiddleware(server);
 	}
 
 	return {
@@ -307,10 +313,17 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			},
 		},
 		configureServer(server) {
-			configureServer(server);
+			return configureServer(server);
 		},
 		configurePreviewServer(server) {
-			configureServer(server);
+			const cb = configureServer(server);
+			/* v8 ignore start */
+			if (viteMajor < 5) {
+				setImmediate(cb);
+				return;
+			}
+			/* v8 ignore stop */
+			return cb;
 		},
 		handleHotUpdate(ctx) {
 			if ((logPaths || getLogPaths(opts.logging.transports)).some(p => resolve(ctx.file) === p)) {
