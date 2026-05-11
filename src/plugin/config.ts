@@ -55,7 +55,7 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 				pingEndpoint: wsOpts!.pingEndpoint ?? '',
 				apiKey: wsOpts!.apiKey ?? '',
 				batchSize: wsOpts!.batchSize ?? 25,
-				flushInterval: wsOpts!.flushInterval ?? 5000,
+				flushInterval: wsOpts!.flushInterval ?? 7000,
 				maxBufferSize: 500000
 			}
 			: {
@@ -66,7 +66,7 @@ export function resolveOptions(opts: TrackerPluginOptions): ResolvedTrackerOptio
 				pingEndpoint: httpOpts?.pingEndpoint ?? autoOpts?.pingEndpoint ?? '',
 				apiKey: anyOpts?.apiKey ?? '',
 				batchSize: anyOpts?.batchSize ?? 25,
-				flushInterval: anyOpts?.flushInterval ?? 5000,
+				flushInterval: anyOpts?.flushInterval ?? 7000,
 				maxBufferSize: (autoOpts ?? managedOpts)?.maxBufferSize ?? 500000
 			},
 		track: {

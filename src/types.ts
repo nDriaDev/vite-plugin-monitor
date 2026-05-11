@@ -1089,10 +1089,9 @@ interface BaseHttpStorageOptions {
 	* Maximum time in milliseconds between automatic queue flushes.
 	*
 	* @remarks
-	* Timer resets on each flush. The 3 000 ms default stays well within the
-	* 30-second ingress timeout common in Kubernetes / OpenShift environments.
+	* Timer resets on each flush.
 	*
-	* @default 5000
+	* @default 7000
 	*/
 	flushInterval?: number
 }
@@ -1392,7 +1391,7 @@ export interface WsStorageOptions {
 	/**
 	* Maximum time in milliseconds between automatic queue flushes.
 	*
-	* @default 5000
+	* @default 7000
 	*/
 	flushInterval?: number
 }
@@ -2156,7 +2155,7 @@ export interface DashboardOptions {
 	* Uses `setTimeout`-based polling to avoid pileup on slow backends. The 3 000 ms
 	* default stays well within the 30-second ingress timeout of OpenShift / Kubernetes.
 	*
-	* @default 5000
+	* @default 7000
 	*/
 	pollInterval?: number
 }
@@ -2991,7 +2990,7 @@ export interface PollOptions {
 	* Effective interval = `intervalMs + onTick duration`. For fast backends the
 	* difference is imperceptible; for slow ones, the poller self-throttles.
 	*
-	* @default 5000
+	* @default 7000
 	*/
 	intervalMs: number
 

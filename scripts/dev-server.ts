@@ -35,7 +35,7 @@ const opts: ResolvedTrackerOptions = {
 		wsEndpoint: '',
 		apiKey: '',
 		batchSize: 25,
-		flushInterval: 5000,
+		flushInterval: 7000,
 		maxBufferSize: 500000
 	},
 	track: {

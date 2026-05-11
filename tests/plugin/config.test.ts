@@ -73,7 +73,7 @@ describe('resolveOptions()', () => {
 
 		it('storage.flushInterval is 5000 by default', () => {
 			const r = resolveOptions(baseOpts());
-			expect(r.storage.flushInterval).toBe(5000);
+			expect(r.storage.flushInterval).toBe(7000);
 		});
 
 		it('storage.maxBufferSize is 500000 by default', () => {

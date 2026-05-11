@@ -10,7 +10,7 @@ const BASE_CONFIG: TrackerConfig = {
 	pingEndpoint: '',
 	apiKey: '',
 	batchSize: 25,
-	flushInterval: 5000,
+	flushInterval: 7000,
 	track: {
 		clicks: false,
 		http: false,

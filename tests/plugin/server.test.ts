@@ -5,7 +5,29 @@ import type { ResolvedTrackerOptions, TrackerEvent } from '../../src/types';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { EventEmitter } from 'node:events';
 import { Connect } from 'vite';
-import { gunzipSync } from 'node:zlib';
+import { gunzipSync, gzipSync } from 'node:zlib';
+
+function makeGzipReqRes(body: unknown) {
+	const compressed = gzipSync(JSON.stringify(body));
+
+	const req = new EventEmitter() as IncomingMessage & EventEmitter;
+	req.method = 'POST';
+	req.url = '/_tracker/events';
+	req.headers = { 'content-encoding': 'gzip' };
+
+	const res = {
+		writeHead: vi.fn(),
+		end: vi.fn(),
+		getBody: () => JSON.parse((res.end as any).mock.calls[0]?.[0] ?? 'null'),
+	} as unknown as ServerResponse & { getBody: () => unknown };
+
+	Promise.resolve().then(() => {
+		req.emit('data', compressed);
+		req.emit('end');
+	});
+
+	return { req, res };
+}
 
 function makeOpts(overrides: Partial<Parameters<typeof resolveOptions>[0]> = {}): ResolvedTrackerOptions {
 	const opts = resolveOptions({ appId: 'test-app', ...overrides });
@@ -365,6 +387,52 @@ describe('createMiddleware()', () => {
 		const { req, res } = makeReqRes({ method: 'GET', url: '/_tracker/unknown-route' });
 		await middleware(req, res, next);
 		expect(next).toHaveBeenCalledOnce();
+	});
+
+	it('decompresses a gzip-encoded body and ingests events', async () => {
+		const logger = makeLogger();
+		const buffer = {
+			push: vi.fn(),
+			query: vi.fn(),
+			all: vi.fn(),
+			size: vi.fn().mockReturnValue(1),
+		} as any;
+		const handler = createRequestHandler(makeOpts(), buffer, logger);
+		const events = [makeEvent()];
+
+		const { req, res } = makeGzipReqRes({ type: 'ingest', events });
+
+		const handled = await handler(req, res);
+		expect(handled).toBe(true);
+		expect(buffer.push).toHaveBeenCalledWith(events);
+		expect((res as any).getBody()).toMatchObject({ ok: true, saved: 1 });
+	});
+
+	it('responds 400 when the gzip-encoded body is corrupted', async () => {
+		const handler = createRequestHandler(
+			makeOpts(),
+			{ push: vi.fn(), query: vi.fn(), all: vi.fn(), size: vi.fn() } as any,
+			makeLogger()
+		);
+
+		const req = new EventEmitter() as IncomingMessage & EventEmitter;
+		req.method = 'POST';
+		req.url = '/_tracker/events';
+		req.headers = { 'content-encoding': 'gzip' };
+
+		const res = {
+			writeHead: vi.fn(),
+			end: vi.fn(),
+			getBody: () => JSON.parse((res.end as any).mock.calls[0]?.[0] ?? 'null'),
+		} as unknown as ServerResponse & { getBody: () => unknown };
+
+		Promise.resolve().then(() => {
+			req.emit('data', Buffer.from('questo non è gzip'));
+			req.emit('end');
+		});
+
+		await handler(req, res);
+		expect((res as any).writeHead).toHaveBeenCalledWith(400, expect.any(Object));
 	});
 });
 

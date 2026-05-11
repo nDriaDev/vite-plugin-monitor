@@ -71,7 +71,7 @@ const BASE_OPTS: QueueOptions = {
 	writeEndpoint: '/_tracker/events',
 	apiKey: '',
 	batchSize: 2,
-	flushInterval: 5000,
+	flushInterval: 7000,
 }
 
 function makeOpts(overrides: Partial<QueueOptions> = {}): QueueOptions {
@@ -350,16 +350,18 @@ describe('EventQueue', () => {
 
 	describe('init()', () => {
 
-		it('schedules the first flush after flushInterval ms', () => {
+		it('schedules the first flush after flushInterval ms', async () => {
 			const queue = new EventQueue(makeOpts());
 			queue.enqueue(makeEvent());
 			queue.init();
 
 			expect(fetchMock).not.toHaveBeenCalled();
 
-			vi.advanceTimersByTime(5000);
+			vi.advanceTimersByTime(7000);
 
-			expect(fetchMock).toHaveBeenCalledOnce();
+			await vi.waitFor(() => {
+				expect(fetchMock).toHaveBeenCalledOnce();
+			});
 		});
 	});
 
@@ -726,6 +728,112 @@ describe('EventQueue', () => {
 			expect(body.events).toHaveLength(2);
 			expect((queue as any).queue).toHaveLength(2);
 		});
+
+		it('sets Content-Encoding: gzip when compressBody returns gzip encoding', async () => {
+			// mock compressBody per restituire direttamente encoding gzip
+			const queue = new EventQueue(makeOpts());
+			vi.spyOn(queue as any, 'compressBody').mockResolvedValue({
+				body: new Blob(['compressed']),
+				encoding: 'gzip',
+			});
+			queue.enqueue(makeEvent());
+
+			queue.flush();
+			await flushPromises();
+
+			const [, init] = fetchMock.mock.calls[0];
+			expect(init.headers['Content-Encoding']).toBe('gzip');
+		});
+
+		it('does not set Content-Encoding when compressBody returns null encoding', async () => {
+			const queue = new EventQueue(makeOpts());
+			vi.spyOn(queue as any, 'compressBody').mockResolvedValue({
+				body: '{"type":"ingest","events":[]}',
+				encoding: null,
+			});
+			queue.enqueue(makeEvent());
+
+			queue.flush();
+			await flushPromises();
+
+			const [, init] = fetchMock.mock.calls[0];
+			expect(init.headers).not.toHaveProperty('Content-Encoding');
+		});
+
+		it('passes keepalive: true to fetch when flush is called with { keepalive: true }', async () => {
+			const queue = new EventQueue(makeOpts());
+			queue.enqueue(makeEvent());
+
+			queue.flush({ keepalive: true });
+			await flushPromises();
+
+			const [, init] = fetchMock.mock.calls[0];
+			expect(init.keepalive).toBe(true);
+		});
+
+		describe('compressBody()', () => {
+
+			it('skips compression and returns raw body when keepalive is true', async () => {
+				const queue = new EventQueue(makeOpts());
+				const result = await (queue as any).compressBody('{"test":1}', true);
+				expect(result.encoding).toBeNull();
+				expect(result.body).toBe('{"test":1}');
+			});
+
+			it('skips compression when CompressionStream is undefined', async () => {
+				const original = globalThis.CompressionStream;
+				// @ts-expect-error
+				globalThis.CompressionStream = undefined;
+
+				const queue = new EventQueue(makeOpts());
+				const result = await (queue as any).compressBody('{"test":1}', false);
+
+				expect(result.encoding).toBeNull();
+				expect(result.body).toBe('{"test":1}');
+
+				globalThis.CompressionStream = original;
+			});
+
+			it('returns a gzip-encoded Blob when CompressionStream is available', async () => {
+				const fakeBlob = new Blob(['x']);
+
+				vi.stubGlobal('CompressionStream', class {
+					constructor(_format: string) { }
+				});
+
+				Object.defineProperty(Blob.prototype, 'stream', {
+					configurable: true,
+					value: () => ({ pipeThrough: () => 'fake-stream' }),
+				});
+
+				vi.stubGlobal('Response', class {
+					constructor(_body: unknown) { }
+					blob() { return Promise.resolve(fakeBlob); }
+				});
+
+				const queue = new EventQueue(makeOpts());
+				const result = await (queue as any).compressBody('{"test":1}', false);
+
+				expect(result.encoding).toBe('gzip');
+				expect(result.body).toBe(fakeBlob);
+
+				delete (Blob.prototype as any).stream;
+			});
+
+			it('falls back to uncompressed body when CompressionStream throws', async () => {
+				vi.stubGlobal('CompressionStream', class {
+					constructor() {
+						throw new Error('not supported');
+					}
+				});
+
+				const queue = new EventQueue(makeOpts());
+				const result = await (queue as any).compressBody('{"test":1}', false);
+
+				expect(result.encoding).toBeNull();
+				expect(result.body).toBe('{"test":1}');
+			});
+		});
 	});
 
 	describe('scheduleFlush()', () => {
@@ -742,11 +850,11 @@ describe('EventQueue', () => {
 		});
 
 		it('the timer calls flush() when flushInterval expires', async () => {
-			const queue = new EventQueue(makeOpts({ flushInterval: 5000 }));
+			const queue = new EventQueue(makeOpts({ flushInterval: 7000 }));
 			queue.enqueue(makeEvent());
 			queue.init();
 
-			vi.advanceTimersByTime(4999);
+			vi.advanceTimersByTime(6999);
 			expect(fetchMock).not.toHaveBeenCalled();
 
 			vi.advanceTimersByTime(1);
@@ -760,7 +868,7 @@ describe('EventQueue', () => {
 			queue.enqueue(makeEvent());
 			queue.init();
 
-			vi.advanceTimersByTime(5000);
+			vi.advanceTimersByTime(7000);
 			await flushPromises();
 
 			expect((queue as any).timer).not.toBeNull();

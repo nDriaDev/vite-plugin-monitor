@@ -95,7 +95,7 @@ function setupWithDashboard(dashboardOpts: Record<string, unknown> = {}, assetRe
 	}));
 	(getHook(plugin, 'configResolved') as Function)(makeViteConfig());
 	const server = makeServer();
-	(getHook(plugin, 'configureServer') as Function)(server);
+	(getHook(plugin, 'configureServer') as Function)(server)();
 	return { server }
 }
 
@@ -147,7 +147,7 @@ describe('trackerPlugin()', () => {
 			const plugin = trackerPlugin(baseOpts());
 			(getHook(plugin, 'configResolved') as Function)(makeViteConfig({ command: 'serve' }));
 			const server = makeServer();
-			(getHook(plugin, 'configureServer') as Function)(server);
+			(getHook(plugin, 'configureServer') as Function)(server)();
 			expect(mockCreateMiddleware).toHaveBeenCalledOnce();
 		});
 
@@ -286,7 +286,7 @@ describe('trackerPlugin()', () => {
 			}));
 			(getHook(plugin, 'configResolved') as Function)(makeViteConfig());
 			const server = makeServer();
-			(getHook(plugin, 'configureServer') as Function)(server);
+			(getHook(plugin, 'configureServer') as Function)(server)();
 			return { plugin, server }
 		}
 
@@ -519,7 +519,7 @@ describe('trackerPlugin()', () => {
 			}));
 			(getHook(plugin, 'configResolved') as Function)(makeViteConfig());
 			const server = makeServer();
-			(getHook(plugin, 'configurePreviewServer') as Function)(server);
+			(getHook(plugin, 'configurePreviewServer') as Function)(server)();
 			expect(server.middlewares.use).toHaveBeenCalled();
 		});
 	});
