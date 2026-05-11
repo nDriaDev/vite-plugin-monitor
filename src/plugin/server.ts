@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Connect } from "vite";
 import { randomUUID } from "node:crypto";
 import { version } from '../../package.json';
-import { gzip } from "node:zlib";
+import { gunzip, gzip } from "node:zlib";
 
 
 
@@ -87,10 +87,23 @@ class RingBuffer {
 
 function parseBody(req: IncomingMessage): Promise<string> {
 	return new Promise((resolve, reject) => {
-		let body = '';
-		req.on('data', chunk => { body += chunk });
-		req.on('end', () => resolve(body));
-		req.on('error', reject);
+		const chunks: Buffer[] = [];
+		req.on('data', chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+        req.on('error', reject);
+		req.on('end', () => {
+			const raw = Buffer.concat(chunks);
+			if (req.headers['content-encoding'] === 'gzip') {
+				gunzip(raw, (err, decompressed) => {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(decompressed.toString('utf8'));
+					}
+				});
+			} else {
+				resolve(raw.toString('utf8'));
+			}
+		});
 	});
 }
 

@@ -100,6 +100,38 @@ export class EventQueue {
 		}
 	}
 
+	private scheduleFlush() {
+		if (this.stopped || this.timer) {
+			return;
+		}
+		this.timer = setTimeout(() => {
+			this.timer = null;
+			this.flush();
+		}, this.opts.flushInterval);
+	}
+
+	private async compressBody(data: string, keepalive: boolean): Promise<{ body: Blob | string; encoding: string | null }> {
+		if (keepalive || typeof CompressionStream === 'undefined') {
+			return {
+				body: data,
+				encoding: null
+			};
+		}
+		try {
+			const stream = new Blob([data]).stream().pipeThrough(new CompressionStream('gzip'));
+			const blob = await new Response(stream).blob();
+			return {
+				body: blob,
+				encoding: 'gzip'
+			};
+		} catch {
+			return {
+				body: data,
+				encoding: null
+			};
+		}
+	}
+
 	init(): void {
 		this.scheduleFlush();
 	}
@@ -135,7 +167,7 @@ export class EventQueue {
 			return;
 		}
 
-		const body = JSON.stringify({ type: 'ingest', events: batch } satisfies IngestRequest);
+		const rawBody = JSON.stringify({ type: 'ingest', events: batch } satisfies IngestRequest);
 		const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 		if (this.opts.apiKey) {
 			headers['X-Tracker-Key'] = this.opts.apiKey;
@@ -156,7 +188,13 @@ export class EventQueue {
 			return;
 		}
 
-		fetch(this.opts.writeEndpoint, { method: 'POST', headers, body, keepalive: opts?.keepalive ?? false })
+		this.compressBody(rawBody, opts?.keepalive ?? false)
+			.then(({ body, encoding }) => {
+				if (encoding) {
+					headers['Content-Encoding'] = encoding;
+				}
+				return fetch(this.opts.writeEndpoint, { method: 'POST', headers, body, keepalive: opts?.keepalive ?? false });
+			})
 			.then((res) => {
 				if (!res.ok) {
 					console.debug(`[vite-plugin-monitor] Server responded with ${res.status}, requeueing batch`);
@@ -171,16 +209,6 @@ export class EventQueue {
 				this.sending = false;
 				this.scheduleFlush();
 			})
-	}
-
-	private scheduleFlush() {
-		if (this.stopped || this.timer) {
-			return;
-		}
-		this.timer = setTimeout(() => {
-			this.timer = null;
-			this.flush();
-		}, this.opts.flushInterval);
 	}
 
 	/**
