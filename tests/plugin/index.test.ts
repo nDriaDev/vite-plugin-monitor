@@ -86,14 +86,14 @@ function getHook<K extends keyof Plugin>(plugin: Plugin, name: K): Plugin[K] {
 const mockCreateLogger = createLogger as ReturnType<typeof vi.fn>;
 const mockCreateMiddleware = createMiddleware as ReturnType<typeof vi.fn>;
 
-function setupWithDashboard(dashboardOpts: Record<string, unknown> = {}, assetRelPaths: string[] = []) {
+function setupWithDashboard(dashboardOpts: Record<string, unknown> = {}, assetRelPaths: string[] = [], base = "/") {
 	mockReaddirSync.mockReturnValue(assetRelPaths);
 
 	const plugin = trackerPlugin(baseOpts({
 		storage: { mode: 'middleware' } as any,
 		dashboard: { enabled: true, route: '/_dashboard', ...dashboardOpts } as any,
 	}));
-	(getHook(plugin, 'configResolved') as Function)(makeViteConfig());
+	(getHook(plugin, 'configResolved') as Function)(makeViteConfig({ base }));
 	const server = makeServer();
 	(getHook(plugin, 'configureServer') as Function)(server)();
 	return { server }
@@ -419,10 +419,10 @@ describe('trackerPlugin()', () => {
 		});
 
 		it('stream error ENOENT -> responds 404 and ends the response', () => {
-			const { server } = setupWithDashboard({}, ['assets/index.js']);
+			const { server } = setupWithDashboard({}, ['assets/index.js'], "/demo");
 
 			const dashCall = (server.middlewares.use as ReturnType<typeof vi.fn>).mock.calls
-				.find((args: any[]) => args[0] === '/_dashboard');
+				.find((args: any[]) => args[0] === '/demo/_dashboard');
 			const handler = dashCall![1];
 
 			let registeredErrorHandler: ((err: NodeJS.ErrnoException) => void) | null = null;

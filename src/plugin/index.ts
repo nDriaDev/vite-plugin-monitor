@@ -151,7 +151,59 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 		}
 	}
 
-	function registerMiddleware(server: ViteDevServer | PreviewServer,) {
+	function registerDashboardMiddleware(server: ViteDevServer | PreviewServer) {
+		if (!opts.dashboard.enabled) return;
+
+		const dashDir = dashboardDistDir();
+		const resolvedDashDir = resolve(dashDir);
+		const dashAssets = new Set(readdirRecursive(dashDir).map(f => resolve(f)));
+
+		server.middlewares.use(opts.dashboard.route, (req, res, next) => {
+			const url = req.url ?? '/';
+			const safeUrl = url.split('?')[0];
+			const filePath = join(dashDir, safeUrl);
+			const resolvedPath = resolve(filePath);
+			if (resolvedPath !== resolvedDashDir && !resolvedPath.startsWith(resolvedDashDir + sep)) {
+				res.writeHead(403);
+				res.end();
+				return;
+			}
+			if (dashAssets.has(resolvedPath)) {
+				res.setHeader('Content-Type', getMimeType(filePath));
+				const stream = createReadStream(filePath);
+				stream.on("error", (err: NodeJS.ErrnoException) => {
+					if (!res.headersSent) {
+						res.writeHead(err.code === "ENOENT" ? 404 : 500);
+					}
+					res.end();
+				});
+				stream.pipe(res);
+				return;
+			}
+
+			if (!cachedDashboardHtml) {
+				const indexPath = join(dashDir, 'index.html');
+				if (!existsSync(indexPath)) {
+					logger.warn(
+						`Dashboard HTML not found at ${indexPath}. ` +
+						`Run 'pnpm build:dashboard' to build the dashboard first.`
+					);
+					return next();
+				}
+				let html = readFileSync(indexPath, 'utf8');
+				const dashRoute = opts.dashboard.route.replace(/\/$/, '') + '/';
+				html = html.replace(/(src|href)="\.\//g, `$1="${dashRoute}`);
+				const configScript = `<script>${generateConfigScript(opts)}</script>`;
+				html = html.replace('</head>', `${configScript}\n</head>`);
+				cachedDashboardHtml = html;
+			}
+
+			res.setHeader('Content-Type', 'text/html');
+			res.end(cachedDashboardHtml);
+		});
+	}
+
+	function registerMiddleware(server: ViteDevServer | PreviewServer) {
 		return () => {
 			if (mode === 'middleware') {
 				server.middlewares.use(createMiddleware(opts, logger));
@@ -160,55 +212,6 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 				res.setHeader('Content-Type', 'application/json');
 				res.end(JSON.stringify({ ok: true, appId: opts.appId, mode, version }));
 			});
-			if (opts.dashboard.enabled) {
-				const dashDir = dashboardDistDir();
-				const resolvedDashDir = resolve(dashDir);
-				const dashAssets = new Set(readdirRecursive(dashDir).map(f => resolve(f)));
-
-				server.middlewares.use(opts.dashboard.route, (req, res, next) => {
-					const url = req.url ?? '/';
-					const safeUrl = url.split('?')[0];
-					const filePath = join(dashDir, safeUrl);
-					const resolvedPath = resolve(filePath);
-					if (resolvedPath !== resolvedDashDir && !resolvedPath.startsWith(resolvedDashDir + sep)) {
-						res.writeHead(403);
-						res.end();
-						return;
-					}
-					if (dashAssets.has(resolvedPath)) {
-						res.setHeader('Content-Type', getMimeType(filePath));
-						const stream = createReadStream(filePath);
-						stream.on("error", (err: NodeJS.ErrnoException) => {
-							if (!res.headersSent) {
-								res.writeHead(err.code === "ENOENT" ? 404 : 500);
-							}
-							res.end();
-						});
-						stream.pipe(res);
-						return;
-					}
-
-					if (!cachedDashboardHtml) {
-						const indexPath = join(dashDir, 'index.html');
-						if (!existsSync(indexPath)) {
-							logger.warn(
-								`Dashboard HTML not found at ${indexPath}. ` +
-								`Run 'pnpm build:dashboard' to build the dashboard first.`
-							);
-							return next();
-						}
-						let html = readFileSync(indexPath, 'utf8');
-						const dashRoute = opts.dashboard.route.replace(/\/$/, '') + '/';
-						html = html.replace(/(src|href)="\.\//g, `$1="${dashRoute}`);
-						const configScript = `<script>${generateConfigScript(opts)}</script>`;
-						html = html.replace('</head>', `${configScript}\n</head>`);
-						cachedDashboardHtml = html;
-					}
-
-					res.setHeader('Content-Type', 'text/html');
-					res.end(cachedDashboardHtml);
-				});
-			}
 		}
 	}
 	/* v8 ignore stop */
@@ -237,6 +240,12 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 		logger = createLogger(opts.appId, opts.logging);
 
 		server.httpServer?.once('close', () => { void cleanup() });
+
+		/**
+		 * INFO: dashboard middleware must be registered here to work in dev mode.
+		 * Vite adds its own HTML-serving middleware after
+		 */
+		registerDashboardMiddleware(server);
 
 		server.printUrls = (function (originalPrint) {
 			return function () {
@@ -281,6 +290,10 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			opts.storage.writeEndpoint = resolvedWriteEndpoint(mode);
 			opts.storage.readEndpoint = resolvedReadEndpoint(mode);
 			logPaths = getLogPaths(opts.logging.transports);
+			const base = config.base.endsWith('/') ? config.base.slice(0, -1) : config.base;
+			if (base && base !== '/') {
+				opts.dashboard.route = base + opts.dashboard.route;
+			}
 			/**
 			 * INFO If buildVersion was not set explicitly, fall back to the consumer
 			 * project's package.json version. config.root is the reliable way to find
