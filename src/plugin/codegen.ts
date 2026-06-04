@@ -113,6 +113,9 @@ export function generateSetupScript(opts: ResolvedTrackerOptions, isBuild: boole
 
 	const importPath = isBuild ? '@ndriadev/vite-plugin-monitor/client' : `/@fs/${clientDir()}/index.js`;
 
+	const userIdVar = opts.autoInit ? `const __trackerUserId__ = ${userIdFn};\n` : '';
+	const userIdArg = opts.autoInit ? '__trackerUserId__' : userIdFn;
+
 	return `
 // vite-plugin-monitor - proxy setup (runs before app code)
 import { setupTrackers${opts.autoInit ? ', tracker' : ''} } from '${importPath}';
@@ -124,7 +127,7 @@ Object.defineProperty(window, '__TRACKER_CONFIG__', {
 	enumerable:   false,
 });
 
-setupTrackers(${userIdFn});
-${opts.autoInit ? `tracker.init(${userIdFn});` : ""}
+${userIdVar}setupTrackers(${userIdArg});
+${opts.autoInit ? `tracker.init(${userIdArg});` : ""}
 `
 }

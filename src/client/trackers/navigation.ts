@@ -65,6 +65,7 @@ function setupMpaLinkInterceptor(): () => void {
 		if (
 			anchor.target === '_blank' ||
 			anchor.target === '_parent' ||
+			anchor.target === '_top' ||
 			href.startsWith('http') ||
 			href.startsWith('//') ||
 			href.startsWith('mailto:') ||

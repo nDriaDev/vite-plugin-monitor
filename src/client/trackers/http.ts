@@ -188,7 +188,7 @@ async function cloneBody(body: BodyInit | null | undefined, isStream?: boolean):
 		return `[Blob ${body.size}B]`;
 	}
 	if (body instanceof ArrayBuffer || ArrayBuffer.isView(body)) {
-		return `[Binary ${(body as ArrayBuffer).byteLength ?? (body as ArrayBufferView).byteLength}B]`;
+		return `[Binary ${body.byteLength}B]`;
 	}
 
 	return '';

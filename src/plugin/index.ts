@@ -332,7 +332,9 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			const cb = configureServer(server);
 			/* v8 ignore start */
 			if (viteMajor < 5) {
-				setImmediate(cb);
+				if (typeof cb === 'function') {
+					setImmediate(cb);
+				}
 				return;
 			}
 			/* v8 ignore stop */

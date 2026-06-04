@@ -252,11 +252,12 @@ class StreamTransport {
 
 	private resolveTargetPath(): string {
 		if (this.transport.rotation?.strategy === 'daily') {
-			this.currentDate = utcDateStamp(new Date());
+			const date = utcDateStamp(new Date());
+			this.currentDate = date;
 			const dir = dirname(this.transport.path);
 			const ext = extname(this.transport.path);
 			const stem = basename(this.transport.path, ext);
-			return join(dir, `${stem}-${this.currentDate}${ext}`);
+			return join(dir, `${stem}-${date}${ext}`);
 		}
 		return this.transport.path;
 	}
@@ -310,28 +311,31 @@ class StreamTransport {
 		try {
 			fs.renameSync(this.currentPath, archived);
 		} catch { /* ignore */ }
-		this.cleanupOldFiles();
+		// INFO Pass the just-archived filename explicitly so cleanupOldFiles can exclude it from deletion.
+		this.cleanupOldFiles(basename(archived));
 		await this.openStream(this.transport.path, onError);
 	}
 
-	private cleanupOldFiles(): void {
+	private cleanupOldFiles(justArchivedName?: string): void {
 		const maxFiles = this.transport.rotation?.maxFiles ?? 30;
 		const dir = dirname(this.transport.path);
 		const baseName = basename(this.transport.path);
 		const ext = extname(baseName);
 		const stem = baseName.slice(0, -ext.length);
-		const currentFileName = basename(this.currentPath);
 		try {
 			/**
+			 * INFO
 			 * The rotation logic embeds a UTC timestamp in the archived filename
 			 * (e.g. appId-2024_03_15_10_30_00.log). Lexicographic order on these
 			 * names is identical to chronological order, so we sort by name.
 			 *
-			 * Only rotated (archived) files are considered; the live file is
-			 * excluded by matching against the resolved currentPath basename.
+			 * Only rotated (archived) files are considered; the live file
+			 * (baseName) and the file just archived in this rotation cycle
+			 * (justArchivedName) are both excluded from the candidate list so
+			 * they are never deleted immediately after being renamed.
 			 */
 			fs.readdirSync(dir)
-				.filter(f => f.startsWith(stem) && f.endsWith(ext) && f !== baseName && f !== currentFileName)
+				.filter(f => f.startsWith(stem) && f.endsWith(ext) && f !== baseName && f !== justArchivedName)
 				.sort()           // INFO lexicographic = chronological for timestamped names
 				.reverse()        // INFO newest first
 				.slice(maxFiles)  // INFO keep the newest maxFiles, collect the rest
