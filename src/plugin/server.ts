@@ -89,7 +89,7 @@ function parseBody(req: IncomingMessage): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const chunks: Buffer[] = [];
 		req.on('data', chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-        req.on('error', reject);
+		req.on('error', reject);
 		req.on('end', () => {
 			const raw = Buffer.concat(chunks);
 			if (req.headers['content-encoding'] === 'gzip') {
@@ -138,7 +138,7 @@ function jsonCompressed(res: ServerResponse, status: number, data: unknown): Pro
 		}
 	});
 }
-/* v8 ignore close */
+/* v8 ignore stop */
 
 function json(res: ServerResponse, status: number, data: unknown) {
 	const body = JSON.stringify(data);
@@ -214,7 +214,7 @@ export function createRequestHandler(opts: ResolvedTrackerOptions, buffer: RingB
 				return true;
 			}
 			const qs = parseQs(url);
-			const limit = qs['limit'] ? parseInt(qs['limit'], 10) : buffer.size();
+			const limit = qs['limit'] ? Math.max(parseInt(qs['limit'], 10), 1) : Math.max(buffer.size(), 1);
 			const page = Math.max(parseInt(qs['page'] ?? '1', 10), 1);
 			const { events, total } = buffer.query({
 				since: qs['since'],
@@ -223,7 +223,7 @@ export function createRequestHandler(opts: ResolvedTrackerOptions, buffer: RingB
 				limit,
 				page,
 			});
-			const nextCursor = events.length > 0 ? events[events.length - 1].timestamp : undefined;
+			const nextCursor = events.length > 0 ? events[0].timestamp : undefined;
 			const response: EventsResponse = {
 				events,
 				total,

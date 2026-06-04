@@ -74,7 +74,8 @@ function parseSize(size: string): number {
 	const value = parseFloat(match[1]);
 	const unit = (match[2] ?? 'b').toLowerCase();
 	const mult: Record<string, number> = { b: 1, kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3 };
-	return Math.floor(value * (mult[unit] ?? 1));
+	// INFO Enforce a minimum of 1 byte: a limit of 0 would cause an infinite loop
+	return Math.max(1, Math.floor(value * (mult[unit] ?? 1)));
 }
 
 /** Resolves when the stream drains or immediately if write succeeded. */
@@ -319,17 +320,18 @@ class StreamTransport {
 		const baseName = basename(this.transport.path);
 		const ext = extname(baseName);
 		const stem = baseName.slice(0, -ext.length);
+		const currentFileName = basename(this.currentPath);
 		try {
 			/**
 			 * The rotation logic embeds a UTC timestamp in the archived filename
 			 * (e.g. appId-2024_03_15_10_30_00.log). Lexicographic order on these
 			 * names is identical to chronological order, so we sort by name.
 			 *
-			 * Only rotated (archived) files are considered; the live file (whose
-			 * name equals baseName exactly) is excluded and never deleted.
+			 * Only rotated (archived) files are considered; the live file is
+			 * excluded by matching against the resolved currentPath basename.
 			 */
 			fs.readdirSync(dir)
-				.filter(f => f.startsWith(stem) && f.endsWith(ext) && f !== baseName)
+				.filter(f => f.startsWith(stem) && f.endsWith(ext) && f !== baseName && f !== currentFileName)
 				.sort()           // INFO lexicographic = chronological for timestamped names
 				.reverse()        // INFO newest first
 				.slice(maxFiles)  // INFO keep the newest maxFiles, collect the rest
@@ -551,7 +553,7 @@ export function createLogger(appId: string, loggingOpts?: LoggingOptions): Logge
 	const transportConfigs = loggingOpts?.transports ?? [
 		{
 			format: 'json' as const,
-			path: resolve(process.cwd(), 'logs',`${appId}.log`),
+			path: resolve(process.cwd(), 'logs', `${appId}.log`),
 			rotation: { strategy: 'daily' as const, maxFiles: 30, compress: false },
 		}
 	];

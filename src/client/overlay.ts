@@ -113,9 +113,15 @@ export class DebugOverlay implements IDebugOverlay {
 			}
 		}
 
+		/* v8 ignore start */
 		// INFO Restore saved theme or uses dark as default
-		const saved = localStorage.getItem(THEME_STORAGE_KEY);
-		this.theme = saved === 'light' ? 'light' : 'dark';
+		try {
+			const saved = localStorage.getItem(THEME_STORAGE_KEY);
+			this.theme = saved === 'light' ? 'light' : 'dark';
+		} catch {
+			this.theme = 'dark';
+		}
+		/* v8 ignore stop */
 
 		this.render();
 		this.applyTheme();

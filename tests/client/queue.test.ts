@@ -560,7 +560,7 @@ describe('EventQueue', () => {
 
 			queue.flush();
 
-			expect((queue as any).timer).not.toBeNull();
+			expect((queue as any).timer).toBeNull();
 		});
 	});
 

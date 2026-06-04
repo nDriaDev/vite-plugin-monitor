@@ -141,7 +141,7 @@ function matchesUrl(path: string, patterns: (string | RegExp)[]): boolean {
 	});
 }
 
-function resolveHttpOpts(defaultIgnoreUrls: (string|RegExp)[], raw: boolean | HttpTrackOptions | undefined): ResolvedHttpOpts {
+function resolveHttpOpts(defaultIgnoreUrls: (string | RegExp)[], raw: boolean | HttpTrackOptions | undefined): ResolvedHttpOpts {
 	if (!raw || raw === true) {
 		return {
 			captureRequestHeaders: false,
@@ -273,7 +273,7 @@ function patchFetch(httpOpts: ResolvedHttpOpts, onEvent: (payload: HttpPayload, 
 						responseBody: '[unreadable]'
 					}))
 					.then((extra) => {
-						onEvent({...payload, ...extra}, levelFromStatus(response.status));
+						onEvent({ ...payload, ...extra }, levelFromStatus(response.status));
 					});
 			} else {
 				onEvent(payload, levelFromStatus(response.status));
@@ -420,7 +420,7 @@ function patchXHR(httpOpts: ResolvedHttpOpts, onEvent: (payload: HttpPayload, le
 
 		// INFO Store start time and raw body on the instance so the listener in open() can read them
 		this.__tracker_startTime__ = performance.now();
-		this.__tracker_reqBody__ = body !== null ? String(body) : '';
+		this.__tracker_reqBody__ = (body !== null && body !== undefined) ? String(body) : '';
 
 		return originalSend.apply(this, [body]);
 	}
@@ -442,7 +442,7 @@ function levelFromStatus(status: number): LogLevel {
 	return 'info';
 }
 
-export function setupHttpTracker(defaultIgnoreUrls: (string|RegExp)[], httpConfig: boolean | HttpTrackOptions | undefined, onEvent: (payload: HttpPayload, level: LogLevel) => void): () => void {
+export function setupHttpTracker(defaultIgnoreUrls: (string | RegExp)[], httpConfig: boolean | HttpTrackOptions | undefined, onEvent: (payload: HttpPayload, level: LogLevel) => void): () => void {
 	const httpOpts = resolveHttpOpts(defaultIgnoreUrls, httpConfig);
 	const teardownFetch = patchFetch(httpOpts, onEvent);
 	const teardownXHR = patchXHR(httpOpts, onEvent);

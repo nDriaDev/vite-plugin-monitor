@@ -146,13 +146,29 @@ export class EventQueue {
 		}
 	}
 
-	flush(opts?: {keepalive?: boolean}) {
+	flush(opts?: { keepalive?: boolean }) {
 		if (this.timer) {
 			clearTimeout(this.timer);
 			this.timer = null;
 		}
 
-		if (this.queue.length === 0 || this.sending) {
+		if (this.queue.length === 0) {
+			!this.stopped && this.scheduleFlush();
+			return;
+		}
+
+		if (document.visibilityState === 'hidden' && navigator.sendBeacon && !this.opts.wsEndpoint) {
+			const allEvents = this.queue.splice(0);
+			const beaconBody = JSON.stringify({ type: 'ingest', events: allEvents } satisfies IngestRequest);
+			const blob = new Blob([beaconBody], { type: 'application/json' });
+			const sent = navigator.sendBeacon(this.opts.writeEndpoint, blob);
+			if (!sent) {
+				this.queue.unshift(...allEvents);
+			}
+			return;
+		}
+
+		if (this.sending) {
 			!this.stopped && this.scheduleFlush();
 			return;
 		}
@@ -171,21 +187,6 @@ export class EventQueue {
 		const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 		if (this.opts.apiKey) {
 			headers['X-Tracker-Key'] = this.opts.apiKey;
-		}
-
-		if (document.visibilityState === 'hidden' && navigator.sendBeacon) {
-			// INFO On page hide/unload, send the current batch AND any remaining events in one shot via sendBeacon so nothing is lost on tab close.
-			const remaining = this.queue.splice(0);
-			const allEvents = [...batch, ...remaining];
-			const beaconBody = JSON.stringify({ type: 'ingest', events: allEvents } satisfies IngestRequest);
-			const blob = new Blob([beaconBody], { type: 'application/json' });
-			const sent = navigator.sendBeacon(this.opts.writeEndpoint, blob);
-			if (!sent) {
-				this.queue.unshift(...allEvents);
-			}
-			this.sending = false;
-			this.scheduleFlush();
-			return;
 		}
 
 		this.compressBody(rawBody, opts?.keepalive ?? false)

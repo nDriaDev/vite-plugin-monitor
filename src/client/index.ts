@@ -223,11 +223,13 @@ class TrackerClient implements ITrackerClient {
 		this.emitSession('end', 'userId-change', { previousUserId });
 
 		if (userId === null) {
-			try {
-				sessionStorage.removeItem('__tracker_user_id__');
-			} catch { /* ignore */ }
-			this.session.userId = `anon_${Math.random().toString(36).slice(2)}`;
+			const newAnonId = `anon_${Math.random().toString(36).slice(2)}`;
+			this.session.userId = newAnonId;
 			this.session.userAttributes = {};
+			try {
+
+				sessionStorage.setItem('__tracker_user_id__', newAnonId);
+			} catch { /* ignore */ }
 		} else {
 			this.session.userId = userId;
 			this.session.userAttributes = opts.attributes ?? {};
@@ -353,13 +355,13 @@ function initTracker(userIdFn?: () => string | null): void {
 
 	/**
 	 * INFO Expose on window for external consumers (overlays, devtools, etc.), only set once.
-	 * Configurable:false and writable:false prevent user tampering.
+	 * Writable:false prevent user tampering and configurable:true allows to remove state reference.
 	 */
 	if (!Object.getOwnPropertyDescriptor(window, '__tracker_instance__')) {
 		Object.defineProperty(window, '__tracker_instance__', {
 			value: client,
 			writable: false,
-			configurable: false,
+			configurable: true,
 			enumerable: false
 		});
 	}
@@ -402,5 +404,15 @@ export const tracker: Tracker = {
 	destroy() {
 		instance()?.destroy();
 		_instance = undefined;
+		if (typeof window !== 'undefined') {
+			try {
+				Object.defineProperty(window, '__tracker_instance__', {
+					value: undefined,
+					writable: false,
+					configurable: true,
+					enumerable: false
+				});
+			} catch { /* ignore */ }
+		}
 	}
 }

@@ -80,7 +80,6 @@ const logger = {
 	error: (msg: string) => console.error(`\x1b[36m[vite-plugin-monitor]\x1b[0m ${msg}`),
 	writeEvent: (_event: TrackerEvent) => { /* no file logging in dev */ },
 	destroy: async () => { },
-	destroyForHmr: () => { },
 	startHydration: (
 		_onBatch: (events: TrackerEvent[]) => void,
 		onDone: (stats: { loaded: number; skippedMalformed: number; skippedInvalid: number; limitReached: boolean }) => void,
@@ -156,7 +155,7 @@ function loadEventsFromFile() {
 		let skippedMalformed = 0;
 		const events: TrackerEvent[] = lines.map((line, index) => {
 			try {
-				return {id: randomUUID(), ...JSON.parse(line)} as TrackerEvent;
+				return { id: randomUUID(), ...JSON.parse(line) } as TrackerEvent;
 			} catch (err) {
 				skippedMalformed++;
 				logger.warn(`Skipping malformed JSON at line ${index + 1} in test.log`);

@@ -296,8 +296,8 @@ export function trackerPlugin(options: TrackerPluginOptions): Plugin {
 			}
 			/**
 			 * INFO If buildVersion was not set explicitly, fall back to the consumer
-			 * project's package.json version. config.root is the reliable way to find
-			 * it — it is the Vite-resolved project root, independent of how Vite was invoked.
+			 * project's package.json version. config.root is the reliable way to find it.
+			 * It is the Vite-resolved project root, independent of how Vite was invoked.
 			 */
 			if (!opts.buildVersion) {
 				try {

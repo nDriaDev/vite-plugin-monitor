@@ -637,7 +637,7 @@ describe('tracker.setUser()', () => {
 		sessionStorage.setItem('__tracker_user_id__', 'user-123');
 		tracker.setUser(null);
 
-		expect(sessionStorage.getItem('__tracker_user_id__')).toBeNull();
+		expect(sessionStorage.getItem('__tracker_user_id__')).not.toBeNull();
 	});
 
 	it('saves the new userId in sessionStorage', () => {
