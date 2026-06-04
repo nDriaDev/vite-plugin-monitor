@@ -247,7 +247,7 @@ describe('EventQueue', () => {
 			expect((queue as any).ws).toBeNull();
 		});
 
-		it('Attempt to reconnect after 3s at the close event', () => {
+		it('Attempt to reconnect after 5s at the close event', () => {
 			new EventQueue(makeOpts({ wsEndpoint: 'ws://test' }));
 			MockWebSocket.latest().simulateOpen();
 			MockWebSocket.latest().simulateClose();
@@ -554,7 +554,7 @@ describe('EventQueue', () => {
 			expect((queue as any).queue).toHaveLength(0);
 		});
 
-		it('schedules the next flush also after sendBeacon', () => {
+		it('not schedules flush after sendBeacon', () => {
 			const queue = new EventQueue(makeOpts());
 			queue.enqueue(makeEvent());
 
