@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.3.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v2.3.0) - 2026-06-12
+
+### Bug Fixes
+
+- various ([850e6f4](https://github.com/nDriaDev/vite-plugin-monitor/commit/850e6f4))
+- various ([6f6da23](https://github.com/nDriaDev/vite-plugin-monitor/commit/6f6da23))
+- various ([15968c1](https://github.com/nDriaDev/vite-plugin-monitor/commit/15968c1))
+- dashboard route ([f254441](https://github.com/nDriaDev/vite-plugin-monitor/commit/f254441))
+
 ## [2.2.0](https://github.com/nDriaDev/vite-plugin-monitor/releases/tag/v2.2.0) - 2026-05-11
 
 ### Features
